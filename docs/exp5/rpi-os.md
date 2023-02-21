@@ -21,13 +21,11 @@ NOTE: this experiment enables running user/kernel at different ELs. Yet, it does
 ## Roadmap
 
 1. Implement the syscall mechanism, in particular switch between EL0 and EL1 (you have already done something similar in previous experiments!)
-2. Implement two mechanisms that put user tasks to EL0: 
-* forking an existing user task at EL0
-* moving a kernel task EL1 -> EL0
+2. Implement two mechanisms that put user tasks to EL0: (a) forking an existing user task at EL0; (b) moving a kernel task EL1 -> EL0
 
 ## Syscall implementation
 
-Each system call is a synchronous exception. A user program prepares all necessary arguments, and then run `svc` instruction. Such exceptions are handled at EL1 by the kernel. The kernel validates all arguments, does the syscall, and exits from the exception. After that, the user task resumes at EL0 right after the `svc` instruction. 
+Each system call is a synchronous exception. A user program prepares all necessary arguments, and then runs `svc` instruction. Such exceptions are handled at EL1 by the kernel. The kernel validates all arguments, does the syscall, and exits from the exception. After that, the user task resumes at EL0 right after the `svc` instruction. 
 
 ![](figures/timeline-0.png)
 
@@ -35,7 +33,7 @@ We have 4 simple syscalls:
 
 1. `write` outputs to UART. It accepts a buffer with the text to be printed as the first argument.
 1. `clone` creates a new user thread. The location of the stack for the newly created thread is passed as the first argument.
-1. `malloc` allocates a memory page for a user process. There is no analog of this syscall in Linux (and I think in any other OS as well.) The only reason that we have no virtual memory yet, and all user processes work with physical memory. Each process needs a way to figure out which memory page can be used. `malloc` syscall return pointer to the newly allocated page or -1 in case of an error.
+1. `malloc` allocates a memory page for a user process. There is no analog of this syscall in Linux (and I think in any other OS as well.) The only reason that we have no virtual memory yet, and all user processes work with physical memory addresses. Each process needs a way to figure out which memory page can be used. `malloc` returns pointer to the newly allocated page or -1 in case of an error.
 1. `exit` Each process must call this syscall after it finishes execution. It will do cleanup.
 
 All syscalls are defined in `sys.c`. There is also an array [sys_call_table](https://github.com/fxlin/p1-kernel/blob/master/src/exp5/src/sys.c) that contains pointers to all syscall handlers. Each syscall has a "syscall number" — this is just an index in the `sys_call_table` array. All syscall numbers are defined [here](https://github.com/fxlin/p1-kernel/blob/master/src/exp5/include/sys.h#L6) — they are used by the assembler code to look up syscall. 
@@ -195,7 +193,7 @@ The `clone` wrapper above mimics the [coresponding function](https://sourceware.
 1. Upon returning from syscall, checks return value in x0: 
    * if 0, we are executing inside the child task. In this case, execution goes to `thread_start` label.
    * If not 0, we are executing in the parent task. x0 is the PID of the child task. 
-1. thread_start executes in the new task with the give entry function (x10) and the arg to the function (x11). Note x29 (FP) is cleared for correct stack unwinding at the user level. See [here](https://github.com/fxlin/p1-kernel/blob/master/docs/exp3/linux/low_level-exception_handling.md).
+1. thread_start executes in the new task with the give entry function (x10) and the arg to the function (x11). Note x29 (FP) is cleared for correct stack unwinding at the user level.
 1. After the function finishes, `exit` syscall is performed — it never returns.
 
 #### Implementing clone in kernel
