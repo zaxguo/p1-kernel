@@ -77,7 +77,7 @@ Experimenting with these features is difficult with commodity kernels due to the
 | 04a Process scheduler - cooperative | 10      |
 | 04b Process scheduler - preemptive  | 10      |
 | 05 A world of two lands             | 20      |
-| 06 Into virtual                     | 20      |
+| 06 Into virtual (6a:10; 6b:10)      | 20      |
 
 The weights are relative and may not necessarily add up to 100. 
 

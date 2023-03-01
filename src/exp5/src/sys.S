@@ -30,17 +30,17 @@ call_sys_clone:
 	mov	x12, x2					/*stack*/
 
 	/* Do the system call ...  */
-	mov x0, x2					/* stack, which need to be set up by the syscall handler */
+	mov x0, x2					/* child's user-level stack, needed by the kernel to populate child's pt_regs & task_struct */
 	mov	x8, #SYS_CLONE_NUMBER
-	svc	0x0
+	svc	0x0						/* ... goes to the kernel's syscall handler */
 
-	/* ... return from the system call */
+	/* ... return from the syscall */
 	cmp	x0, #0
-	beq	thread_start
-	ret
+	beq	thread_start			/* child, jumps to below */
+	ret							/*  we're the parent. syscall done. */
 
-thread_start:
-	mov	x29, 0
+thread_start:					/* we're the child ... */
+	mov	x29, 0					/* clear FP, for correct stack unwinding at the user level */
 
 	/* Pick the function arg and execute.  */
 	mov	x0, x11

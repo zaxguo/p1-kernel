@@ -183,15 +183,17 @@ ret_from_syscall:
 	str	x0, [sp, #S_X0]				// returned x0
 	kernel_exit 0
 
+// the first instructions to be executed by a new task 
+// x19 = fn; x20 = arg, populated by copy_process() 
 .globl ret_from_fork
 ret_from_fork:
 	bl	schedule_tail
-	cbz	x19, ret_to_user			// branch if not a kernel thread
+	cbz	x19, ret_to_user			// branch to below if not a kernel thread
 	mov	x0, x20						// kernel thread, load fn/arg as populated by copy_process()
 	blr	x19
 ret_to_user:
 	bl disable_irq				
-	kernel_exit 0 
+	kernel_exit 0 					// will restore previously prepared processor state (pt_regs), hit eret, then EL0
 
 .globl err_hang
 err_hang: b err_hang

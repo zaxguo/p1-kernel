@@ -9,8 +9,8 @@ void sys_write(char * buf){
 }
 
 int sys_clone(unsigned long stack){
-	/* create a blank task and we're done. the fn and arg will be set right after returning to
-	the calling task, cf: thread_start() in sys.S */
+	/* Create a blank task and we're done. The new (child) task's fn and arg will be set right after 
+	returning from the clone() syscall, to the calling task at the user level, cf: thread_start() in sys.S */
 	return copy_process(0 /*clone_flags*/, 0 /*fn*/, 0 /*arg*/, stack);
 }
 
