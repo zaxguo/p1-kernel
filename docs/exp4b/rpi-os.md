@@ -1,5 +1,7 @@
 # 4b: Preemptive Multitasking
 
+**READING TIME: 40MIN**
+
 ## Objectives
 
 ![](qemu-sched.gif)

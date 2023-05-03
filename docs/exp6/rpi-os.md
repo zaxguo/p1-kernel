@@ -1,5 +1,7 @@
 # 6: Virtual memory (VM)
 
+**READING TIME: 1HR**
+
 ## Objectives
 
 Make our tiny kernel capable of: 

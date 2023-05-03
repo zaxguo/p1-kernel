@@ -1,5 +1,7 @@
 # 4a: Cooperative Multitasking
 
+**READING TIME: 30MIN**
+
 Results with UART output: 
 
 ![](qemu-sched.gif)

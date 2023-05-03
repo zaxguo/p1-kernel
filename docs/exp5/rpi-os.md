@@ -1,5 +1,7 @@
 # 5: User processes and system calls
 
+**READING TIME: 40MIN**
+
 ![](figures/screen.gif)
 
 ## Objectives

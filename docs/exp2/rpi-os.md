@@ -1,5 +1,7 @@
 # 2: Processor initialization 
 
+**READING TIME: 30 MIN**
+
 ![](figures/run.png)
 
 ## Objectives

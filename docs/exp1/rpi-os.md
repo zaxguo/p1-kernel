@@ -1,5 +1,7 @@
 # 1: Baremetal HelloWorld
 
+**READING TIME:  40 MIN**
+
 ## Objectives
 
 ![](figures/helloworld.png)

@@ -1,5 +1,7 @@
 # 3: Interrupts
 
+**READING TIME: 40 MIN**
+
 ![](images/qemu-timer.gif)
 
 ## Objectives

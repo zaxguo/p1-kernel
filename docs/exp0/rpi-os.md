@@ -1,5 +1,7 @@
 # 0: Sharpen your tools                 
 
+**READING TIME: 30 MIN**
+
 **Get the code**: 
 
 ```
