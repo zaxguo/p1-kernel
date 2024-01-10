@@ -1,6 +1,6 @@
 # A tiny, modern kernel for Raspberry Pi 3 
 
-Experiment descriptions are for you to read & reproduce. The assignments will be on Collab. They include Q&A and coding assignments. 
+Experiment descriptions are for you to read & reproduce. The assignments will be on LMS (e.g. Canvas). 
 
 **Get the code**: 
 
