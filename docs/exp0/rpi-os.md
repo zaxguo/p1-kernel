@@ -10,13 +10,30 @@ git clone https://github.com/fxlin/p1-kernel
 
 ### Terms
 
-baremetal; kernel; kernel binary; kernel image
+* rpi3: raspberry pi 3, a credit card size computer
+* baremetal: write & run code directly on hardware (rpi3, real or emulated)
+* kernel: the baremetal code you will develop to run on (real/emulated) hardware
+* kernel binary/image: a single file, which contains the compiled kernel program and data
 
-## Dev environment
+## Dev platform (where you develop kernel code)
 
-This is where you develop kernel code. 
+### Route 1: run kernel atop QEMU (emulator, recommended)
 
-### If you build kernel for Rpi3 ...
+Note: 
+
+* Recommended configurations are <u>underscored</u>.
+
+* How to connect to CS server(s): see [here](../ssh-proxy.md). 
+
+* VSCode: optional. It's available on Win/OSX/Linux. It can be used for any configuration below.
+
+| Your local machine runs: | If develop remotely on CS servers (recommended) | If develop on your local machine              |
+| ------------------------ | ----------------------------------------------- | --------------------------------------------- |
+| Windows                  | <u>WSL for SSH shell</u>                        | WSL for toolchain. gdbserver could be tricky. |
+| Linux                    | <u>SSH shell</u>                                | <u>Native toolchain + console</u>             |
+| Mac                      | <u>Terminal for SSH shell</u>                   | HomeBrew                                      |
+
+### Route 2: run kernel atop Rpi3 (real hardware)
 
 Note: 
 
@@ -31,22 +48,6 @@ Note:
 | Windows                  | WSL for SSH shell; then download (scp) kernel binary to local | <u>WSL for toolchain</u>          |
 | Linux                    | SSH shell; then download (scp) kernel binary to local        | <u>Native toolchain + console</u> |
 | Mac                      | <u>Terminal for SSH shell</u>                                | HomeBrew (untested)               |
-
-### If you build kernel for QEMU ...
-
-Note: 
-
-* Recommended configurations are <u>underscored</u>.
-
-* How to connect to CS server(s): see [here](../ssh-proxy.md). 
-
-* VSCode: optional. It's available on Win/OSX/Linux. It can be used for any configuration below.
-
-| Your local machine runs: | If develop remotely on CS servers | If develop on your local machine              |
-| ------------------------ | --------------------------------- | --------------------------------------------- |
-| Windows                  | <u>WSL for SSH shell</u>          | WSL for toolchain. gdbserver could be tricky. |
-| Linux                    | <u>SSH shell</u>                  | <u>Native toolchain + console</u>             |
-| Mac                      | <u>Terminal for SSH shell</u>     | HomeBrew (untested)                           |
 
 ### Toolchain
 
@@ -66,7 +67,80 @@ aarch64-linux-gnu-gcc (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0
 
 This is where you run the kernel code. 
 
-### Approach 1: the real hardware 
+### Route 1: QEMU (emulator, recommended)
+
+#### Compile QEMU from source 
+
+*This is required no matter you develop on local machines or on the server.* 
+
+Clean any pre-installed qemu and install necessary tools: 
+
+```
+# this is necessary only when you develop kernel code on your own machine (not recommended)
+# the server already has these software uninstalled/installed
+sudo apt remove qemu-system-arm
+sudo apt install gdb-multiarch build-essential pkg-config
+sudo apt install libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev
+```
+
+Grab the QEMU source.  Our QEMU is based on upstream v4.2 **with custom aarch64 debugging support.** 
+
+```
+git clone https://github.com/fxlin/qemu-cs4414.git qemu
+cd qemu
+./configure --target-list=aarch64-softmmu
+make -j`nproc`
+export PATH="$(pwd)/aarch64-softmmu:${PATH}"
+```
+
+If successful, this will result in QEMU executables in ./aarch64-softmmu/. The last line above adds the path to our search path. 
+
+If you encounter compilation errors (e.g. unmet dependencies), make sure you run all `apt get` commands above. 
+
+Now try QEMU & check its version. The supported machines should include Rpi3
+
+```
+$ qemu-system-aarch64  --version                 
+QEMU emulator version 5.0.50 (v5.0.0-1247-gaf6f75d03f-dirty)                   
+Copyright (c) 2003-2020 Fabrice Bellard and the QEMU Project developers        
+patched for cs4414/6456 aarch64 kernel hacking    
+
+$ qemu-system-aarch64 -M help|grep rasp
+raspi2               Raspberry Pi 2B
+raspi3               Raspberry Pi 3B
+```
+
+#### Test the compilation
+
+Test QEMU with Rpi3 baremetal code (NOTE: this repo is for validating your toolchain & QEMU build; it is NOT our course project)
+
+```
+git clone https://github.com/fxlin/raspi3-tutorial.git
+cd raspi3-tutorial
+git checkout b026449
+cd 05_uart0
+make 
+qemu-system-aarch64 -M raspi3 -kernel kernel8.img -serial stdio
+```
+
+If everything works fine, you should see QMEU print out: 
+
+```
+My serial number is: 0000000000000000
+```
+
+>  Note: the test program runs an infinite loop which will cause high CPU usage on your host machine. Kill the test program timely. 
+
+On Linux (e.g. connecting to the course server from your local machine):
+![](test-qemu.gif)
+
+On Windows (local WSL, not using the course server) 
+
+![](test-qemu-wsl.gif)
+
+Move to [the QEMU cheatsheet](../qemu.md). 
+
+### Route 2: Rpi3 (real hardware)
 
 #### Check list
 
@@ -182,76 +256,4 @@ Copy kernel8.img to the SD card. Eject the SD card from PC. Plug the SD to Rpi3.
 (Your serial number may be different)
 
 Viola! You just built your first baremetal program for Rpi3! 
-
-### Approach 2: QEMU 
-
-#### Compile QEMU from source 
-
-*This is required no matter you develop on local machines or on the server.* 
-
-Clean any pre-installed qemu and install necessary tools: 
-
-```
-# this is necessary only when you develop kernel code on your own machine (not recommended)
-# the server already has these software uninstalled/installed
-sudo apt remove qemu-system-arm
-sudo apt install gdb-multiarch build-essential pkg-config
-sudo apt install libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev
-```
-
-Grab the QEMU source.  Our QEMU is based on upstream v4.2 **with custom aarch64 debugging support.** 
-
-```
-git clone https://github.com/fxlin/qemu-cs4414.git qemu
-cd qemu
-./configure --target-list=aarch64-softmmu
-make -j`nproc`
-export PATH="$(pwd)/aarch64-softmmu:${PATH}"
-```
-
-If successful, this will result in QEMU executables in ./aarch64-softmmu/. The last line above adds the path to our search path. 
-
-If you encounter compilation errors (e.g. unmet dependencies), make sure you run all `apt get` commands above. 
-
-Now try QEMU & check its version. The supported machines should include Rpi3
-
-```
-$ qemu-system-aarch64  --version                 
-QEMU emulator version 5.0.50 (v5.0.0-1247-gaf6f75d03f-dirty)                   
-Copyright (c) 2003-2020 Fabrice Bellard and the QEMU Project developers        
-patched for cs4414/6456 aarch64 kernel hacking    
-
-$ qemu-system-aarch64 -M help|grep rasp
-raspi2               Raspberry Pi 2B
-raspi3               Raspberry Pi 3B
-```
-
-#### Test the compilation
-
-Test QEMU with Rpi3 baremetal code (NOTE: this repo is for validating your toolchain & QEMU build; it is NOT our course project)
-
-```
-git clone https://github.com/fxlin/raspi3-tutorial.git
-cd raspi3-tutorial
-git checkout b026449
-cd 05_uart0
-make 
-qemu-system-aarch64 -M raspi3 -kernel kernel8.img -serial stdio
-```
-
-If everything works fine, you should see QMEU print out: 
-
-```
-My serial number is: 0000000000000000
-```
->  Note: the test program runs an infinite loop which will cause high CPU usage on your host machine. Kill the test program timely. 
-
-On Linux (e.g. connecting to the course server from your local machine):
-![](test-qemu.gif)
-
-On Windows (local WSL, not using the course server) 
-
-![](test-qemu-wsl.gif)
-
-Move to [the QEMU cheatsheet](../qemu.md). 
 

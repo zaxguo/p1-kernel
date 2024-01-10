@@ -10,27 +10,17 @@ git clone https://github.com/fxlin/p1-kernel
 
 A tiny kernel *incrementally built* for OS education. 
 
-Start with minimal, baremetal code. Then add kernel features in small doses. 
+Start with minimal, baremetal code. Then each assignment adds new features. Each experiment is a self-contained and can run on both Rpi3 hardware and QEMU. 
 
-Each experiment is a self-contained and can run on both Rpi3 hardware and QEMU. 
+## Learning objectives
 
-## Rationale
-
-The kernel must run on cheap & modern hardware. 
-
-Showing the kernel's evolution path is important. Along the path, each version must be self-contained runnable. 
-
-We deem the following kernel functions crucial to implement: 
+**Knowledge:** 
 * protection modes
 * interrupt handling
 * preemptive scheduling
 * virtual memory 
 
-Experimenting with these features is difficult with commodity kernels due to their complexity. 
-
-## Goals
-
-**Primary:** 
+**Skills:** 
 * Learning by doing: the core concepts of a modern OS kernel
 * Experiencing OS engineering: hands-on programming & debugging at the hardware/software boundary
 * Daring to plumb: working with baremetal hardware: CPU protection modes, registers, IO, MMU, etc.
@@ -65,21 +55,6 @@ Experimenting with these features is difficult with commodity kernels due to the
       * [User processes and system calls](exp5/rpi-os.md) 
 6. **Into virtual** (p1 exp6) 
       * [Virtual memory management](exp6/rpi-os.md) 
-
-## Assignment weights
-
-| Exp                                 | Weights |
-| ----------------------------------- | ------- |
-| 00 Sharpen your tools               | 10      |
-| 01 Helloworld from baremetal        | 10      |
-| 02 Exception elevated               | 10      |
-| 03 Heartbeats on                    | 10      |
-| 04a Process scheduler - cooperative | 10      |
-| 04b Process scheduler - preemptive  | 10      |
-| 05 A world of two lands             | 20      |
-| 06 Into virtual (6a:10; 6b:10)      | 20      |
-
-The weights are relative and may not necessarily add up to 100. 
 
 ## Acknowledgement
 Derived from the RPi OS project and its tutorials, which is modeled after the [Linux kernel](https://github.com/torvalds/linux). 

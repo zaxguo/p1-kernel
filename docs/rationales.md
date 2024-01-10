@@ -1,3 +1,18 @@
+## Rationale
+
+The kernel must run on cheap & modern hardware. 
+
+Showing the kernel's evolution path is important. Along the path, each version must be self-contained runnable. 
+
+We deem the following kernel functions crucial to implement: 
+* protection modes
+* interrupt handling
+* preemptive scheduling
+* virtual memory 
+
+Experimenting with these features is difficult with commodity kernels due to their complexity. 
+
+
 ## Raspberry Pi OS project introduction or how to efficiently learn operating system development?
 
 A few years ago, I opened the source code of the Linux kernel for the first time. At that time, I considered myself more or less a skillful software developer: I knew a little bit of assembler and C programming, and had a high-level understanding of major operating system concepts, such as process scheduling and virtual memory management. However, my first attempt was a complete failure - I understood almost nothing.

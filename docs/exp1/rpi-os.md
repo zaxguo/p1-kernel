@@ -30,21 +30,17 @@ Create a Makefile project. Add minimum code to boot the platform. Initialize the
 
 1. Strictly speaking, this baremetal program is not a "kernel". We nevertheless call it so for ease of explanation. 
 
-2. "Raspberry Pi" means the actual Rpi3 hardware. "QEMU" means the Rpi3 platform as emulated by QEMU. We will explain details where the real hardware behaves differently from QEMU. 
+2. "QEMU" means the Rpi3 platform as emulated by QEMU (route 1). "Raspberry Pi" means the actual Rpi3 hardware (route 2). We will explain details where the real hardware behaves differently from QEMU. 
 
-## Project structure
+## Code walkthrough
 
 1. `Makefile`: We will use the GNU Makefile to build the kernel. 
 1. `src`: This folder contains all of the source code.
 1. `include`: All of the header files are placed here. 
 
-Note: Of all the subsequent experiments in p1, the source code has the same structure. 
+### Makefile explanation
 
-<!--- 1. **build.sh or build.bat** You'll need these files if you want to build the kernel using Docker. You won't need to have the make utility or the compiler toolchain installed on your laptop. --->
-
-### Makefile walkthrough
-
-If you are not familiar with Makefiles, read [this](http://opensourceforu.com/2012/06/gnu-make-in-detail-for-beginners/) article. 
+A refresher of Makefile: [this](http://opensourceforu.com/2012/06/gnu-make-in-detail-for-beginners/) article. 
 
 The complete Makefile: 
 
@@ -572,7 +568,25 @@ This function just iterates over all characters in a string and sends them one b
 
 ## Take the kernel for a spin
 
-### Rpi3
+### QEMU (route 1)
+
+**Setup**
+
+Follow the instructions in [Prerequisites](../exp0/rpi-os.md).
+
+Type `make -f Makefile.qemu` . 
+
+**Run**
+
+```
+$ qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial stdio
+VNC server running on 127.0.0.1:5900
+Hello, world!
+<Ctrl-C>
+```
+
+
+### Rpi3 (route 2)
 
 Run `make` to build the kernel. 
 
@@ -637,19 +651,3 @@ The steps above assume that you have Raspbian installed on your SD card. It is a
 
 Unfortunately, all Raspberry Pi firmware files are closed-sourced and undocumented. For more information about the Raspberry Pi startup sequence, you can refer to some unofficial sources, like [this](https://raspberrypi.stackexchange.com/questions/10442/what-is-the-boot-sequence) StackExchange question or [this](https://github.com/DieterReuter/workshop-raspberrypi-64bit-os/blob/master/part1-bootloader.md) Github repository.
 
-### QEMU
-
-**Setup**
-
-Follow the instructions in [Prerequisites](../exp0/rpi-os.md).
-
-Type `make -f Makefile.qemu` . 
-
-**Run**
-
-```
-$ qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial stdio
-VNC server running on 127.0.0.1:5900
-Hello, world!
-<Ctrl-C>
-```
