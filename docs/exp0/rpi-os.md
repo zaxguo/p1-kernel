@@ -101,5 +101,7 @@ My serial number is: 0000000000000000
 On Linux (e.g. connecting to the course server from your local machine):
 ![](test-qemu.gif)
 
-Move to [the QEMU cheatsheet](../qemu.md). 
+To use QEMU with use, make sure to read [the QEMU cheatsheet](../qemu.md). 
+
+
 

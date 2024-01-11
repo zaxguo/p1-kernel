@@ -20,7 +20,13 @@ Students will experience:
 
 4. Basic knowledge on Rpi3 and its UART hardware
 
-**Source code location: p1-kernel/src/exp1**
+
+## Get the code 
+
+Code location: p1-kernel/src/exp1
+
+Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
+
 
 ## Roadmap
 

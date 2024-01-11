@@ -6,8 +6,6 @@
 
 ## Objectives
 
-**Source code location: p1-kernel/src/exp2**
-
 We are going to build: 
 
 A baremetal program that can switch among CPU exception levels and print out the current level. 
@@ -17,6 +15,14 @@ Students will:
 1. Experiment with exception levels (ELs)
 2. Observe switches among ELs -- crucial for subsequent experiments!
 3. Tinker with the kernel, e.g. debugging
+
+
+## Get the code 
+
+Code location: p1-kernel/src/exp2
+
+Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
+
 
 ## Background: Exception levels (EL)
 

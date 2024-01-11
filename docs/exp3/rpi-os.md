@@ -6,8 +6,6 @@
 
 ## Objectives
 
-**Source code location: p1-kernel/src/exp3**
-
 We will build a baremetal program that prints out messages, as driven by periodic interrupts from a hardware timer. 
 
 You will learn and experience with: 
@@ -16,6 +14,11 @@ You will learn and experience with:
 2. Handling interrupts
 3. Program hardware timers
 
+## Get the code 
+
+Code location: p1-kernel/src/exp3
+
+Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
 
 ## Terms
 

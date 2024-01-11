@@ -1,16 +1,51 @@
+# A commented Makefile which generates a kernel image to run atop QEMU (Not the actual Rpi3 hardware)
+
+# The Makefile starts with a variable definition. `ARMGNU` is a cross-compiler prefix. 
+# We need to use a [cross-compiler](https://en.wikipedia.org/wiki/Cross_compiler) because we are compiling the source code for the `arm64` architecture on an `x86` machine. 
+# So instead of `gcc`, we will use `aarch64-linux-gnu-gcc`. 
+
+
 ARMGNU ?= aarch64-linux-gnu
+
+
+# `COPS` and `ASMOPS` are options that we pass to the compiler when compiling C and assembler code, respectively. These options require a short explanation:
+#
+# * **-Wall** Show all warnings. A good practice. 
+# * **-nostdlib** Don't use the C standard library. Most of the calls in the C standard library eventually interact with the operating system. We are writing a bare-metal program, and we don't have any underlying operating system, so the C standard library is not going to work for us anyway.
+# * **-nostartfiles** Don't use standard startup files. Startup files are responsible for setting an initial stack pointer, initializing static data, and jumping to the main entry point. We are going to do all of this by ourselves.
+# * **-ffreestanding** A freestanding environment is an environment in which the standard library may not exist, and program startup may not necessarily be at main. The option `-ffreestanding` directs the compiler to not assume that standard functions have their usual definition.
+# * **-Iinclude** Search for header files in the `include` folder.
+# * **-mgeneral-regs-only**. Use only general-purpose registers. ARM processors also have [NEON](https://developer.arm.com/technologies/neon) registers. We don't want the compiler to use them because they add additional complexity (since, for example, we will need to store the registers during a context switch).
+# * **-g** Include debugging info in the resultant ELF binary. 
+# * **-O0** Turn off any compiler optimization. For ease of debugging. 
 
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only -g -O0 -DUSE_QEMU
 ASMOPS = -Iinclude  -g -DUSE_QEMU
 
+
+# `SRC_DIR` and `BUILD_DIR` are directories that contain source code and compiled object files, respectively.
 BUILD_DIR = build
 SRC_DIR = src
 
+
+
+# The first two targets are pretty simple: the `all` target is the default one, and it is executed whenever 
+# you type `make` without any arguments (`make` always uses the first target as the default). 
+# This target just redirects all work to a different target, `kernel8.img`. 
+
+# The name "kernel8.img" is mandated by the Rpi3 firmware. The trailing `8` denotes ARMv8 which is a 64-bit architecture. 
+# This filename tells the firmware to boot the processor into 64-bit mode.
 all : kernel8.img
 
+# The `clean` target is responsible for deleting all compilation artifacts and the compiled kernel image.
 clean :
 	rm -rf $(BUILD_DIR) *.img 
 
+
+# The next two targets are responsible for compiling C and assembler files. If, for example, in the `src` 
+# directory we have `foo.c` and `foo.S` files, they will be compiled into `build/foo_c.o` and `build/foo_s.o`, respectively. 
+# `$<` and `$@` are substituted at runtime with the input and output filenames (`foo.c` and `foo_c.o`). 
+# Before compiling C files, we also create a `build` directory in case it doesn't exist yet.
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
@@ -18,14 +53,26 @@ $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
 	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
 
+
+# Here we are building an array of all object files (`OBJ_FILES`) created from the concatenation of both 
+# C and assembler source files.
 C_FILES = $(wildcard $(SRC_DIR)/*.c)
 ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
 OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
 OBJ_FILES += $(ASM_FILES:$(SRC_DIR)/%.S=$(BUILD_DIR)/%_s.o)
 
+
+# The next two lines are a little bit tricky. If you take a look at how we defined our compilation targets for 
+# both C and assembler source files, you will notice that we used the `-MMD` parameter. This parameter instructs the `gcc` 
+# compiler to create a dependency file for each generated object file. 
+# A dependency file defines all of the dependencies for a particular source file. These dependencies usually contain a 
+# list of all included headers. We need to include all of the generated dependency files so that make knows what exactly to recompile in case a header changes. 
 DEP_FILES = $(OBJ_FILES:%.o=%.d)
 -include $(DEP_FILES)
 
+
+# We use the `OBJ_FILES` array to build the `kernel8.elf` file. We use the linker script `src/linker.ld` to 
+# define the basic layout of the resulting executable image (we will discuss the linker script in the next section).
 kernel8.img: $(SRC_DIR)/linker-qemu.ld $(OBJ_FILES)
 	$(ARMGNU)-ld -T $(SRC_DIR)/linker-qemu.ld -o $(BUILD_DIR)/kernel8.elf  $(OBJ_FILES)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img

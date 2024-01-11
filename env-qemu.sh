@@ -10,7 +10,8 @@ run-uart0() {
 }
 
 run() {
-    # xzl the following will launch VNC server w/ binding to a port. in case there are many qemu instancs, it may fail to bind to an addr?
+    # FL: the following will launch VNC server w/ binding to a port. in case of many qemu instances coexisting,
+    # it may fail to bind to an addr
     # qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial stdio
 
     # to avoid, launch w/o graphics...

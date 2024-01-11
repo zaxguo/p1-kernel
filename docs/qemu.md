@@ -1,4 +1,4 @@
-# QEMU cheetsheet
+# QEMU cheetsheet (make it easier to use)
 
 ## Add QEMU to PATH
 
@@ -98,7 +98,7 @@ Explanation: ESR - exception syndrome register, encoding the cause of the except
 
 ```
 # change the line as needed
-export PATH="$(pwd)/qemu/aarch64-softmmu:${PATH}"
+export PATH="${HOME}/qemu/aarch64-softmmu:${PATH}"
 
 run-uart0() {
    qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial stdio
@@ -134,6 +134,8 @@ kernel boots...
 interval is set to: 67108864
 ```
 
+A full version of the above file: 
+https://github.com/fxlin/p1-kernel/blob/master/env-qemu.sh
 
 
 ## Reference

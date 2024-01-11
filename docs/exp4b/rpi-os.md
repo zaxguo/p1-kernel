@@ -12,7 +12,11 @@ A minimum kernel that can schedule multiple tasks in a preemptive fashion. With 
 2. Understand context switch driven by interrupts, in particular switch to/from interrupt handlers
 3. Atomic kernel regions where preemption is disallowed 
 
-**Source code location: p1-kernel/src/exp4b**
+## Get the code 
+
+Code location: p1-kernel/src/exp4b
+
+Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
 
 ## Roadmap
 

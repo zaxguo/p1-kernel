@@ -6,7 +6,6 @@ Results with UART output:
 
 ![](qemu-sched.gif)
 
-**Source code location: p1-kernel/src/exp4a**
 
 ## Overview
 From this experiment onward, our kernel starts to schedule multiple tasks. This makes it a true "kernel" instead of a baremetal program. 
@@ -22,6 +21,12 @@ This experiment focuses on scheduling and task switch. Tasks must voluntarily yi
    <!--- counter. must be maintained in timer_tick() for accounting ... --->
 
 **Processes or tasks?**. As we do not have virtual memory yet, we use the term "tasks" instead of "processes". Note: in Linux both thread and processes are just different types of tasks; the difference is in how they share address spaces. 
+
+## Get the code 
+
+Code location: p1-kernel/src/exp4a
+
+Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
 
 ## Key data structures
 

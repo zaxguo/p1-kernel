@@ -17,7 +17,11 @@ Our kernel is evolving from an "embedded" kernel which often lacks user/kernel s
 NOTE: this experiment enables running user/kernel at different ELs. Yet, it does not NOT give each task its own address space — we are going to tackle this issue in lesson 6!
 
 
-**Source code location: p1-kernel/src/exp5**
+## Get the code 
+
+Code location: p1-kernel/src/exp5
+
+Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
 
 
 ## Roadmap
