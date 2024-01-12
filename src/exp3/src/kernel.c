@@ -15,9 +15,10 @@ void kernel_main(void)
 	generic_timer_init();
 	enable_interrupt_controller();
 	enable_irq();
-	// disable_irq();
 
-	// FL (2/1/23): some ideas for triggering exceptions. Do they work? Validate your guess. Or come up with your own method...
+	// FL (2/1/23): the following are some ideas for triggering exceptions. But do they work? 
+	// Validate your guess. Or come up with your own method...
+
 	// a = a / 0; 
 	// asm("mrs x0, elr_el2"); // will trigger exception at EL1
 	// asm("hvc #0");
@@ -27,7 +28,7 @@ void kernel_main(void)
 	//asm("wfi");
 	//printf("we're back!");
 
-	while (1){
+	while (1) {
 		uart_send(uart_recv());
 	}	
 }

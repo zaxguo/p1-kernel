@@ -8,7 +8,7 @@
 _start:
 	mrs	x0, mpidr_el1		
 	and	x0, x0,#0xFF		// Check processor id
-	cbz	x0, master		// Hang for all non-primary CPU
+	cbz	x0, master			// Hang for all non-primary CPU
 	b	proc_hang
 
 proc_hang: 
@@ -21,14 +21,15 @@ master:
 	ldr	x0, =HCR_VALUE  	// Hypervisor Configuration (EL2) 
 	msr	hcr_el2, x0  
 
-#ifdef USE_QEMU 		// xzl: qemu boots from EL2. cannot do things to EL3			
-	ldr	x0, =SPSR_VALUE	
+#ifdef USE_QEMU 			// QEMU boots from EL2. cannot do things to EL3			
+	ldr	x0, =SPSR_VALUE		// SPSR_VALUE controls the consequence of exception return (eret), including the new exception level (EL1)
 	msr	spsr_el2, x0
 
 	adr	x0, el1_entry		
-	msr	elr_el2, x0
-#else 					// xzl: Rpi3 hw boots from EL3. 
-	ldr	x0, =SCR_VALUE	// Secure config register. Only at EL3.
+	msr	elr_el2, x0			
+
+#else 						// Rpi3 hw boots from EL3. 
+	ldr	x0, =SCR_VALUE		// Secure config register. Only at EL3.
 	msr	scr_el3, x0
 
 	ldr	x0, =SPSR_VALUE

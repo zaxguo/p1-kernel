@@ -40,148 +40,11 @@ Create a Makefile project. Add minimum code to boot the platform. Initialize the
 
 ## Code walkthrough
 
-1. `Makefile`: We will use the GNU Makefile to build the kernel. 
+1. `Makefile.qemu`: We will use the GNU Makefile to build the kernel. This file contains detailed comments. A refresher of Makefile: [this](http://opensourceforu.com/2012/06/gnu-make-in-detail-for-beginners/) article. 
 1. `src`: This folder contains all of the source code.
 1. `include`: All of the header files are placed here. 
 
-### Makefile explanation
-
-A refresher of Makefile: [this](http://opensourceforu.com/2012/06/gnu-make-in-detail-for-beginners/) article. 
-
-The complete Makefile: 
-
-```
-ARMGNU ?= aarch64-linux-gnu
-
-COPS = -Wall -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only -O0 -g
-ASMOPS = -Iinclude  -g
-
-BUILD_DIR = build
-SRC_DIR = src
-
-all : kernel8.img
-
-clean :
-    rm -rf $(BUILD_DIR) *.img 
-
-$(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
-    mkdir -p $(@D)
-    $(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
-
-$(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
-    $(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
-
-C_FILES = $(wildcard $(SRC_DIR)/*.c)
-ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
-OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
-OBJ_FILES += $(ASM_FILES:$(SRC_DIR)/%.S=$(BUILD_DIR)/%_s.o)
-
-DEP_FILES = $(OBJ_FILES:%.o=%.d)
--include $(DEP_FILES)
-
-kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
-    $(ARMGNU)-ld -T $(SRC_DIR)/linker.ld -o $(BUILD_DIR)/kernel8.elf  $(OBJ_FILES)
-    $(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
-```
-Let's inspect this file in detail:
-```
-ARMGNU ?= aarch64-linux-gnu
-```
-The Makefile starts with a variable definition. `ARMGNU` is a cross-compiler prefix. We need to use a [cross-compiler](https://en.wikipedia.org/wiki/Cross_compiler) because we are compiling the source code for the `arm64` architecture on an `x86` machine. So instead of `gcc`, we will use `aarch64-linux-gnu-gcc`. 
-
-```
-COPS = -Wall -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only
-ASMOPS = -Iinclude 
-```
-
-`COPS` and `ASMOPS` are options that we pass to the compiler when compiling C and assembler code, respectively. These options require a short explanation:
-
-* **-Wall** Show all warnings. A good practice. 
-* **-nostdlib** Don't use the C standard library. Most of the calls in the C standard library eventually interact with the operating system. We are writing a bare-metal program, and we don't have any underlying operating system, so the C standard library is not going to work for us anyway.
-* **-nostartfiles** Don't use standard startup files. Startup files are responsible for setting an initial stack pointer, initializing static data, and jumping to the main entry point. We are going to do all of this by ourselves.
-* **-ffreestanding** A freestanding environment is an environment in which the standard library may not exist, and program startup may not necessarily be at main. The option `-ffreestanding` directs the compiler to not assume that standard functions have their usual definition.
-* **-Iinclude** Search for header files in the `include` folder.
-* **-mgeneral-regs-only**. Use only general-purpose registers. ARM processors also have [NEON](https://developer.arm.com/technologies/neon) registers. We don't want the compiler to use them because they add additional complexity (since, for example, we will need to store the registers during a context switch).
-* **-g** Include debugging info in the resultant ELF binary. 
-* **-O0** Turn off any compiler optimization. For ease of debugging. 
-
-```
-BUILD_DIR = build
-SRC_DIR = src
-```
-
-`SRC_DIR` and `BUILD_DIR` are directories that contain source code and compiled object files, respectively.
-
-```
-all : kernel8.img
-
-clean :
-    rm -rf $(BUILD_DIR) *.img 
-```
-
-### Build targets & rules
-
-The first two targets are pretty simple: the `all` target is the default one, and it is executed whenever you type `make` without any arguments (`make` always uses the first target as the default). This target just redirects all work to a different target, `kernel8.img`. 
-
-> The name "kernel8.img" is mandated by the Rpi3 firmware. The trailing `8` denotes ARMv8 which is a 64-bit architecture. This filename tells the firmware to boot the processor into 64-bit mode.
-
-The `clean` target is responsible for deleting all compilation artifacts and the compiled kernel image.
-
-```
-$(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
-    mkdir -p $(@D)
-    $(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
-
-$(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
-    $(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
-```
-
-The next two targets are responsible for compiling C and assembler files. If, for example, in the `src` directory we have `foo.c` and `foo.S` files, they will be compiled into `build/foo_c.o` and `build/foo_s.o`, respectively. `$<` and `$@` are substituted at runtime with the input and output filenames (`foo.c` and `foo_c.o`). Before compiling C files, we also create a `build` directory in case it doesn't exist yet.
-
-```
-C_FILES = $(wildcard $(SRC_DIR)/*.c)
-ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
-OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
-OBJ_FILES += $(ASM_FILES:$(SRC_DIR)/%.S=$(BUILD_DIR)/%_s.o)
-```
-
-Here we are building an array of all object files (`OBJ_FILES`) created from the concatenation of both C and assembler source files.
-
-```
-DEP_FILES = $(OBJ_FILES:%.o=%.d)
--include $(DEP_FILES)
-```
-
-The next two lines are a little bit tricky. If you take a look at how we defined our compilation targets for both C and assembler source files, you will notice that we used the `-MMD` parameter. This parameter instructs the `gcc` compiler to create a dependency file for each generated object file. A dependency file defines all of the dependencies for a particular source file. These dependencies usually contain a list of all included headers. We need to include all of the generated dependency files so that make knows what exactly to recompile in case a header changes. 
-
-### Bake the kernel binaries :cookie:
-
-```
-$(ARMGNU)-ld -T $(SRC_DIR)/linker.ld -o kernel8.elf  $(OBJ_FILES)
-```
-
-We use the `OBJ_FILES` array to build the `kernel8.elf` file. We use the linker script `src/linker.ld` to define the basic layout of the resulting executable image (we will discuss the linker script in the next section).
-
-------------------
-
-```
-$(ARMGNU)-objcopy kernel8.elf -O binary kernel8.img
-```
-
-**kernel8.elf & kernel8.img**
-
-* **build/kernel8.elf ("kernel binary"):** Our build outcome as an ELF file. It contains all code, data, and debugging info. Often, to execute an ELF program in user space, there should be a loader to parse ELF, load code & data to designated memory locations, etc. For our kernel experiment, we do NOT have such a loader for the kernel itself. 
-* **kernel8.img ("kernel image"):** The raw instructions & data as extracted from kernel8.elf. The raw image is to be loaded to memory. Since it's a memory dump (see below), the load is as simple as byte-by-byte copy. 
-
-> The kernel image is produced by `objcopy`. Its manual says: 
->
-> "`objcopy` can be used to generate a raw binary file by using an output target of ‘binary’ (e.g., use -O binary). When `objcopy` generates a raw binary file, it will essentially produce a memory dump of the contents of the input object file. All symbols and relocation information will be discarded. The memory dump will start at the load address of the lowest section copied into the output file."
->
-> Q: can you use `readelf` to examine kernel8.elf, and explain your observation? 
-
-<!----- **Note: the following only applies to Rpi3 hardware. QEMU, which does not implement Rpi3's firmware, does not know config.txt.** You can also boot the CPU in the 64-bit mode by using `arm_control=0x200` flag in the `config.txt` file. The RPi OS previously used this method, and you can still find it in some of the exercise answers. However, `arm_control` flag is undocumented and it is preferable to use `kernel8.img` naming convention instead. --->
-
-### The linker script
+### The linker script (src/linker-qemu.ld)
 
 A linker script describes how the sections in the input object files (`_c.o` and `_s.o`) should be mapped into the output file (`.elf`); it also controls the addresses of all program symbols (e.g. functions and variables). More information can be found [here](https://sourceware.org/binutils/docs/ld/Scripts.html#Scripts). Now let's take a look at the linker script:
 
@@ -211,47 +74,7 @@ After booting up, our kernel initializes the `.bss` section to 0; that's why we 
 
 ### Booting the kernel
 
-boot.S contains the kernel startup code (VSCode: Ctrl-p then type boot.S):
-
-```
-#include "mm.h"
-
-.section ".text.boot"
-
-.globl _start
-_start:
-    mrs    x0, mpidr_el1        
-    and    x0, x0,#0xFF        // Check processor id
-    cbz    x0, master        // Hang for all non-primary CPU
-    b    proc_hang
-
-proc_hang: 
-    b proc_hang
-
-master:
-    adr    x0, bss_begin
-    adr    x1, bss_end
-    sub    x1, x1, x0
-    bl     memzero
-
-    mov    sp, #LOW_MEMORY
-    bl    kernel_main
-```
-Let's review this file in detail:
-```
-.section ".text.boot"
-```
-First, we specify that everything defined in `boot.S` should go in the `.text.boot` section. Previously, we saw that this section is placed at the beginning of the kernel image by the linker script. So when the kernel is started, execution begins at the `start` function:
-```
-.globl _start
-_start:
-    mrs    x0, mpidr_el1        
-    and    x0, x0,#0xFF        // Check processor id
-    cbz    x0, master        // Hang for all non-primary CPU
-    b    proc_hang
-```
-
-Rpi3 has 4 cores, and after the device is powered on, each core begins to execute the same code. Our kernel only works with the first one and put all of the other cores in an endless loop. This is exactly what the `_start` function is responsible for. It gets the processor ID from the [mpidr_el1](http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0500g/BABHBJCI.html) system register. 
+boot.S (src/boot.S) contains the kernel startup code. It has detailed comments. 
 
 > Q: It may make more sense to put core 1-3 in deep sleep using ``wfi``. How? 
 
@@ -259,23 +82,9 @@ Rpi3 has 4 cores, and after the device is powered on, each core begins to execut
 
 If the current processor ID is 0, then execution branches to the `master` function:
 
-```
-master:
-    adr    x0, bss_begin
-    adr    x1, bss_end
-    sub    x1, x1, x0
-    bl     memzero
-```
-
-Here, we clean the `.bss` section by calling `memzero`. We will define this function later. In ARMv8 architecture, by convention, the first seven arguments are passed to the called function via registers x0–x6 (cf: our cheat sheet). The `memzero` function accepts only two arguments: the start address (`bss_begin`) and the size of the section needed to be cleaned (`bss_end - bss_begin`).
-
-```
-    mov    sp, #LOW_MEMORY
-    bl    kernel_main
-```
-![](figures/mem-0.png)
-
 After cleaning the `.bss` section, the kernel initializes the stack pointer and passes execution to the `kernel_main` function. The Rpi3 loads the kernel at address 0 (QEMU loads at 0x80000); that's why the initial stack pointer can be set to any location high enough so that stack will not override the kernel image when it grows sufficiently large. `LOW_MEMORY` is defined in [mm.h](https://github.com/fxlin/p1-kernel/blob/master/src/exp1/include/mm.h) and is equal to 4MB. As our kernel's stack won't grow very large and the image itself is tiny, 4MB is more than enough for us. 
+
+![](figures/mem-0.png)
 
 **Aside: Some ARM64 instructions used** 
 
@@ -594,7 +403,7 @@ Hello, world!
 
 ### Rpi3 (route 2)
 
-Run `make` to build the kernel. 
+Run `make -f Makefile.rpi3` to build the kernel. 
 
 The Raspberry Pi startup sequence is the following (simplified):
 
