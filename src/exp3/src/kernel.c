@@ -17,7 +17,8 @@ void kernel_main(void)
 	enable_irq();
 
 	// FL (2/1/23): the following are some ideas for triggering exceptions. But do they work? 
-	// Validate your guess. Or come up with your own method...
+	// Validate your guess by searching into aarch64 manuals and/or debugging. 
+	// Or come up with your own method...
 
 	// a = a / 0; 
 	// asm("mrs x0, elr_el2"); // will trigger exception at EL1
