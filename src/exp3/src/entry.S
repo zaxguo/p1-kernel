@@ -58,35 +58,49 @@
 
 /*
  * Exception vectors.
+
+ 	**An exception vector** (or handler) is a piece of code the CPU will execute when a specific 
+	 exception happens. "*These would normally be branch instructions that direct the core to the full 
+	 exception handler.*" (the ARM64 manual). 
+
+	 The ARM64 hardware mandates: each exception vector can occupy`0x80` bytes maximum (thus `.align 7` in the asm code). 
+
+	 **A vector table** is an array of exception vectors. Each exception level (EL) has its own vector table. 	 
  */
-
- .align	11
-.globl vectors_el2
-vectors_el2:
-	/* todo: populate a vector table for el2 here. */
-
 	
+/* 
+	Below: **The vector table for EL1**. Purpose: to handle exceptions *taken from* EL0 (user programs) 
+	or EL1 (the kernel's own execution). 
+	``vectors'' below is set as vector table for EL1 by irq_vector_init 
+
+	the kernel defines 16 exception handlers: 
+		4 types [sync, irq, fiq, serror] for each of the CPU 4 execution states [EL1t, EL1h, EL0_64, EL0_32]. 
+*/	
 .align	11
 .globl vectors 
 vectors:
+	//  EL1t -- Exception happens when CPU is at EL1 while the stack pointer (SP) was set to be shared with EL0
 	ventry	sync_invalid_el1t			// Synchronous EL1t
 	ventry	irq_invalid_el1t			// IRQ EL1t
 	ventry	fiq_invalid_el1t			// FIQ EL1t
 	ventry	error_invalid_el1t			// Error EL1t
 
-	 ventry	sync_invalid_el1h			// Synchronous EL1h
-#if 0
-	ventry try_to_return
-#endif
-	ventry	el1_irq					// IRQ EL1h
+	// EL1h -- Exception happens at EL1 at the time when a dedicated SP was allocated for EL1.
+	//  		This is the mode that our kernel is are currently using
+	ventry	sync_invalid_el1h			// Synchronous EL1h   (also try ventry try_to_return)
+	ventry	el1_irq						// IRQ EL1h
 	ventry	fiq_invalid_el1h			// FIQ EL1h
 	ventry	error_invalid_el1h			// Error EL1h
 
+	// EL0_64 -- Exception is taken from EL0 executing in 64-bit mode. 
+	//		The exceptions caused in 64-bit user programs
 	ventry	sync_invalid_el0_64			// Synchronous 64-bit EL0
 	ventry	irq_invalid_el0_64			// IRQ 64-bit EL0
 	ventry	fiq_invalid_el0_64			// FIQ 64-bit EL0
 	ventry	error_invalid_el0_64			// Error 64-bit EL0
 
+	// EL0_32 -- Exception is taken from EL0 executing in 32-bit mode
+	//		The exceptions caused in 32-bit user programs
 	ventry	sync_invalid_el0_32			// Synchronous 32-bit EL0
 	ventry	irq_invalid_el0_32			// IRQ 32-bit EL0
 	ventry	fiq_invalid_el0_32			// FIQ 32-bit EL0
@@ -136,6 +150,20 @@ fiq_invalid_el0_32:
 
 error_invalid_el0_32:
 	handle_invalid_entry  ERROR_INVALID_EL0_32
+
+/* ---- end of EL1 vectors ----- */
+
+
+/* 
+   TODO: populate a vector table for EL2 here. 
+   The format is the same as that of EL1, e.g. 16 (=4x4) exception handlers. 
+   Note: EL2 vectors are for exceptions taken from EL2 and EL1
+*/
+ .align	11
+.globl vectors_el2
+vectors_el2:
+	/* --- add yours ---  */
+
 
 el1_irq:
 	kernel_entry 

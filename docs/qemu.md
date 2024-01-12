@@ -60,9 +60,12 @@ More on [the monitor mode](https://en.wikibooks.org/wiki/QEMU/Monitor).
 ```
 qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial stdio -d int -D qemu.log 
 ```
-Explanation: -d int ---> enable interrupt dedug       -D test.log  ----> put debug msg to a file "qemu.log"
+Explanation: 
 
-Sample log from executing  p1exp3:
+* **-d int** enables interrupt dedug       
+* **-D test.log**  puts debug msg to a file "qemu.log"
+
+Sample log from executing p1exp3:
 
 ```
 Exception return from AArch64 EL2 to AArch64 EL1 PC 0x80038
@@ -92,7 +95,11 @@ Taking exception 5 [IRQ]
 Exception return from AArch64 EL1 to AArch64 EL1 PC 0x8095c
 ```
 
-Explanation: ESR - exception syndrome register, encoding the cause of the exception. ELR - exception link register, containing the return address of the exception handler. PSTATE - CPU flags when the exception is taken 
+Quick explanation: 
+
+* **ESR** - exception syndrome register, encoding the cause of the exception. 
+* **ELR** - exception link register, containing the return address of the exception handler. 
+* **PSTATE** - CPU flags when the exception is taken 
 
 ## Putting everything in one file (env-qemu.sh)
 
@@ -134,7 +141,8 @@ kernel boots...
 interval is set to: 67108864
 ```
 
-A full version of the above file: 
+A full version of the above file is already in the code repo:
+
 https://github.com/fxlin/p1-kernel/blob/master/env-qemu.sh
 
 

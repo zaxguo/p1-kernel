@@ -76,7 +76,7 @@ Let's not reinvent the wheel and use one of  [existing printf implementations](h
 
 ### QEMU + GDB debugging
 
-Reminder: GDB allows you to do single step, etc. It may help understand/debug specific instructions. You can find extensive information online. 
+Reminder: GDB allows you to do single step, etc. It may help understand specific instructions. You can find extensive information online. 
 
 ## Code Walkthrough
 
@@ -99,9 +99,9 @@ Here we use `mrs` instruction to read the value from `CurrentEL` system register
     printf("Exception level: %d \r\n", el);
 ```
 
-**Rpi3:** If you reproduce this experiment, you should see `Exception level: 3` on the screen. This means the CPU executes as the security monitor when it boots up. 
+<!--**Rpi3:** If you reproduce this experiment, you should see `Exception level: 3` on the screen. This means the CPU executes as the security monitor when it boots up.--> 
 
-**QEMU:** You will see `Exception level: 2` because this is how QEMU emulates the CPU: setting the initial EL as 2. Why?
+<!--**QEMU:** You will see `Exception level: 2` because this is how QEMU emulates the CPU: setting the initial EL as 2. Why?-->
 
 ### Switching to EL1
 
@@ -131,6 +131,7 @@ The code configures a few system registers. Now we are going to examine those re
 
 #### SCTLR_EL1, System Control Register (EL1) 
 <!----Page 2654 of AArch64-Reference-Manual--->
+
 ```
     ldr    x0, =SCTLR_VALUE_MMU_DISABLED
     msr    sctlr_el1, x0        
@@ -226,7 +227,7 @@ Qemu.log:
 Exception return from AArch64 EL2 to AArch64 EL1 PC 0x80038
 ```
 
-The address 0x80038 should point to el1_entry. Check it out using addr2line. 
+The address 0x80038 should point to el1_entry. Check it out using **addr2line**. 
 
 Our subsequent experiments will switch between EL1 (kernel) and EL0 (user) frequently. 
 
