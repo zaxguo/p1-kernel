@@ -12,13 +12,22 @@
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
 
-/* a simplified impl. TASK_RUNNING means either RUNNING or READY (as in OS textbook/lectures) */
+/* 
+	By classic OS textbook/lectures, 
+	READY means ready to run but is not running because of no idle CPU, not scheduled yet, etc. 
+	RUNNING means the task is running and currently uses CPU.
+
+	However, in the simple impl. below, 
+	TASK_RUNNING represents either RUNNING or READY 
+*/
 #define TASK_RUNNING				0
+/* TODO: define more task states (as constants) below, e.g. TASK_WAIT */
 
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
+// Contains values of all registers that might be different between the tasks.
 struct cpu_context {
 	unsigned long x19;
 	unsigned long x20;
@@ -35,12 +44,13 @@ struct cpu_context {
 	unsigned long pc;
 };
 
+// the metadata describing a task
 struct task_struct {
-	struct cpu_context cpu_context;
-	long state;	
-	long counter;
-	long priority;
-	long preempt_count;
+	struct cpu_context cpu_context;	// register values
+	long state;		// the state of the current task, e.g. TASK_RUNNING
+	long counter;	// how long this task has been running? decreases by 1 each timer tick. Reaching 0, kernel will attempt to schedule another task. Support our simple sched
+	long priority;	// when kernel schedules a new task, the kernel copies the task's  `priority` value to `counter`. Regulate CPU time the task gets relative to other tasks 
+	long preempt_count; // a flag. A non-zero means that the task is executing in a critical code region cannot be interrupted, Any timer tick should be ignored and not triggering rescheduling
 };
 
 extern void sched_init(void);
@@ -51,6 +61,7 @@ extern void schedule(void);
 extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);
 
+// the initial values for task_struct that belongs to the init task. see sched.c 
 #define INIT_TASK 									\
 { 													\
 	{0,0,0,0,0,0,0,0,0,0,0,0,0}, 	/*cpu_context*/	\

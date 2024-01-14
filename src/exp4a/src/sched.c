@@ -2,9 +2,9 @@
 #include "irq.h"
 #include "printf.h"
 
-static struct task_struct init_task = INIT_TASK;
-struct task_struct *current = &(init_task);
-struct task_struct * task[NR_TASKS] = {&(init_task), };
+static struct task_struct init_task = INIT_TASK; // the very first task with its task_struct values
+struct task_struct *current = &(init_task);		 // points to the currently running task. when kernel boots, sets to init_task
+struct task_struct * task[NR_TASKS] = {&(init_task), }; // holds all task_strcuts. only has init_ask at beginning
 int nr_tasks = 1;
 
 void _schedule(void)
@@ -53,13 +53,14 @@ void schedule(void)
 	_schedule();
 }
 
+// where the multitasking magic happens
 void switch_to(struct task_struct * next) 
 {
 	if (current == next) 
 		return;
 	struct task_struct * prev = current;
 	current = next;
-	cpu_switch_to(prev, next);
+	cpu_switch_to(prev, next); // do context switch
 }
 
 void schedule_tail(void) {
