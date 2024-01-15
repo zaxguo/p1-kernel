@@ -45,7 +45,9 @@ int copy_virt_memory(struct task_struct *dst);
 unsigned long allocate_kernel_page(); 
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va); 
 
-extern unsigned long pg_dir;
+// the virtual base address of the pgtables. Its actual value is set by the linker. 
+//  cf the linker script (e.g. linker-qemu.ld)
+extern unsigned long pg_dir;  
 
 #endif
 

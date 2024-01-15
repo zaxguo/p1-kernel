@@ -31,7 +31,7 @@ void handle_timer_irq( void )
 }
 
 // xzl: CNTFRQ_EL0 reports the frequency of the system count
-static unsigned int read_cntfrq(void)
+__attribute__((used)) static unsigned int read_cntfrq(void)	
 {
 	unsigned int val;
 	asm volatile ("mrs %0, cntfrq_el0" : "=r" (val));

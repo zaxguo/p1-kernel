@@ -1,21 +1,38 @@
 #include "entry.h"
 
+ 	// **An exception vector** (or handler) is a piece of code the CPU will execute when a specific 
+	//  exception happens. "*These would normally be branch instructions that direct the core to the full 
+	//  exception handler.*" (the ARM64 manual). 
+
+	//  The ARM64 hardware mandates: each exception vector can occupy `0x80` bytes maximum (thus `.align 7` in the asm code). 
+
+	// For code clarity, we are not going to handle exceptions right inside the exception vector. 
+	// Instead, we make each vector a branch instruction (`b \label`) that jumps to a label provided for the macro as `label` argument.
+
+	// A default handler just to print out meaningful message in case our kernel triggers some unwanted exceptions due to our programming mistakes
 	.macro handle_invalid_entry type
 	kernel_entry
-	mov	x0, #\type
+	// below: arguments to handle_invalid_entry are passed in 3 registers: x0, x1, and x2.
+	// x0: the exception type. It can take one of the values defined in entry.h. It tells us exactly which exception handler has been executed
+	mov	x0, #\type   
+	// x1: what causes the exception. Value from `esr_el1` (Exception Syndrome Register). EL1 implies "when the exception is handled at EL1".
 	mrs	x1, esr_el1
+	// x2: the address of the instruction being executed when the exception happens. EL1 implies "when taking an exception to EL1, (this reg) holds the address to return to" 
 	mrs	x2, elr_el1
 	bl	show_invalid_entry_message
 	b	err_hang
 	.endm
 	
 	.macro	ventry	label
-	.align	7
+	.align	7	// We need `.align 7` because all exception vectors should be spaced at `0x80` bytes (2<<7) one from another
 	b	\label
 	.endm
 
 	.macro	kernel_entry
-	sub	sp, sp, #S_FRAME_SIZE
+	// The first thing to do in handling an exception: saving the processor state, notably registers x0 - x30, to the stack.
+	// subtracts from `sp` the size of total stored registers (#S_FRAME_SIZE) ...
+	sub	sp, sp, #S_FRAME_SIZE  
+	// ... and then fills the stack space
 	stp	x0, x1, [sp, #16 * 0]
 	stp	x2, x3, [sp, #16 * 1]
 	stp	x4, x5, [sp, #16 * 2]
@@ -34,7 +51,9 @@
 	str	x30, [sp, #16 * 15] 
 	.endm
 
+	// A mirror of kernel_entry, to be called as the last thing of an exception handler
 	.macro	kernel_exit
+	// restores the CPU state by copying back the values of x0 - x30
 	ldp	x0, x1, [sp, #16 * 0]
 	ldp	x2, x3, [sp, #16 * 1]
 	ldp	x4, x5, [sp, #16 * 2]
@@ -52,21 +71,11 @@
 	ldp	x28, x29, [sp, #16 * 14]
 	ldr	x30, [sp, #16 * 15] 
 	add	sp, sp, #S_FRAME_SIZE		
-	eret
+	eret	// returns to the interrupted execution! (e.g. still at EL1)
 	.endm
 
 
-/*
- * Exception vectors.
-
- 	**An exception vector** (or handler) is a piece of code the CPU will execute when a specific 
-	 exception happens. "*These would normally be branch instructions that direct the core to the full 
-	 exception handler.*" (the ARM64 manual). 
-
-	 The ARM64 hardware mandates: each exception vector can occupy`0x80` bytes maximum (thus `.align 7` in the asm code). 
-
-	 **A vector table** is an array of exception vectors. Each exception level (EL) has its own vector table. 	 
- */
+	// **A vector table** is an array of exception vectors. Each exception level (EL) has its own vector table. 	 
 	
 /* 
 	Below: **The vector table for EL1**. Purpose: to handle exceptions *taken from* EL0 (user programs) 

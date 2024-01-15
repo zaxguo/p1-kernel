@@ -42,6 +42,9 @@ void process(char *array)
 		} 
 		schedule(); // yield
 	}
+
+	// For now, all the tasks run in an infinite loop and never returns. 
+	// We will handle task termination in future experiments
 }
 
 void kernel_main(void)
@@ -50,6 +53,14 @@ void kernel_main(void)
 	init_printf(0, putc);
 
 	printf("kernel boots\r\n");	
+
+	// below, irq is off by default, b/c it is not needed for cooperative scheduling as
+	// in the proj description. but to implement things like sleep() it will be needed. 
+	// if so, enable irq and take care of irq handling
+	irq_vector_init();
+	generic_timer_init();
+	enable_interrupt_controller();
+	disable_irq();		
 
 #ifdef USE_LFB // (optional) init output to the graphical console
 	lfb_init(); 

@@ -1,9 +1,3 @@
-# export USE_QEMU=1
-# make
-
-# export USE_QEMU=
-# make
-
 ARMGNU ?= aarch64-linux-gnu
 
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only -g -O0 

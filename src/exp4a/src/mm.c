@@ -2,6 +2,7 @@
 
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};
 
+// A trivial memory allocator
 unsigned long get_free_page()
 {
 	for (int i = 0; i < PAGING_PAGES; i++){

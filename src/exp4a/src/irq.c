@@ -26,22 +26,24 @@ const char *entry_error_messages[] = {
     "ERROR_INVALID_EL0_32"	
 };
 
-//void enable_interrupt_controller()
-//{
-//    // Enables Core 0 Timers interrupt control for the generic timer
-//    put32(TIMER_INT_CTRL_0, TIMER_INT_CTRL_0_VALUE);
-//}
-//
+void enable_interrupt_controller()
+{
+   // Enables Core 0 Timers interrupt control for the generic timer
+   put32(TIMER_INT_CTRL_0, TIMER_INT_CTRL_0_VALUE);
+}
 
 void handle_irq(void)
 {
     // Each Core has its own pending local intrrupts register
     unsigned int irq = get32(INT_SOURCE_0);
-	printf("We do not expect pending irq to happen: %x\r\n", irq);
-	while (1)
-		;
+    switch (irq) {
+        case (GENERIC_TIMER_INTERRUPT):
+            handle_generic_timer_irq();
+            break;
+        default:
+            printf("Unknown pending irq: %x\r\n", irq);
+    }
 }
-
 void show_invalid_entry_message(int type, unsigned long esr, unsigned long address)
 {
     printf("%s, ESR: %x, address: %x\r\n", entry_error_messages[type], esr, address);

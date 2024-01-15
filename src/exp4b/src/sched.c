@@ -107,5 +107,6 @@ void timer_tick()
 		Now call scheduler with interrupts enabled */
 	enable_irq();
 	_schedule();
-	disable_irq();
+	/* disable irq until kernel_exit, in which eret will resort the interrupt flag from spsr, which sets it on. */
+	disable_irq(); 
 }

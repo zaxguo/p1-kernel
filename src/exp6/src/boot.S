@@ -88,7 +88,7 @@ el1_entry:
 	mov	x0, #VA_START			
 	add	sp, x0, #LOW_MEMORY
 
-	adrp	x0, pg_dir				
+	adrp	x0, pg_dir	// @pg_dir: the virtual base address of the pgtables. cf mm.h
 	msr	ttbr1_el1, x0
 
 	// tcr_el1: Translation Control Register, responsible for configuring MMU, e.g. page size
