@@ -16,6 +16,11 @@
 	b	\label
 	.endm
 
+	/*  
+		Now, we need to take exception (svc) from EL0 to EL1. To accommodate this, 
+		both `kernel_entry` and `kernel_exit` macros accepts an additional argument `el`, 
+		indicating the EL an exception is taken from. 
+	*/
 	.macro	kernel_entry, el
 	sub	sp, sp, #S_FRAME_SIZE
 	stp	x0, x1, [sp, #16 * 0]
@@ -34,7 +39,15 @@
 	stp	x26, x27, [sp, #16 * 13]
 	stp	x28, x29, [sp, #16 * 14]
 
+	/* Even for the same task, we are using 2 distinct stacks for EL0 and EL1. 
+		This is a common design because we want to separate user/kernel */
 	.if	\el == 0
+	/* After taking an exception from EL0 to EL1, the CPU automatically starts use 
+		the SP for EL1. The SP for EL0 can be found in the `sp_el0` register. 
+		The value of this register must be stored and restored upon entering/exiting 
+		the kernel, even if the kernel does not  use `sp_el0` in the exception handler. 
+		We need to virtualize `sp_el0` for each task having its own user stack. 
+	*/
 	mrs	x21, sp_el0
 	.else
 	add	x21, sp, #S_FRAME_SIZE
@@ -56,6 +69,9 @@
 	.endif /* \el == 0 */
 
 	msr	elr_el1, x22			
+	/* This EL level is encoded in the `spsr_el1` register that was saved, 
+		e.g. when syscall enters the kernel. So `eret` below always return to the 
+		level from which the exception was taken. */
 	msr	spsr_el1, x23
 
 	ldp	x0, x1, [sp, #16 * 0]
@@ -94,7 +110,7 @@ vectors:
 	ventry	fiq_invalid_el1h			// FIQ EL1h
 	ventry	error_invalid_el1h			// Error EL1h
 
-	ventry	el0_sync				// Synchronous 64-bit EL0
+	ventry	el0_sync				// Synchronous 64-bit EL0 (used for syscalls)
 	ventry	el0_irq					// IRQ 64-bit EL0
 	ventry	fiq_invalid_el0_64			// FIQ 64-bit EL0
 	ventry	error_invalid_el0_64			// Error 64-bit EL0
@@ -153,34 +169,36 @@ el0_irq:
 	bl	handle_irq
 	kernel_exit 0 
 
+// the syscall path (from irq vector)
 el0_sync:
 	kernel_entry 0
-	mrs	x25, esr_el1				// read the syndrome register
+	mrs	x25, esr_el1					// read the syndrome register
 	lsr	x24, x25, #ESR_ELx_EC_SHIFT		// exception class
-	cmp	x24, #ESR_ELx_EC_SVC64			// SVC in 64-bit state
-	b.eq	el0_svc
+	cmp	x24, #ESR_ELx_EC_SVC64			// is the currrent exception caused by SVC in 64-bit state? 
+	b.eq	el0_svc						// if yes, jump to below for handling syscalls 
 	handle_invalid_entry 0, SYNC_ERROR
 
 sc_nr	.req	x25					// number of system calls
 scno	.req	x26					// syscall number
 stbl	.req	x27					// syscall table pointer
 
+// the syscall path (cont'd)
 el0_svc:
 	adr	stbl, sys_call_table			// load syscall table pointer
-	uxtw	scno, w8				// syscall number in w8
+	uxtw	scno, w8					// syscall number in w8
 	mov	sc_nr, #__NR_syscalls
 	bl	enable_irq
-	cmp     scno, sc_nr                     	// check upper syscall limit
-	b.hs	ni_sys
+	cmp     scno, sc_nr                 // syscall number >= upper syscall limit?			
+	b.hs	ni_sys						// if yes, jump to handle errors
 
 	ldr	x16, [stbl, scno, lsl #3]		// address in the syscall table
-	blr	x16					// call sys_* routine
+	blr	x16								// call sys_* routine
 	b	ret_from_syscall
 ni_sys:
 	handle_invalid_entry 0, SYSCALL_ERROR
 ret_from_syscall:
 	bl	disable_irq				
-	str	x0, [sp, #S_X0]				// returned x0
+	str	x0, [sp, #S_X0]				// returned x0 to the user task (saving x0 to on the stack)
 	kernel_exit 0
 
 // the first instructions to be executed by a new task 

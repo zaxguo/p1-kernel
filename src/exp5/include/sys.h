@@ -3,7 +3,8 @@
 
 #define __NR_syscalls	    4
 
-#define SYS_WRITE_NUMBER    0 		// syscal numbers 
+/* syscall number, which is just an index in @sys_call_table */
+#define SYS_WRITE_NUMBER    0 		
 #define SYS_MALLOC_NUMBER   1 	
 #define SYS_CLONE_NUMBER    2 	
 #define SYS_EXIT_NUMBER     3 	
@@ -13,6 +14,8 @@
 void sys_write(char * buf);
 int sys_fork();
 
+/* call_sys_XXX functions are user-level (EL0) syscall entries. 
+    implemented in sys.S as assembly */
 void call_sys_write(char * buf);
 int call_sys_clone(unsigned long fn, unsigned long arg, unsigned long stack);
 unsigned long call_sys_malloc();
