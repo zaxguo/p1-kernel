@@ -136,9 +136,9 @@ tl;dr: VSCode will connect to the course server (Linux) using SSH under the hood
 
 ![](vscode-remove-ssh.png)
 
-### Warning - disable any other VSCode extensions 
+### Warning - 3rd party VSCode extensions 
 
-Please disable any other VSCode extensions no mentioned above. Especially, if you have C/C++ extensions, disable them. When opening a large codebase on the server, these extensions will consume lots of resources and hang the server. This happened repeatedly before. 
+When opening a large codebase on the server, these extensions may consume lots of resources and hang the server. This happened repeatedly before. 
 
 If that happens, TAs have to manually kill your server processes. 
 
@@ -195,14 +195,14 @@ Click  "source control" on the left bar for a handy git interface.
 ### Copy files to/from the server
 Just drag and drop the files between VSCode's file list and your local directory. 
 
-### Windows VSCode troubleshooting
+### Troubleshooting
 
-Windows auto update may break VSCode's ssh configuration that worked previously. In this case, deleting (or moving to other places) the .vscode-server folder on granger and portal may solved the problem. 
+Things like Windows auto update may break VSCode's ssh configuration that worked previously. In this case, deleting (or moving to other places) the .vscode-server folder on the course servers (under the p1-kernel/ directory), close the remote connection, and close the local VSCode program. Then start from a clean slate. 
 
-If things break, report: 
+If things still break, seek help from the online discussion forum. Provide the following information: 
 
 - the error message of VSCode
 - the PowerShell output when you try to connect to **granger1** from the PowerShell command line
-- the PowerShell output when you try to connect to **cs portal** from the PowerShell command line
 - any recent Windows/VSCode updates
+- any other relevant information 
 

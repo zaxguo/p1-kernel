@@ -12,15 +12,19 @@ A tiny kernel *incrementally built* for OS education.
 
 Start with minimal, baremetal code. Then each assignment adds new features. Each experiment is a self-contained and can run on both Rpi3 hardware and QEMU. 
 
+**There is a top-right search box -- use it!**
+
 ## Learning objectives
 
 **Knowledge:** 
+
 * protection modes
 * interrupt handling
 * preemptive scheduling
 * virtual memory 
 
 **Skills:** 
+
 * Learning by doing: the core concepts of a modern OS kernel
 * Experiencing OS engineering: hands-on programming & debugging at the hardware/software boundary
 * Daring to plumb: working with baremetal hardware: CPU protection modes, registers, IO, MMU, etc.

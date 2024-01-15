@@ -35,8 +35,8 @@ void kernel_main(void) {
     uart_init();
     init_printf(0, putc);
     irq_vector_init();
-    timer_init(); /* new addition */
-    enable_interrupt_controller(); /* new addition */
+    timer_init(); 
+    enable_interrupt_controller(); 
     enable_irq(); /* new addition */
     ... 
 }
@@ -52,7 +52,7 @@ void process(char *array)
             uart_send(array[i]);
             delay(100000);
         }
-        // schedule(); 
+        // schedule(); // not needed
     }
 }
 ```
@@ -104,7 +104,7 @@ We choose to store the CPU context on the current task's stack (NOT in its `task
 
 **Kernel boots**
 
-kernel_main function is executed. The initial stack is configured to start at LOW_MEMORY, which is at 0x0040:0000 (4 MB).
+kernel_main function is executed (as init task, task0). The initial stack is configured to start at LOW_MEMORY, which is at 0x0040:0000 (4 MB).
 
 ![](figures/sched-0.png)
 ---------------------------
@@ -126,7 +126,7 @@ kernel_main function is executed. The initial stack is configured to start at LO
 
 **Switching to task 1; task 1 runs**
 
-`kernel_main` calls the schedule function and it decides to switch to task 1.
+`kernel_main` (as init task) calls the schedule function and it decides to switch to task 1.
 
 * `cpu_switch_to` saves callee-saved registers in the init task `cpu_context`, which is located inside the kernel image.
 * `cpu_switch_to` restores callee-saved registers from task 1's `task_struct`.  At this point, `cpu_context.sp` points to `0x00401000`, lr points to ret_from_fork function, `x19` contains a pointer to the start of process() and `x20` a pointer to string "12345", which is located somewhere in the kernel image.

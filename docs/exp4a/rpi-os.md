@@ -10,9 +10,13 @@ Results with UART output:
 ## Overview
 From this experiment onward, our kernel starts to schedule multiple tasks. This makes it a true "kernel" instead of a baremetal program. 
 
-This experiment focuses on scheduling and task switch. Tasks must voluntarily yield to each other.  We defer interrupt handling to upcoming experiment. We will intentionally leave out interrupts, i.e. **timer interrupts are left OFF**. 
+This experiment focuses on scheduling and task switch. Tasks must voluntarily yield to each other.  We do not need timer interrupts to drive task switch, which is what upcoming experiment (4b) will do. Therefore, in the given code, **irqs are turned off by default**. 
 
-**Roadmap.** We will implement: 
+**However,** for assignment you may need to turn irqs back on (e.g. to implement sleep) and take care of irq handling. 
+
+## Roadmap
+
+We will implement: 
 
 1. The `task_struct` data structure 
 2. Task creation by manipulating `task_struct`, registers, and stack
@@ -203,7 +207,7 @@ Let's examine it line by line.
 
 *The figure above: During context switch, registers are being saved to task_struct.context*
 
-Next all callee-saved registers are stored in the order, in which they are defined in `cpu_context` structure. The current stack pointer is saved as `cpu_context.sp` and `x29` is saved as `cpu_context.fp` (frame pointer).
+Above: all callee-saved registers are stored in the order, in which they are defined in `cpu_context` structure. The current stack pointer is saved as `cpu_context.sp` and `x29` is saved as `cpu_context.fp` (frame pointer).
 
 Note: `x30`, the link register containing function return address, is stored as `cpu_context.pc`. Why?
 
@@ -215,7 +219,7 @@ Now we calculate the address of the next task's `cpu_context`:
 
 This a cute hack. `x10` contains `THREAD_CPU_CONTEXT` , the offset of the `cpu_context` structure inside `task_struct`. `x1` is a pointer to the next `task_struct`, so `x8` will contain a pointer to the next `cpu_context`.
 
-Now, restore the CPU context of "switch_to" task from memory to CPU regs. A mirror procedure. 
+Now, restore the CPU context of "switch_to" task from memory to CPU registers. A mirror procedure. 
 
 ```
     ldp    x19, x20, [x8], #16        // restore callee-saved registers

@@ -237,6 +237,8 @@ As we know that no code will use `x29` during `__create_page_tables` execution, 
     bl     memzero
 ```
 
+pg_dir is the virtual base address of the pgtables. Its actual value is set by the linker. Refer to the linker script (e.g. linker-qemu.ld) for details. 
+
 Next, we clear the initial page tables area. An important thing to understand here is where this area is located (x0) and how do we know its size (x1)? 
 
 * Initial page tables area is defined in the [linker script](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/src/linker.ld#L20) - this means that we are allocating the spot for this area in the kernel image itself. 
@@ -341,6 +343,11 @@ Parameters here are a little bit different.
 * `end` - virtual address of the last section to be mapped.
 * `flags` - flags that need to be copied into lower attributes of the block descriptor.
 * `tmp1` - temporary register.
+
+More about "SIZE": 
+
+* SECTION_SIZE: default 2MB. A "section" is ARM's term for its 2MB page, i.e. when a translation table has 3 levels. 
+* PAGE_SIZE: default 4KB. A page is 4KB, which is x86 convention and then adopted by almost all CPUs. 
 
 Now, let's examine the source.
 
@@ -849,6 +856,7 @@ el0_da:
 ```
 
 `el0_da` redirects the main work to the [do_mem_abort](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/src/mm.c#L101) function. This function takes two arguments
+
 1. The memory address which we tried to access. This address is taken from `far_el1`  register (Fault address register)
 1. The content of the `esr_el1` (Exception syndrome register)
 
