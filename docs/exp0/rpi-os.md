@@ -47,22 +47,18 @@ aarch64-linux-gnu-gcc (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0
 
 This is where you run the kernel code. 
 
-#### Compile QEMU from source 
+#### Run the QEMU executable 
 
 
-Grab the QEMU source.  Our QEMU is based on upstream v4.2 **with custom aarch64 debugging support.** 
+Our QEMU is based on upstream v4.2 with custom aarch64 debugging support. 
+To add it to your execution path: 
 
 ```
-git clone https://github.com/fxlin/qemu-cs4414.git qemu
-cd qemu
-./configure --target-list=aarch64-softmmu
-make -j`nproc`
-export PATH="$(pwd)/aarch64-softmmu:${PATH}"
+export PATH="/home/cs4414ta/shared/qemu/aarch64-softmmu:${PATH}"
 ```
 
-If successful, this will result in QEMU executables in ./aarch64-softmmu/. The last line above adds the path to our search path. 
-
-If you encounter compilation errors (e.g. unmet dependencies), make sure you run all `apt get` commands above. 
+This command has to be run for each new login. 
+To automate this process, you can append it to the end of your bash profile ("~/.bashrc").
 
 Now try QEMU & check its version. The supported machines should include Rpi3
 
@@ -77,7 +73,7 @@ raspi2               Raspberry Pi 2B
 raspi3               Raspberry Pi 3B
 ```
 
-#### Test the compilation
+#### Test QEMU
 
 Test QEMU with Rpi3 baremetal code (NOTE: this repo is for validating your toolchain & QEMU build; it is NOT our course project)
 
