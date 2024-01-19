@@ -3,7 +3,7 @@
 # xzl@granger1 (master)[p1-kernel]$ source env-qemu.sh
 #
 
-export PATH="/cs4414-shared/qemu/aarch64-softmmu:${PATH}"
+export PATH="/u/waq9hw/shared/qemu/aarch64-softmmu/:${PATH}"
 
 run-uart0() {
    qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial stdio 
