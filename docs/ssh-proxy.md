@@ -96,7 +96,7 @@ ssh -vv granger1.cs.virginia.edu
 ```
 Explanation: -vv tells ssh to dump its interactions with granger1 on negotiating keys. As a reference, my output is [here](granger1-ssh-output.txt). At the end of the output, you can see granger1 accepts my key offered from portal. 
 
-**Note to Windows Users**: if you try to invoke **native** ssh-copy-id.exe that comes with Windows (the one you can invoke in PowerShell or CMD, NOT the one in WSL), there may be some caveats. See [here](https://www.chrisjhart.com/Windows-10-ssh-copy-id/). I would say just invoke ssh-copy-id in WSL. 
+**Note to Windows Users**: if you try to invoke **native** ssh-copy-id.exe that comes with Windows (the one you can invoke in PowerShell or CMD, NOT the one in WSL), there may be some caveats. See [here](https://www.chrisjhart.com/Windows-10-ssh-copy-id/). Last resort is to copy the key manually.
 
 ### 2. Save connection info in SSH config
 
