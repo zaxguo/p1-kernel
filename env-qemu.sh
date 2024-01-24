@@ -28,8 +28,9 @@ run-debug() {
     # see comment above 
     # qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial stdio -s -S
 
-    echo "**Note: use Ctrl-a then x to terminate QEMU"
-    echo "	in a separate window, launch gdb: gdb-multiarch build/kernel8.elf"
+    echo "Listen at port: {MYGDBPORT}"
+    echo "**Note: to terminate QEMU, press Ctrl-a then x"
+    echo "	Next: in a separate window, launch gdb: gdb-multiarch build/kernel8.elf"
     echo "	configure gdb by editing ~/.gdbinit "
     echo "	details: https://fxlin.github.io/p1-kernel/gdb/"
     #qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -s -S
