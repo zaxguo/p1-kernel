@@ -6,6 +6,8 @@ Experiment descriptions are for you to read & reproduce. The assignments will be
 
 ```
 git clone https://github.com/fxlin/p1-kernel
+# load build commands
+cd p1-kernel && source env-qemu.sh
 ```
 
 A tiny kernel *incrementally built* for OS education. 

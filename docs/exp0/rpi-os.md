@@ -60,6 +60,12 @@ export PATH="/cs4414-shared/qemu/aarch64-softmmu/:${PATH}"
 This command has to be run for each new login. 
 To automate this process, you can append it to the end of your bash profile ("~/.bashrc").
 
+Alternatively,  you can load pre-defined commands (just make sure you understand env-qemu.sh). 
+```
+cd p1-kernel && source env-qemu.sh
+```
+
+
 Now try QEMU & check its version. The supported machines should include Rpi3
 
 ```

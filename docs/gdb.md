@@ -18,7 +18,7 @@ Note: the gdb for aarch64 is NOT called aarch64-XXXX-gdb.
 
 ### 1. Launch QEMU + the kernel and wait for the debugger
 
-1/24/2024: the below can be done with one command "p1-run-debug" (after "source env-qemus.sh")
+1/24/2024: the below can be done with one command "p1-run-debug" (after "source env-qemu.sh")
 
 ```
 # will wait for gdb to connect at local tcp 1234
