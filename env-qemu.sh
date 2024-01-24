@@ -82,7 +82,7 @@ AVAILABLE COMMANDS
     p1-run-log          Run qemu with the kernel, meanwhile writing qemu logs to qemu.log
     p1-run-debug        Run qemu with the kernel, GDB support on 
 
-    (see env-qemus.sh for more commands)
+    (see env-qemu.sh for more commands)
 EOF
 }
 
