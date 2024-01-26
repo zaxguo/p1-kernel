@@ -1,8 +1,10 @@
 # Accessing the course server(s)
 
-Last updated: 1/10/2024
+Last updated: 1/26/2024
 
 This document describes server resources and how to connect for development. 
+
+*Applicable to local machine: Windows, Linux, & Mac*
 
 |                          | hardware specs                                | OS               |
 | ------------------------ | --------------------------------------------- | ---------------- |
@@ -11,7 +13,7 @@ This document describes server resources and how to connect for development.
 
 * **VPN:** If you are off the grounds, you must connect the UVA VPN first. These servers are behind the campus firewall. 
 
-* **Login credentials**: Use your CS account (**NOT UVA computing ID**). 
+* **Login credentials**: Use your CS account (**NOT your UVA computing ID/password**). 
   * Forgot password? https://www.cs.virginia.edu/wiki/doku.php?id=accounts_password
   
 * **For non-CS students** without CS server accounts, email cshelpdesk@virginia.edu asking for creating an account, stating that you are in CS4414 and need access to granger1/2
@@ -20,11 +22,23 @@ This document describes server resources and how to connect for development.
 
 * **Load balance:** As the semester begins, TAs may inform you which server you should use primarily. 
 
-**Next, choose one of the routes below.** 
+## Note to Windows machine owners
 
-## Route 1: Terminal over SSH
+Your machine has two separate SSH clients (with separate configurations).
 
-*Applicable to local machine: Windows, Linux, & Mac*
+1. **Windows native SSH client**. It's a Windows program. Configuration: `c:\users\%username%\.ssh\`
+
+   When you type `ssh` from CMD or PowerShell, this is what you will invoke. 
+
+   This is also what VSCode's remote explorer will invoke. It will load the above configuration file. If VSCode SSH won't work, this SSH client needs to be configured (read on). 
+
+   ![](images/win-ssh-version.png)
+
+2. **WSL's SSH client**. It's a Linux program in the WSL virtual machine. Configuration: (inside WSL): `~/.ssh/`
+
+   It is only invoked if you type `ssh` within WSL environment. VSCode's remote explorer is not concerned with this SSH client. 
+
+## Step 1: Terminal over SSH
 
 Reference: CS wiki https://www.cs.virginia.edu/wiki/doku.php?id=linux_ssh_access
 
@@ -36,22 +50,24 @@ The picture below shows: from a local terminal (e.g. called "minibox"), connecti
 
 ### 1. Use key-based authentication in lieu of password 
 
-* Applicable to local machines: Linux, MacOS, & Windows (WSL)
+In the example below: 
 
-* "granger1" is used as example below. Replace it with "granger2" as needed.
+* "granger1" is used. Replace it with "granger2" as needed.
+* **Windows owners**: 
+  * to configure Windows native ssh (needed by VSCode in p1), use configuration path `c:\users\%username%\.ssh\`; type commands from Windows CMD or PowerShell
+  * to configure WSL ssh (needed by future projects), use configuration path `~/.ssh`; type commands from the WSL shell.
+  * you are recommended to configure both. 
 
 The pub key on your local machine is at `~/.ssh/id_rsa.pub`. Check out the file & its content. If it does not exist, generate a pub key by running `ssh-keygen`. 
 
 ```
-# on the local console (Mac, WSL, or Linux)
+# on the local console -- Mac, Linux, or Windows (WSL/CMD/PowerShell)
 $ ssh-keygen
 Generating public/private rsa key pair.
 Enter file in which to save the key (/home/xzl/.ssh/id_rsa):
 ```
 
-Now, append your public key to granger1 (`~/.ssh/authorized_keys`). 
-
-Don't do this manually. Instead, do so by the command `ssh-copy-id`. For instance: 
+Now, append your public key to granger1 (`~/.ssh/authorized_keys`). A quick way is by command `ssh-copy-id`. For instance: 
 
 ```
 # copy the pubkey from your local machine to granger1
@@ -96,7 +112,7 @@ ssh -vv granger1.cs.virginia.edu
 ```
 Explanation: -vv tells ssh to dump its interactions with granger1 on negotiating keys. As a reference, my output is [here](granger1-ssh-output.txt). At the end of the output, you can see granger1 accepts my key offered from portal. 
 
-**Note to Windows Users**: if you try to invoke **native** ssh-copy-id.exe that comes with Windows (the one you can invoke in PowerShell or CMD, NOT the one in WSL), there may be some caveats. See [here](https://www.chrisjhart.com/Windows-10-ssh-copy-id/). I would say just invoke ssh-copy-id in WSL. 
+**Note to Windows Users**: the native ssh-copy-id.exe (the one you invoke from PowerShell or CMD) was reported to show caveats. See [here](https://www.chrisjhart.com/Windows-10-ssh-copy-id/). Not sure if it fixed in newer Windows. If no luck, consider manual copy & paste keys. 
 
 ### 2. Save connection info in SSH config
 
@@ -118,23 +134,21 @@ $ ssh granger1
 $ ssh granger2
 ```
 
-## Route 2: Remote development with VSCode 
-
-*Applicable to local machine: Windows, Linux, & Mac*
+## Step 2: Remote development with VSCode 
 
 **Below we use Windows as the local machine example. Linux/Mac should be similar (even fewer caveats)**
 
-Many students may prefer VSCode on their local machine. Here is how to make it work. End results: being able to develop, compile, and do version control, without leaving the VSCode IDE. See an example screenshot below. 
+End results: being able to develop, compile, and do version control -- all from the VSCode IDE. 
 
 ![image-20210124192213976](images/vscode-remote-files.png)
 
-So we will use VSCode's official Remote.SSH extension. I do not recommend 3rd party extensions, e.g. sftp. 
+We will use VSCode's official Remote.SSH extension, which will connect to the course server using Windows native SSH. An official tutorial is [here](https://code.visualstudio.com/docs/remote/ssh). 
 
-An official tutorial is [here](https://code.visualstudio.com/docs/remote/ssh). 
-
-tl;dr: VSCode will connect to the course server (Linux) using SSH under the hood. To do so you install the "Remote development" [package](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack) which will install the "Remote.SSH" extension for VSCode. 
+To do so you install the "Remote development" [package](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack) which will install the "Remote.SSH" extension for VSCode. 
 
 ![](vscode-remove-ssh.png)
+
+After installation, click "Remote Explorer" on the left bar. The extension will pick up your ssh config file (again that's `C:/Users/%USERNAME%/.ssh/config`) and present a list of hosts recognized. Click one to connect to it. The extension will copy a bunch of stuffs to the host and launch some daemon on the host. Then you are connected. 
 
 ### Warning - 3rd party VSCode extensions 
 
@@ -142,7 +156,7 @@ When opening a large codebase on the server, these extensions may consume lots o
 
 If that happens, TAs have to manually kill your server processes. 
 
-### Windows caveat 1: ssh keys
+### Windows owners: ssh keys
 
 The extension (Remote.SSH) will invoke Window's ssh client (`c:\Windows\System32\OpenSSH\ssh.exe`).The Window's ssh client expects its config file at `C:\Users\%USERNAME%\.ssh\config`. This is NOT the ssh client you run from WSL. 
 
@@ -155,24 +169,6 @@ If you haven't generated your SSH keys so far, you can do so by launching a Powe
 | *Launch PowerShell*        | *ssh-keygen in PowerShell*           | *Access WSL root*       |
 
 Or, you can you copy existing ssh keys and config (e.g. from WSL `~/.ssh/`) to the location mentioned above. Btw, the way to access WSL's root filesystem is to type `\\wsl$` in the explorer address bar. See the figure above. 
-
-### Windows caveat 2: an outdated ssh client 
-
-The current VSCode has a bug that breaks ssh with jumphost. You have to manually fix it by following [this](https://github.com/microsoft/vscode-remote-release/issues/18#issuecomment-507258777). In a nutshell, manual download a newer win32 ssh to overwrite the one shipping with Win 10 (it's a good idea to save a back up). Window's security mechanism is in your way. Work around it. 
-
-**Note**: 1. Make sure to download the OpenSSH-Win64 version (not Win32). 2. Double check the SSH version. See the screenshot below.
-
-| ![](images/vscode-ssh-override.png) | ![](images/win-ssh-version.png) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| *Turning off protection on ssh.exe (see link above)*         | *The newer ssh client manually installed*                    |
-
-
-
-Now, you should be good to go with VSCode. 
-
-Make sure you have the Remote.SSH extension installed. Click "Remote Explorer" on the left bar. The extension will pick up your ssh config file (again that's `C:/Users/%USERNAME%/.ssh/config`) and present a list of hosts recognized. Click one to connect to it. The extension will copy a bunch of stuffs to the host and launch some daemon on the host. Then you are connected. 
-
-**Password-less login used to work fine, but suddenly breaks?** A common cause is that VSCode updates automatically, overwriting the ssh client you manually installed. Solution: check your ssh version and use the one we suggested. 
 
 ### Launch a terminal
 
@@ -197,12 +193,12 @@ Just drag and drop the files between VSCode's file list and your local directory
 
 ### Troubleshooting
 
-Things like Windows auto update may break VSCode's ssh configuration that worked previously. In this case, deleting (or moving to other places) the .vscode-server folder on the course servers (under the p1-kernel/ directory), close the remote connection, and close the local VSCode program. Then start from a clean slate. 
+Things like Windows auto update may break VSCode's ssh configuration that worked previously. In this case, try deleting (or moving to other places) the `.vscode-server` folder on the course servers (under the `p1-kernel/` directory), close all remote connections, and close the local VSCode program. Then start from a clean slate. 
 
 If things still break, seek help from the online discussion forum. Provide the following information: 
 
 - the error message of VSCode
-- the PowerShell output when you try to connect to **granger1** from the PowerShell command line
-- any recent Windows/VSCode updates
+- the PowerShell output when you try to connect to **granger1** from the PowerShell command line. Have you tried **granger2**?
+- any recent Windows/VSCode updates?
 - any other relevant information 
 
