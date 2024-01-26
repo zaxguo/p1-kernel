@@ -27,6 +27,7 @@ Code location: p1-kernel/src/exp1
 
 Please: do a `git pull` even if you have cloned the p1-kenel repo previously, in case of upstream updates. 
 
+Load pre-defined commands: "cd p1-kernel && source env-qemu.sh". Make sure you read env-qemu.sh.
 
 ## Roadmap
 

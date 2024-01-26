@@ -2,10 +2,10 @@
 
 **NOTE**: 
 
-1. Read the whole document before you attempt GDB. 
+1. Read the whole document before you try. 
 2. *WSL users who want to develop on local machines instead of the server*: gdbserver may not play well with WSL. See "troubleshooting"  below. You are fine if you develop on the server. 
 
-## GDB Installation 
+## GDB Installation (not needed if you use course servers)
 
 We've done this on the server already. Do this if developing on local machines (Linux or WSL). 
 
@@ -16,7 +16,9 @@ Note: the gdb for aarch64 is NOT called aarch64-XXXX-gdb.
 
 ## The workflow
 
-### Launch QEMU + the kernel and wait for the debugger
+### 1. Launch QEMU + the kernel and wait for the debugger
+
+1/24/2024: the below can be done with one command "p1-run-debug" (after "source env-qemu.sh")
 
 ```
 # will wait for gdb to connect at local tcp 1234
@@ -159,13 +161,7 @@ wget -P ~ https://raw.githubusercontent.com/fxlin/gdb-dashboard-aarch64/master/.
 
 There's only one file: `.gdbinit`. It's the initial script that GDB will load upon start. The above line download it to your home directory. 
 
-### Usage
-
-*All GDB commands still apply*, e.g. "si" is single step per instruction; "b" is to set a breakpoint; "c" for continuing execution. See below for more. 
-
-The major features here are multiple views: for registers, stack, assembly, and source. 
-
-#### Customize
+#### Set your port
 
 Open ~/.gdbinit. Go to near line 2500 where you can see initialization commands for GDB, e.g. 
 
@@ -175,6 +171,14 @@ target remote :1234
 ```
 
 > The port number (e.g. 1234) must match what you specified for QEMU.
+
+### Usage
+
+*All GDB commands still apply*, e.g. "si" is single step per instruction; "b" is to set a breakpoint; "c" for continuing execution. See below for more. 
+
+The major features here are multiple views: for registers, stack, assembly, and source. 
+
+#### Customize
 
 GDB execute these commands whenever it starts, so you do not have to type them every time. 
 

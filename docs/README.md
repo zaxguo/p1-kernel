@@ -6,13 +6,15 @@ Experiment descriptions are for you to read & reproduce. The assignments will be
 
 ```
 git clone https://github.com/fxlin/p1-kernel
+# load build commands
+cd p1-kernel && source env-qemu.sh
 ```
 
 A tiny kernel *incrementally built* for OS education. 
 
 Start with minimal, baremetal code. Then each assignment adds new features. Each experiment is a self-contained and can run on both Rpi3 hardware and QEMU. 
 
-**There is a top-right search box -- use it!**
+**On the website, there is a top-right search box -- use it!**
 
 ## Learning objectives
 
@@ -46,7 +48,7 @@ Start with minimal, baremetal code. Then each assignment adds new features. Each
 0. **[Sharpen your tools!](exp0/rpi-os.md)** (p1 exp0) 
 1. **Helloworld from baremetal** (p1 exp1) 
       * [Power on + UART bring up](exp1/rpi-os.md)
-      * [Simplifying dev workflow](exp1/workflow.md)
+      * [Simplifying dev workflow (rpi3 hardware only)](exp1/workflow.md)
 2. **Exception elevated** (p1 exp2) 
       * [CPU initialization, exception levels](exp2/rpi-os.md)
 3. **Heartbeats on** (p1 exp3) 
