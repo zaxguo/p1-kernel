@@ -26,7 +26,7 @@ This document describes server resources and how to connect for development.
 
 Your machine has two separate SSH clients (with separate configurations).
 
-1. **Windows native SSH client**. It's a Windows program. Configuration: `c:\users\%username%\.ssh\`
+**Windows native SSH client**. It's a Windows program. Configuration: `c:\users\%username%\.ssh\`
 
    When you type `ssh` from CMD or PowerShell, this is what you will invoke. 
 
@@ -34,7 +34,7 @@ Your machine has two separate SSH clients (with separate configurations).
 
    ![](images/win-ssh-version.png)
 
-2. **WSL's SSH client**. It's a Linux program in the WSL virtual machine. Configuration: (inside WSL): `~/.ssh/`
+**WSL's SSH client**. It's a Linux program in the WSL virtual machine. Configuration: (inside WSL): `~/.ssh/`
 
    It is only invoked if you type `ssh` within WSL environment. VSCode's remote explorer is not concerned with this SSH client. 
 
@@ -48,7 +48,7 @@ The picture below shows: from a local terminal (e.g. called "minibox"), connecti
 
 
 
-### 1. Use key-based authentication in lieu of password 
+### 1.1. Use key-based authentication in lieu of password 
 
 In the example below: 
 
@@ -114,7 +114,7 @@ Explanation: -vv tells ssh to dump its interactions with granger1 on negotiating
 
 **Note to Windows Users**: the native ssh-copy-id.exe (the one you invoke from PowerShell or CMD) was reported to show caveats. See [here](https://www.chrisjhart.com/Windows-10-ssh-copy-id/). Not sure if it fixed in newer Windows. If no luck, consider manual copy & paste the key. 
 
-### 2. Save connection info in SSH config
+### 1.2. Save connection info in SSH config
 
 Append the following to your ssh client configuration (`~/.ssh/config`). **Replace USERNAME with your actual username**: 
 
