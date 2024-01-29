@@ -9,7 +9,7 @@ Explanation: -e specifies the ELF file with debugging info, followed by a given 
 ## List all symbols & addresses
 
 ```
-$ nm build/kernel8.elf
+nm build/kernel8.elf
 ```
 
 Sample output: [kernel8.nm](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/kernel8.nm)
