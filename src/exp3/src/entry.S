@@ -51,7 +51,7 @@
 	str	x30, [sp, #16 * 15] 
 	.endm
 
-	// A mirror of kernel_entry, to be called as the last thing of an exception handler
+	// A mirror of kernel_entry (above), to be called as the last thing of an exception handler
 	.macro	kernel_exit
 	// restores the CPU state by copying back the values of x0 - x30
 	ldp	x0, x1, [sp, #16 * 0]
