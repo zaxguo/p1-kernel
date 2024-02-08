@@ -95,7 +95,7 @@ vectors:
 	ventry	error_invalid_el1t			// Error EL1t
 
 	// EL1h -- Exception happens at EL1 at the time when a dedicated SP was allocated for EL1.
-	//  		This is the mode that our kernel is are currently using
+	//  		This is the mode that our kernel is currently using
 	ventry	sync_invalid_el1h			// Synchronous EL1h   (also try ventry try_to_return)
 	ventry	el1_irq						// IRQ EL1h
 	ventry	fiq_invalid_el1h			// FIQ EL1h
