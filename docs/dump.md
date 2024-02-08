@@ -9,10 +9,10 @@ Explanation: -e specifies the ELF file with debugging info, followed by a given 
 ## List all symbols & addresses
 
 ```
-$ nm build/kernel8.elf
+nm build/kernel8.elf
 ```
 
-Sample output: [kernel8.nm](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/kernel8.nm)
+Output format: "link address" - "symbol type" - "symbol name". Sample output below. Your symbol names & addresses may be different.
 
 ```assembly
 ffff000000082934 t a2d
@@ -27,8 +27,6 @@ ffff00000008112e R user_end
 ffff00000008105c T user_process
 ```
 
-Format: "link address" - "symbol type" - "symbol name"
-
 ## Kernel disassembly 
 
 ### Disassemble the whole kernel
@@ -37,7 +35,7 @@ aarch64-linux-gnu-objdump -dS build/kernel8.elf
 ```
 Explanation: -d disassembly; -S interleave assembly instructions with source
 
-Sample output: [kernel8.objdump](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/kernel8.objdump)
+Sample output: 
 
 ```assembly
 build/kernel8.elf:     file format elf64-littleaarch64
@@ -73,6 +71,8 @@ aarch64-linux-gnu-objdump -dS build/kernel8.elf \
 --stop-address=0xffff00000008112e 
 ```
 
+Explanation: -d disassembly; -S interleave assembly instructions with source
+
 Sample output: 
 
 ```
@@ -99,7 +99,7 @@ ffff00000008100c:       790053bf        strh    wzr, [x29, #40]
 gdb-multiarch -batch -ex 'file build/kernel8.elf' -ex 'disassemble /mr loop'
 ```
 
-(Note: -multiarch is the gdb version that can recognize aarch64 instructions)
+Explanation: -multiarch is the gdb version that can recognize aarch64 instructions. 
 
 Sample output:
 
@@ -134,9 +134,16 @@ Contents of section .rodata:                                                    
  ffff000000084a18 696c6520 73746172 74696e67 206b6572  ile starting ker
 ```
 
-## Online disassembler (ODA)
+## Disassemblers 
 
-https://onlinedisassembler.com/odaweb/
+### Online aarch64 disassemblers
+
+- [https://armconverter.com](https://armconverter.com/)
+- https://shell-storm.org/online/Online-Assembler-and-Disassembler
+
+### ODA (offline for now, for archival purpose)
+
+https://onlinedisassembler.com/odaweb/  
 
 A nice web UI for disassembling ELF files
 
