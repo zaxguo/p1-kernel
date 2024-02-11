@@ -279,7 +279,7 @@ gen_timer_init:
 	ret
 ```
 
-This writes 1 to the control register (`CNTP_CTL_EL0`) of **the EL1 physical timer**. See [here](https://developer.arm.com/docs/ddi0595/latest/aarch64-system-registers/cntp_ctl_el0) for the register definition. 
+This writes 1 to the control register (`CNTP_CTL_EL0`) of **the EL1 physical timer**. Google "ddi0595 CNTP_CTL_EL0" for the register definition. 
 
 Note: some students observed that if at the time of writing to CNTP_CTL_EL0 the timer firing condition is met (i.e. TVAL is a negative value), an interrupt will be fired immediately. 
 If you experience the same thing, you should omit the spurious interrupt.
