@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "mm.h"
 
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};

@@ -9,6 +9,7 @@
  * 2014-04-03     Grissiom     many enhancements
  * 2018-11-22     Jesven       add rt_hw_ipi_send()
  *                             add rt_hw_ipi_handler_install()
+ * Feb 2024: gicv2 code adopted by xzl
  */
 
 #include "gic.h"

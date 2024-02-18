@@ -1,12 +1,1 @@
-SECTIONS
-{
-   . = 0x80000;
-	.text.boot : { *(.text.boot) }
-	.text : { *(.text) }
-	. = ALIGN(0x8);
-	bss_begin = .;
-	.bss : { *(.bss*) } 
-	bss_end = .;	
-	.rodata : { *(.rodata) }
-	.data : { *(.data) }
-}
+../../exp1/src/linker-qemu.ld

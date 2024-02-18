@@ -24,9 +24,8 @@
  */
 
 #include "printf.h"
-#include "mbox.h"
+#include "plat-rpi3.h"
 #include "rev_uva_logo_color3-resized.h"
-
 
 static unsigned char *lfb;
 

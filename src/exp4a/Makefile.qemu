@@ -1,8 +1,11 @@
 ARMGNU ?= aarch64-linux-gnu
 
-COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only -g -O0 -DUSE_QEMU
+COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc -mgeneral-regs-only \
+-g -O0 -DUSE_QEMU -DPLAT_VIRT
+
 # COPS += -DUSE_LFB		# uncomment this to enable GUI console. 
-ASMOPS = -Iinclude  -g -DUSE_QEMU
+ASMOPS = -Isrc  -g -DUSE_QEMU \
+-DPLAT_VIRT
 
 BUILD_DIR = build
 SRC_DIR = src

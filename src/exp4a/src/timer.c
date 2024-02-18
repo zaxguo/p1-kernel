@@ -1,7 +1,6 @@
 #include "utils.h"
 #include "printf.h"
 #include "sched.h"
-#include "peripherals/timer.h"
 #include "timer.h"
 
 #ifdef USE_QEMU
