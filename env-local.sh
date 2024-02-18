@@ -1,13 +1,7 @@
-# To use: 
-#
-# xzl@granger1 (master)[p1-kernel]$ source env-qemu.sh
-#
-
-export PATH="/cs4414-shared/qemu/aarch64-softmmu/:${PATH}"
-MYQEMU="qemu-system-aarch64 -M virt,gic-version=2 -cpu cortex-a53 -m 128M -smp 4"
+export PATH=$HOME/"qemu/aarch64-softmmu/:${PATH}"
 
 run-uart0() {
-   ${MYQEMU} -kernel ./kernel8.img -serial stdio -nographic
+   qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial stdio 
 }
 
 run() {
@@ -18,12 +12,11 @@ run() {
     # to avoid, launch w/o graphics...
     echo "**Note: use Ctrl-a then x to terminate QEMU"
     echo " ------------------------------------------------"
-    #qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial mon:stdio -nographic
-    ${MYQEMU} -kernel ./kernel8.img -serial null -serial mon:stdio -nographic
+    qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial mon:stdio -nographic
 }
 
 run-mon() {
-    ${MYQEMU} -kernel ./kernel8.img -monitor stdio
+    qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -monitor stdio
 }
 
 # adopted from p3 env.sh
@@ -50,13 +43,14 @@ run-debug() {
     echo "  You may want to have a custom ~/.gdbinit "
     echo "	Details: https://fxlin.github.io/p1-kernel/gdb/"
     echo " ------------------------------------------------"
-    ${MYQEMU} -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -gdb tcp::${MYGDBPORT} -S
+    #qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -s -S
+    qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -gdb tcp::${MYGDBPORT} -S
 }
 
 run-log() {
     # qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial stdio -d int -D qemu.log 
     echo "**Note: use Ctrl-a then x to terminate QEMU"
-    ${MYQEMU} -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -d int -D qemu.log 
+    qemu-system-aarch64 -M raspi3 -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -d int -D qemu.log 
 }
 
 p1-run() {
@@ -90,4 +84,3 @@ EOF
 echo "QEMU is set to: " `whereis qemu-system-aarch64`
 p1-gen-hash-ports
 usage
-

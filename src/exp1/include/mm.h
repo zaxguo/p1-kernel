@@ -5,10 +5,12 @@
 #define TABLE_SHIFT 			9
 #define SECTION_SHIFT			(PAGE_SHIFT + TABLE_SHIFT)
 
+#define PHYS_BASE       0x40080000      // for qemu's "-M virt"
+
 #define PAGE_SIZE   			(1 << PAGE_SHIFT)	
 #define SECTION_SIZE			(1 << SECTION_SHIFT)	
 
-#define LOW_MEMORY              	(2 * SECTION_SIZE)
+#define LOW_MEMORY              	(PHYS_BASE + 2 * SECTION_SIZE)
 
 #ifndef __ASSEMBLER__
 

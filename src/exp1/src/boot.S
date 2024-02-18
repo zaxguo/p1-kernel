@@ -44,6 +44,8 @@ master:
 	# As our kernel's stack won't grow very large and the code/data itself is 
 	# tiny, 4MB is more than enough for us. 
 
-	mov	sp, #LOW_MEMORY 
+	#mov	sp, #LOW_MEMORY 
+	ldr	x0, =LOW_MEMORY
+	mov sp, x0
 	bl	kernel_main		// c function, kernel.c
 	b 	proc_hang		// should never reach here
