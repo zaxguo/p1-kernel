@@ -40,7 +40,7 @@ void handle_generic_timer_irq( void )
 
 
 /* 
-	These are for "System Timer". They are NOT in use by this project. 
+	These are for Rpi3's "System Timer". They are NOT in use by this project. 
 	I leave the code here FYI. 
 	Rpi3: System Timer works fine. Can generate intrerrupts and be used as a counter for timekeeping.
 	QEMU: System Timer can be used for timekeeping. Cannot generate interrupts. 

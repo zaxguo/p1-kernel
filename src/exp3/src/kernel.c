@@ -4,6 +4,7 @@
 #include "mini_uart.h"
 #include "utils.h"
 
+#include "gic.h"
 
 void kernel_main(void)
 {

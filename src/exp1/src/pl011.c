@@ -7,8 +7,6 @@
 #include "utils.h"
 // #include "peripherals/pl011.h"
 
-#define __REG32(x)      (*((volatile uint32_t *)(x)))
-
 #define UART_DR(base)   __REG32(base + 0x00)
 #define UART_FR(base)   __REG32(base + 0x18)
 #define UART_CR(base)   __REG32(base + 0x30)
