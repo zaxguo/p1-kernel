@@ -1,7 +1,6 @@
 #include "utils.h"
 #include "printf.h"
 #include "sched.h"
-#include "timer.h"
 
 #ifdef USE_QEMU
 int interval = (1 << 26); // xzl: around 1 sec

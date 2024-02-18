@@ -1,5 +1,4 @@
 #include "sched.h"
-#include "irq.h"
 #include "printf.h"
 
 static struct task_struct init_task = INIT_TASK; // the very first task with its task_struct values

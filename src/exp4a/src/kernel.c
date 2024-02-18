@@ -1,10 +1,7 @@
 #include "printf.h"
 #include "utils.h"
-#include "timer.h"
-#include "irq.h"
 #include "fork.h"
 #include "sched.h"
-#include "mini_uart.h"
 
 #ifdef USE_LFB
 #include "lfb.h"
