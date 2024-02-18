@@ -18,12 +18,16 @@ master:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED 	
 	msr	sctlr_el1, x0		// System Control Register (EL1) 
 
+	mrs x0, CurrentEL
+    lsr x0, x0, #2
+
 	ldr	x0, =HCR_VALUE  	
 	msr	hcr_el2, x0  		// Hypervisor Configuration (EL2) 
 
 	// prep for the ``eret'' (exception return) instruction below. 
-
-#ifdef USE_QEMU 			// --> QEMU boots from EL2. cannot do things to EL3			
+#ifdef USE_QEMU 			
+	// --> By default QEMU (-M virt) boots from EL1. To boot from EL2, use: 
+	//		qemu-system-aarch64	... -M virt,virtualization=on ...
 	ldr	x0, =SPSR_VALUE		// spsr_el2 controls the consequence of exception return (eret), including the new exception level (EL1)
 	msr	spsr_el2, x0		// make sure to check out the def of SPSR_VALUE (include/arm/sysregs.h)
 
@@ -63,6 +67,7 @@ el1_entry_another:
 	bl 	memzero
 
 el1_entry:
-	mov	sp, #LOW_MEMORY
+	ldr	x0, =LOW_MEMORY
+	mov sp, x0
 	bl	kernel_main		// kernel.c
 	b 	proc_hang		// should never come here

@@ -68,3 +68,8 @@ void uart_init (void) {
     UART_DEVICE->CR |= CR_UARTEN;
 #endif    
 }
+
+// This function is required by printf function
+void putc(void* p, char c) {
+	uart_send(c);
+}
