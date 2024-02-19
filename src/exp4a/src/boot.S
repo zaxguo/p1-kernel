@@ -51,3 +51,11 @@ el1_entry:
 	mov sp, x0
 	bl	kernel_main		// kernel.c
 	b 	proc_hang		// should never come here
+
+
+.globl memzero
+memzero:
+	str xzr, [x0], #8
+	subs x1, x1, #8
+	b.gt memzero
+	ret

@@ -1,5 +1,5 @@
+#include "utils.h"
 #include "sched.h"
-#include "irq.h"
 #include "printf.h"
 
 static struct task_struct init_task = INIT_TASK;
