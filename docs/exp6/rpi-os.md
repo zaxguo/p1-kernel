@@ -151,7 +151,7 @@ As I mentioned in the previous section, each block descriptor contains a set of 
 
 **Memory attribute indirection** 
 
-ARMv8 architecture introduces `mair_el1` register. See [its definition](https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/mair_el1). This register consists of 8 slots, each spanning 8 bits. Each slot configures a common set of attributes. A descriptor then specifies just an index of the `mair` slot, instead of specifying all attributes directly. This allows using only 3 bits in the descriptor to reference a `mair` slot. We are using only a few of available attribute options. [Here](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/include/arm/mmu.h#L11) is the code that prepares values for the `mair` register.
+ARMv8 architecture introduces `mair_el1` register (Search for "mair_el1 ddi0595" for definition). This register consists of 8 slots, each spanning 8 bits. Each slot configures a common set of attributes. A descriptor then specifies just an index of the `mair` slot, instead of specifying all attributes directly. This allows using only 3 bits in the descriptor to reference a `mair` slot. We are using only a few of available attribute options. [Here](https://github.com/fxlin/p1-kernel/blob/master/src/exp6/include/arm/mmu.h#L11) is the code that prepares values for the `mair` register.
 
 ```
 // arm/mmu.h
