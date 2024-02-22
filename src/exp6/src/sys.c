@@ -1,16 +1,12 @@
-#include "fork.h"
-#include "printf.h"
 #include "utils.h"
 #include "sched.h"
-#include "mm.h"
-
 
 void sys_write(char * buf){
 	printf(buf);
 }
 
 int sys_fork(){
-	return copy_process(0, 0, 0);
+	return copy_process(0 /*clone_flags*/, 0 /*fn*/, 0 /*arg*/);
 }
 
 void sys_exit(){

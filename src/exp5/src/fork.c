@@ -1,9 +1,6 @@
-#include "mm.h"
-#include "sched.h"
-#include "printf.h"
-#include "fork.h"
-#include "entry.h"
 #include "utils.h"
+#include "sched.h"
+#include "entry.h"
 
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long stack)
 {

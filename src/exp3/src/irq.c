@@ -1,5 +1,4 @@
 #include "utils.h"
-#include "printf.h"
 #include "entry.h"
 
 #ifdef PLAT_VIRT
@@ -40,8 +39,8 @@ void enable_interrupt_controller()
 #endif
 
 #ifdef PLAT_VIRT
-    arm_gic_dist_init(0 /* core */, QEMU_GIC_DIST_BASE, 0 /*irq start*/);
-    arm_gic_cpu_init(0 /* core*/, QEMU_GIC_CPU_BASE);
+    arm_gic_dist_init(0 /* core */, VA_START + QEMU_GIC_DIST_BASE, 0 /*irq start*/);
+    arm_gic_cpu_init(0 /* core*/, VA_START + QEMU_GIC_CPU_BASE);
     arm_gic_umask(0 /* core */, IRQ_ARM_GENERIC_TIMER);
     // gic_dump(); // debugging 
 #endif

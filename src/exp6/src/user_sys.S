@@ -1,6 +1,6 @@
 .section ".text.user"
 
-.set SYS_WRITE_NUMBER, 0 		// syscal numbers 
+.set SYS_WRITE_NUMBER, 0 		// syscall numbers 
 .set SYS_FORK_NUMBER, 1 	
 .set SYS_EXIT_NUMBER, 2 	
 

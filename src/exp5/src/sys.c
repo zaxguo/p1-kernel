@@ -1,8 +1,5 @@
-#include "fork.h"
-#include "printf.h"
 #include "utils.h"
 #include "sched.h"
-#include "mm.h"
 
 void sys_write(char * buf){
 	printf(buf);

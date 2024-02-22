@@ -1,5 +1,5 @@
-#include "mm.h"
-#include "arm/mmu.h"
+#include "utils.h"
+#include "mmu.h"
 
 /* 
 	minimalist page allocation 
@@ -44,7 +44,7 @@ void free_page(unsigned long p){
 	Virtual memory implementation
 */
 
-/* set a pte (at the bottom of a pgtable tree), 
+/* set a pte (at the lowest lv of a pgtable tree), 
    so that @va is mapped to @pa. @pte: the 0-th pte of that pgtable */
 void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	unsigned long index = va >> PAGE_SHIFT;
@@ -128,6 +128,7 @@ int copy_virt_memory(struct task_struct *dst) {
 
 static int ind = 1;
 
+// called from el0_da, which was from data access exception 
 int do_mem_abort(unsigned long addr, unsigned long esr) {
 	unsigned long dfs = (esr & 0b111111);
 	/* whether the current exception is actually a translation fault.. */		

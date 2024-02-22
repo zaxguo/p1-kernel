@@ -1,9 +1,6 @@
-#include "sched.h"
-#include "irq.h"
-#include "printf.h"
-#include "fork.h"
 #include "utils.h"
-#include "mm.h"
+#include "sched.h"
+#include "printf.h"
 
 static struct task_struct init_task = INIT_TASK;
 struct task_struct *current = &(init_task);
@@ -23,12 +20,22 @@ void preempt_enable(void)
 
 void _schedule(void)
 {
-	preempt_disable();
+	/* ensure no context happens in the following code region
+		we still leave irq on, because irq handler may set a task to be TASK_RUNNING, which 
+		will be picked up by the scheduler below */
+		
+	preempt_disable(); 
 	int next,c;
 	struct task_struct * p;
 	while (1) {
-		c = -1;
+		c = -1; // the maximum counter of all tasks 
 		next = 0;
+
+		/* Iterates over all tasks and tries to find a task in 
+		TASK_RUNNING state with the maximum counter. If such 
+		a task is found, we immediately break from the while loop 
+		and switch to this task. */
+
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
 			if (p && p->state == TASK_RUNNING && p->counter > c) {
@@ -39,6 +46,12 @@ void _schedule(void)
 		if (c) {
 			break;
 		}
+
+		/* If no such task is found, this is either because i) no 
+		task is in TASK_RUNNING state or ii) all such tasks have 0 counters.
+		in our current implemenation which misses TASK_WAIT, only condition ii) is possible. 
+		Hence, we recharge counters. Bump counters for all tasks once. */
+		
 		for (int i = 0; i < NR_TASKS; i++) {
 			p = task[i];
 			if (p) {
@@ -46,7 +59,7 @@ void _schedule(void)
 			}
 		}
 	}
-	switch_to(task[next], next);
+	switch_to(task[next]);
 	preempt_enable();
 }
 
@@ -56,30 +69,47 @@ void schedule(void)
 	_schedule();
 }
 
-
-void switch_to(struct task_struct * next, int index) 
+void switch_to(struct task_struct * next) 
 {
 	if (current == next) 
 		return;
 	struct task_struct * prev = current;
 	current = next;
-	cpu_switch_to(prev, next);
+
+	/*	 
+		below is where context switch happens. 
+
+		after cpu_switch_to(), the @prev's cpu_context.pc points to the instruction right after  
+		cpu_switch_to(). this is where the @prev task will resume in the future. 
+		for example, shown as the arrow below: 
+
+			cpu_switch_to(prev, next);
+			80d50:       f9400fe1        ldr     x1, [sp, #24]
+			80d54:       f94017e0        ldr     x0, [sp, #40]
+			80d58:       9400083b        bl      82e44 <cpu_switch_to>
+		==> 80d5c:       14000002        b       80d64 <switch_to+0x58>
+	*/
+	cpu_switch_to(prev, next);  /* will branch to @next->cpu_context.pc ...*/
 }
 
 void schedule_tail(void) {
 	preempt_enable();
 }
 
+
 void timer_tick()
 {
 	--current->counter;
-	if (current->counter>0 || current->preempt_count >0) {
+	if (current->counter > 0 || current->preempt_count > 0) 
 		return;
-	}
 	current->counter=0;
+
+	/* Note: we just came from an interrupt handler and CPU just automatically disabled all interrupts. 
+		Now call scheduler with interrupts enabled */
 	enable_irq();
 	_schedule();
-	disable_irq();
+	/* disable irq until kernel_exit, in which eret will resort the interrupt flag from spsr, which sets it on. */
+	disable_irq(); 
 }
 
 void exit_process(){

@@ -5,7 +5,6 @@
 
 #include <stdint.h>
 #include "utils.h"
-// #include "peripherals/pl011.h"
 
 #define UART_DR(base)   __REG32(base + 0x00)
 #define UART_FR(base)   __REG32(base + 0x18)
@@ -20,7 +19,8 @@
 #define UARTICR_RXIC    0x10
 #define UARTICR_TXIC    0x20
 
-static unsigned long hw_base = 0x09000000; 
+#define UART_PHYS   0x09000000      // from qemu "info mtree"
+static unsigned long hw_base = UART_PHYS;  // we are on phys addr space
 
 void uart_send (char c) {
     while (UART_FR(hw_base) & UARTFR_TXFF)

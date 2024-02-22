@@ -1,10 +1,5 @@
-#include "printf.h"
 #include "utils.h"
-#include "timer.h"
-#include "irq.h"
 #include "sched.h"
-#include "fork.h"
-#include "mini_uart.h"
 #include "sys.h"
 
 /* reasonable rate of printing characters...*/
@@ -37,7 +32,7 @@ void user_process(){
 	}
 	int err = call_sys_clone((unsigned long)&user_process1, (unsigned long)"12345", stack);
 	if (err < 0){
-		printf("Error while clonning process 1\n\r");
+		printf("Error while cloning process 1\n\r");
 		return;
 	} 
 	stack = call_sys_malloc();
@@ -45,9 +40,9 @@ void user_process(){
 		printf("Error while allocating stack for process 1\n\r");
 		return;
 	}
-	err = call_sys_clone((unsigned long)&user_process1, (unsigned long)"abcd", stack);
+	err = call_sys_clone((unsigned long)&user_process1, (unsigned long)"abcde", stack);
 	if (err < 0){
-		printf("Error while clonning process 2\n\r");
+		printf("Error while cloning process 2\n\r");
 		return;
 	} 
 	call_sys_exit();
