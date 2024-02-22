@@ -1,4 +1,6 @@
 qemu.log
+kernel8.asm
+*.old
 
 old/*
 site/*
@@ -33,3 +35,5 @@ GSYMS
 GTAGS
 
 .gdb_history
+
+
