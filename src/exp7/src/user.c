@@ -1,0 +1,39 @@
+#include "user_sys.h"
+#include "user.h"
+#include "printf.h"
+
+static void user_delay (unsigned long cnt) {
+	volatile unsigned long c = cnt; 
+	while (c)
+		c--; 
+}
+
+void loop(char* str)
+{
+	char buf[2] = {""};
+	while (1){
+		for (int i = 0; i < 5; i++){
+			buf[0] = str[i];
+			call_sys_write(buf);
+			user_delay(1000000);
+		}
+	}
+}
+
+void user_process() 
+{
+	call_sys_write("User process entry\n\r");
+	int pid = call_sys_fork();
+	if (pid < 0) {
+		call_sys_write("Error during fork\n\r");
+		call_sys_exit();
+		return;
+	}
+	call_sys_write("fork() succeeds \n\r");
+	if (pid == 0){
+		loop("abcde");
+	} else {
+		loop("12345");
+	}
+}
+
