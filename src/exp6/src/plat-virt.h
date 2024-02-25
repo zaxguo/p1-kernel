@@ -19,7 +19,7 @@
 
 // TODO: move below to mmu.h
 #define PAGE_MASK			    0xfffffffffffff000
-#define PAGE_SHIFT	 	12
+#define PAGE_SHIFT	 	    12
 #define TABLE_SHIFT 		9
 #define SECTION_SHIFT		(PAGE_SHIFT + TABLE_SHIFT)
 #define SUPERSECTION_SHIFT      (PAGE_SHIFT + 2*TABLE_SHIFT)      //30, 2^30 = 1GB

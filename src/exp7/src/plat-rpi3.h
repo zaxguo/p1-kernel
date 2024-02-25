@@ -20,6 +20,7 @@
 #define PAGING_MEMORY           (HIGH_MEMORY - LOW_MEMORY)
 #define PAGING_PAGES            (PAGING_MEMORY/PAGE_SIZE)
 
+
 // ---------------- gpio ------------------------------------ //
 
 #define GPFSEL1         (PBASE+0x00200004)

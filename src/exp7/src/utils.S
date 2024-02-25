@@ -6,14 +6,24 @@ irq_vector_init:
 	msr	vbar_el1, x0		// vector table address
 	ret
 
+// daifclr/set 
 .globl enable_irq
 enable_irq:
-	msr    daifclr, #2 
+	msr    daifclr, #0b0010 
 	ret
 
 .globl disable_irq
 disable_irq:
-	msr	daifset, #2
+	msr	daifset, #0b0010 
+	ret 
+
+.global is_irq_masked
+is_irq_masked:
+	# xzl: which daifset/clr are lowest four bits, daif seems bit9--6
+	# https://developer.arm.com/documentation/ddi0601/2023-12/AArch64-Registers/DAIF--Interrupt-Mask-Bits
+	mrs x0, daif 
+	lsr x0, x0, #7 
+	and x0, x0, #1
 	ret
 
 // ----------------- arm generic timer  --------------------------- //
@@ -49,6 +59,7 @@ gen_timer_reset:
     ret
 
 // ----------------------- pgd --------------------------------------------//
+// ttbr0, user va
 .globl set_pgd
 set_pgd:
 	msr	ttbr0_el1, x0

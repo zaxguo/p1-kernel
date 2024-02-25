@@ -3,7 +3,8 @@
 #include "syscall.h"
 
 	.macro handle_invalid_entry el, type
-	kernel_entry \el
+	# xzl: bad - if sp is already bad, this could trigger more exception
+	kernel_entry \el		
 	mov	x0, #\type
 	mrs	x1, esr_el1
 	mrs	x2, elr_el1
@@ -106,7 +107,7 @@ vectors:
 	ventry	error_invalid_el1t			// Error EL1t
 
 	ventry	sync_invalid_el1h			// Synchronous EL1h
-	ventry	el1_irq					// IRQ EL1h
+	ventry	el1_irq						// IRQ EL1h
 	ventry	fiq_invalid_el1h			// FIQ EL1h
 	ventry	error_invalid_el1h			// Error EL1h
 

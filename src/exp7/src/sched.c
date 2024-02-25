@@ -7,6 +7,10 @@ struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
 int nr_tasks = 1;
 
+struct cpu cpus[NCPU]; 
+
+// this only prevents timer_tick() from calling schedule(). 
+// they don't prevent voluntary switch; or irq context
 void preempt_disable(void)
 {
 	current->preempt_count++;
@@ -21,7 +25,7 @@ void preempt_enable(void)
 void _schedule(void)
 {
 	/* Ensure no context happens in the following code region. 
-		We still leave irq on, because irq handler may set a task to be TASK_RUNNING, which 
+		We still leave irq on, because irq handler may set a task to be TASK_RUNNABLE, which 
 		will be picked up by the scheduler below */		
 	preempt_disable(); 
 	int next,c;
@@ -36,19 +40,22 @@ void _schedule(void)
 		a task is found, we immediately break from the while loop 
 		and switch to this task. */
 
+		push_off();  // our scheduler lock, as irq context may touch @tasks 
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
-			if (p && p->state == TASK_RUNNING && p->counter > c) {
+			if (p && (p->state == TASK_RUNNING || p->state == TASK_RUNNABLE)
+						&& p->counter > c) {
 				c = p->counter;
 				next = i;
 			}
 		}
+		pop_off(); 
 		if (c) {
 			break;
 		}
 
 		/* If no such task is found, this is either because i) no 
-		task is in TASK_RUNNING state or ii) all such tasks have 0 counters.
+		task is in TASK_RUNNING|RUNNABLE state or ii) all such tasks have 0 counters.
 		in our current implemenation which misses TASK_WAIT, only condition ii) is possible. 
 		Hence, we recharge counters. Bump counters for all tasks once. */
 		
@@ -71,10 +78,18 @@ void schedule(void)
 
 void switch_to(struct task_struct * next) 
 {
+	struct task_struct * prev; 
+
 	if (current == next) 
 		return;
-	struct task_struct * prev = current;
+
+	prev = current;
 	current = next;
+
+	if (prev->state == TASK_RUNNING) // preempted 
+		prev->state = TASK_RUNNABLE; 
+	current->state = TASK_RUNNING;
+
 	set_pgd(next->mm.pgd);
 
 	/*	 
@@ -97,7 +112,6 @@ void schedule_tail(void) {
 	preempt_enable();
 }
 
-
 void timer_tick()
 {
 	// printf("%s counter %d preempt_count %d \n", __func__, current->counter, current->preempt_count);
@@ -115,15 +129,120 @@ void timer_tick()
 	disable_irq(); 
 }
 
-void exit_process(){
-	preempt_disable();
-	for (int i = 0; i < NR_TASKS; i++){
-		if (task[i] == current) {
-			task[i]->state = TASK_ZOMBIE;
-			break;
-		}
-	}	
-	/* no need to free stack page...*/
-	preempt_enable();
-	schedule();
+void exit_process() {
+    preempt_disable();
+    for (int i = 0; i < NR_TASKS; i++) {
+        if (task[i] == current) {
+            task[i]->state = TASK_ZOMBIE;
+            break;
+        }
+    }
+    /* no need to free stack page...*/
+    preempt_enable();
+    schedule();
+}
+
+// Atomically release lock and sleep on chan.
+// Reacquires lock when awakened.
+// xzl: called with @lk held
+void sleep(void *chan, struct spinlock *lk) {
+    struct task_struct *p = current;
+
+    // Must acquire p->lock in order to
+    // change p->state and then call sched.
+    // Once we hold p->lock, we can be
+    // guaranteed that we won't miss any wakeup
+    // (wakeup locks p->lock),
+    // so it's okay to release lk.
+
+    //   acquire(&p->lock);  //DOC: sleeplock1
+    push_off(); // xzl	this is our scheduler lock
+    release(lk);
+
+    // Go to sleep.
+    p->chan = chan;
+    p->state = TASK_SLEEPING;
+
+    pop_off();
+
+    _schedule();
+
+    // Tidy up.
+    p->chan = 0;
+
+    // Reacquire original lock.
+    //   release(&p->lock);
+    acquire(lk);
+}
+
+// Wake up all processes sleeping on chan.
+// Must be called without any p->lock.
+// xzl: may be called from irq & tasks?
+void wakeup(void *chan) {
+    struct task_struct *p;
+
+    // our scheduler lock. can't do disable_irq()/enable_irq() here b/c the func may be called with
+    // another spinlock held (which already disabled irq), cf. releasesleep()
+    // if so, the enable_irq below
+    // would prematurely release that spinlock -- bad.
+    push_off();
+
+	for (int i = 0; i < NR_TASKS; i ++) {
+		p = task[i]; 
+        if (p != current) {
+            //   acquire(&p->lock);
+            if (p->state == TASK_SLEEPING && p->chan == chan) {
+                p->state = TASK_RUNNABLE;
+            }
+            //   release(&p->lock);
+        }
+    }
+    pop_off();
+}
+
+// Kill the process with the given pid.
+// The victim won't exit until it tries to return
+// to user space (see usertrap() in trap.c).
+int kill(int pid) {
+    int i;
+    struct task_struct *p;
+
+    push_off();
+
+    for (i = 0; i < NR_TASKS; i++) {
+        p = task[i];
+        // acquire(&p->lock);
+        if (i == pid) { // index is pid
+            p->killed = 1;
+            if (p->state == TASK_SLEEPING) {
+                // Wake process from sleep().
+                p->state = TASK_RUNNABLE;
+            }
+            //   release(&p->lock);
+            pop_off();
+            return 0;
+        }
+        // release(&p->lock);
+    }
+    pop_off();
+    return -1;
+}
+
+void setkilled(struct task_struct *p) {
+    // acquire(&p->lock);
+	push_off(); 
+    p->killed = 1;
+    // release(&p->lock);
+	pop_off(); 
+}
+
+int killed(struct task_struct *p) {
+    int k;
+
+    // acquire(&p->lock);
+	push_off(); 
+    k = p->killed;
+    // release(&p->lock);
+	pop_off(); 
+    return k;
 }

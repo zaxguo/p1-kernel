@@ -83,6 +83,7 @@ el1_entry:
 // The workaround is to set an "identity" mapping. That is, we create an additional 
 // pgtable tree at TTBR0 that maps all physical DRAM (0 -- PHYS_MEMORY_SIZE) to virtual 
 // addresses with the same values. That keeps translation going on at the switch of MMU. 
+// (cannot be TTBR1 which cannot map low virt addr)
 //
 // Cf: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
 // https://www.raspberrypi.org/forums/viewtopic.php?t=222408

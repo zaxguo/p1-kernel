@@ -1,20 +1,42 @@
 #ifndef	_UTILS_H
 #define	_UTILS_H
 
-// the kernel's HAL
+#include <stdint.h>
 
+// keep xv6 code happy. TODO: replace them
+typedef unsigned int   uint;
+typedef unsigned short ushort;
+typedef unsigned char  uchar;
+
+typedef unsigned char uint8;
+typedef unsigned short uint16;
+typedef unsigned int  uint32;
+typedef unsigned long uint64;
+
+
+// the kernel's HAL
 #include "printf.h"
 
 #ifdef PLAT_VIRT
 #include "plat-virt.h"
 #endif
 
+#define __REG32(x)      (*((volatile uint32_t *)(x)))
+
+struct buf; 
+struct spinlock; 
+struct sleeplock; 
+struct file;
+struct inode;
+struct superblock;
+struct stat; 
+
+// ------------------- misc ----------------------------- //
+
 extern void delay ( unsigned long);
 extern void put32 ( unsigned long, unsigned int );
 extern unsigned int get32 ( unsigned long );
 extern int get_el ( void );
-
-#define __REG32(x)      (*((volatile uint32_t *)(x)))
 
 // ------------------- uart ----------------------------- //
 void uart_init (unsigned long base);
@@ -43,6 +65,9 @@ void enable_interrupt_controller( void ); // irq.c
 void irq_vector_init( void );    
 void enable_irq( void );         
 void disable_irq( void );
+int is_irq_masked(void); 
+/*return 1 if irq enabled, 0 otherwise*/
+static inline int intr_get(void) {return 1-is_irq_masked();}; 
 
 // ---------------- kernel mm ---------------------- //
 unsigned long get_free_page();
@@ -51,10 +76,10 @@ void memzero(unsigned long src, unsigned long n);   // boot.S
 void memcpy(unsigned long src, unsigned long dst, unsigned long n); /*NB: arg1-src; arg2-dest; XXX swap*/
 
 #include "sched.h"
-void map_page(struct task_struct *task, unsigned long va, unsigned long page);
+unsigned long *map_page(struct task_struct *task, unsigned long va, unsigned long page, int alloc);
 int copy_virt_memory(struct task_struct *dst); 
-unsigned long allocate_kernel_page(); 
-unsigned long allocate_user_page(struct task_struct *task, unsigned long va); 
+void *allocate_kernel_page(); 
+void *allocate_user_page(struct task_struct *task, unsigned long va); 
 
 // the virtual base address of the pgtables. Its actual value is set by the linker. 
 //  cf the linker script (e.g. linker-qemu.ld)
@@ -62,5 +87,83 @@ extern unsigned long pg_dir;
 
 extern void set_pgd(unsigned long pgd);
 extern unsigned long get_pgd();
+
+#define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
+#define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va
+// ------------------- spinlock ---------------------------- //
+void            acquire(struct spinlock*);
+int             holding(struct spinlock*);
+void            initlock(struct spinlock*, char*);
+void            release(struct spinlock*);
+void            push_off(void);
+void            pop_off(void);
+
+// ------------------- sleeplock ---------------------------- //
+void            acquiresleep(struct sleeplock*);
+void            releasesleep(struct sleeplock*);
+int             holdingsleep(struct sleeplock*);
+void            initsleeplock(struct sleeplock*, char*);
+
+// ------------------- sched ---------------------------- //
+void exit_process(void);
+void sleep(void *, struct spinlock *);
+int wait(uint64_t);
+void wakeup(void *);
+int killed(struct task_struct *p);
+int kill(int pid);
+void setkilled(struct task_struct *p);
+
+// log.c
+void            initlog(int, struct superblock*);
+void            log_write(struct buf*); // xzl: replaces bwrite
+void            begin_op(void);
+void            end_op(void);
+
+// bio.c buffer cache
+void            binit(void);
+struct buf*     bread(uint, uint);
+void            brelse(struct buf*);
+void            bwrite(struct buf*);
+void            bpin(struct buf*);
+void            bunpin(struct buf*);
+
+// file.c
+struct file*    filealloc(void);
+void            fileclose(struct file*);
+struct file*    filedup(struct file*);
+void            fileinit(void);
+int             fileread(struct file*, uint64, int n);
+int             filestat(struct file*, uint64 addr);
+int             filewrite(struct file*, uint64, int n);
+
+// fs.c
+void            fsinit(int);
+int             dirlink(struct inode*, char*, uint);
+struct inode*   dirlookup(struct inode*, char*, uint*);
+struct inode*   ialloc(uint, short);
+struct inode*   idup(struct inode*);
+void            iinit();
+void            ilock(struct inode*);
+void            iput(struct inode*);
+void            iunlock(struct inode*);
+void            iunlockput(struct inode*);
+void            iupdate(struct inode*);
+int             namecmp(const char*, const char*);
+struct inode*   namei(char*);
+struct inode*   nameiparent(char*, char*);
+int             readi(struct inode*, int, uint64, uint, uint);
+void            stati(struct inode*, struct stat*);
+int             writei(struct inode*, int, uint64, uint, uint);
+void            itrunc(struct inode*);
+
+// string.c
+int             memcmp(const void*, const void*, uint);
+void*           memmove(void*, const void*, uint);
+void*           memset(void*, int, uint);
+char*           safestrcpy(char*, const char*, int);
+int             strlen(const char*);
+int             strncmp(const char*, const char*, uint);
+char*           strncpy(char*, const char*, int);
+
 
 #endif  /*_UTILS_H */

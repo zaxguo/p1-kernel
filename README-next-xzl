@@ -1,3 +1,11 @@
+roadmap... 
+exp7: 
+    sync (spinlock, sleeplock) & corresponding sched support (sleep, etc.)
+    more syscalls
+    more vm functions. copyin, copyout
+
+
+
 source files replaced
 
 include/mm.h

@@ -20,8 +20,10 @@
 	However, in the simple impl. below, 
 	TASK_RUNNING represents either RUNNING or READY 
 */
-#define TASK_RUNNING				0
-#define TASK_ZOMBIE					1
+#define TASK_RUNNING					0
+#define TASK_SLEEPING					1
+#define TASK_ZOMBIE						2
+#define TASK_RUNNABLE					3
 /* TODO: define more task states (as constants) below, e.g. TASK_WAIT */
 
 #define PF_KTHREAD		            	0x00000002	
@@ -47,20 +49,20 @@ struct cpu_context {
 	unsigned long pc;
 };
 
-#define MAX_PROCESS_PAGES			16	
+#define MAX_PROCESS_PAGES			32	  // TODO: move such defs to one place
 
 struct user_page {
 	unsigned long phys_addr;
-	unsigned long virt_addr;
+	unsigned long virt_addr; // user va
 };
 
 struct mm_struct {
-	unsigned long pgd;
+	unsigned long pgd;	// pa. NB this is loaded to ttbr0 (user va)
 	int user_pages_count;
 	/* keep track of which user pages are used for this task */
 	struct user_page user_pages[MAX_PROCESS_PAGES];
 	int kernel_pages_count;
-	/* keep track of which (kernel) pages are used for this task, e.g. those for pgtables */
+	/* phys addrs of which (kernel) pages are used for this task, e.g. those for pgtables.  */
 	unsigned long kernel_pages[MAX_PROCESS_PAGES]; 
 };
 
@@ -73,6 +75,9 @@ struct task_struct {
 	long preempt_count; // a flag. A non-zero means that the task is executing in a critical code region cannot be interrupted, Any timer tick should be ignored and not triggering rescheduling
 	unsigned long flags;
 	struct mm_struct mm;
+	void *chan;                  // If non-zero, sleeping on chan
+	int killed;                  // If non-zero, have been killed
+	int pid; 					 // still need this, ease of debugging...
 };
 
 extern void sched_init(void);
@@ -82,14 +87,30 @@ extern void preempt_disable(void);
 extern void preempt_enable(void);
 extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);	// sched.S
-extern void exit_process(void);
 
 // the initial values for task_struct that belongs to the init task. see sched.c 
+// NB: init task is in kernel, only has kernel mapping (ttbr1) 
+// 		no user mapping (ttbr0, mm->pgd=0)
 #define INIT_TASK \
 /*cpu_context*/ { { 0,0,0,0,0,0,0,0,0,0,0,0,0}, \
 0 /*state*/, 0 /*counter*/, 2 /*priority*/, 0 /*preempt_count*/, PF_KTHREAD, \
-/* mm */ { 0, 0, {{0}}, 0, {0}} \
+/* mm */ { 0, 0, {{0}}, 0, {0}}, \
+0 /*chan*/, 0 /*killed*/ 		\
 }
+// TODO: init more fields
+
+// --------------- processor related ----------------------- // 
+// we only support 1 cpu (as of now), but xv6 code is around multicore so we keep the 
+// ds here...
+#define NCPU	1			
+struct cpu {
+  struct task_struct *proc;          // The process running on this cpu, or null.
+  int noff;                   		// Depth of push_off() nesting.
+  int intena;                 		// Were interrupts enabled before push_off()?
+};
+
+extern struct cpu cpus[NCPU];
+static inline struct cpu* mycpu(void) {return &cpus[0];};
 
 // --------------- fork related ----------------------- // 
 

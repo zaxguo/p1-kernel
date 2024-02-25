@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 */
 
+// xzl: todo add spinlock 
+
 #include "printf.h"
 
 typedef void (*putcf) (void*,char);
@@ -231,3 +233,14 @@ void tfp_sprintf(char* s,char *fmt, ...)
     putcp(&s,0);
     va_end(va);
     }
+
+// xv6
+void panic(char *s)
+{
+  printf("panic: ");
+  printf(s);
+  printf("\n");
+//   panicked = 1; // freeze uart output from other CPUs
+  for(;;)
+    ;
+}
