@@ -1,3 +1,5 @@
+xl6yq@granger1 (next)[exp7]$ /cs4414-shared/qemu/aarch64-softmmu/qemu-system-aarch64 -M virt,gic-version=2,virtualization=on -cpu cortex-a53 -m 128M -smp 4 -kernel ./kernel8.img -serial null -nographic -drive if=none,file=sd.bin,format=raw,id=blk0 -device virtio-blk-device,drive=blk0,bus=virtio-mmio-bus.0 -monitor stdio
+QEMU 5.0.50 monitor - type 'help' for more information
 (qemu) info qtree
 bus: main-system-bus
   type System
@@ -231,13 +233,50 @@ bus: main-system-bus
     mmio 000000000a000200/0000000000000200
     bus: virtio-mmio-bus.1
       type virtio-mmio-bus
-  dev: virtio-mmio, id ""
+  dev: virtio-mmio, id "" 
     gpio-out "sysbus-irq" 1
     format_transport_address = true
     force-legacy = true
     mmio 000000000a000000/0000000000000200
     bus: virtio-mmio-bus.0
       type virtio-mmio-bus
+      dev: virtio-blk-device, id ""
+        drive = "blk0"      # xzl: our device....
+        logical_block_size = 512 (0x200)
+        physical_block_size = 512 (0x200)
+        min_io_size = 0 (0x0)
+        opt_io_size = 0 (0x0)
+        discard_granularity = 4294967295 (0xffffffff)
+        write-cache = "auto"
+        share-rw = false
+        rerror = "auto"
+        werror = "auto"
+        cyls = 130 (0x82)
+        heads = 16 (0x10)
+        secs = 63 (0x3f)
+        lcyls = 0 (0x0)
+        lheads = 0 (0x0)
+        lsecs = 0 (0x0)
+        serial = ""
+        config-wce = true
+        scsi = false
+        request-merging = true
+        num-queues = 1 (0x1)
+        queue-size = 256 (0x100)
+        seg-max-adjust = true
+        discard = true
+        write-zeroes = true
+        max-discard-sectors = 4194303 (0x3fffff)
+        max-write-zeroes-sectors = 4194303 (0x3fffff)
+        x-enable-wce-if-config-wce = true
+        indirect_desc = true
+        event_idx = true
+        notify_on_empty = true
+        any_layout = false
+        iommu_platform = false
+        packed = false
+        use-started = true
+        use-disabled-flag = true
   dev: gpio-key, id ""
     gpio-in "" 1
     gpio-out "sysbus-irq" 1

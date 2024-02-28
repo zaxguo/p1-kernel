@@ -1,18 +1,27 @@
 #include "utils.h"
 #include "mmu.h"
+#include "spinlock.h"
 
 /* 
 	Minimalist page allocation 
+
+	all alloc/free funcs below are locked
 */
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};
+static struct spinlock alloc_lock = {.locked=0, .cpu=0, .name="alloc_lock"}; 
 
-/* allocate a page (zero filled). return kernel va*/
-void *allocate_kernel_page() {
+/* allocate a page (zero filled). return kernel va. */
+void *kalloc() {
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
 	return PA2VA(page);
+}
+
+/* free p which is kernel va */
+void kfree(void *p) {
+	free_page(VA2PA(p));
 }
 
 /* allocate & map a page to user. return kernel va of the page, 0 if failed.
@@ -31,20 +40,25 @@ void *allocate_user_page(struct task_struct *task, unsigned long va) {
 /* allocate a page (zero filled). return pa of the page. 0 if failed */
 unsigned long get_free_page()
 {
+	acquire(&alloc_lock);
 	for (int i = 0; i < PAGING_PAGES; i++){
 		if (mem_map[i] == 0){
 			mem_map[i] = 1;
+			release(&alloc_lock);
 			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
 			memzero(page + VA_START, PAGE_SIZE);
 			return page;
 		}
 	}
+	release(&alloc_lock);
 	return 0;
 }
 
 /* free a page. @p is pa of the page. */
 void free_page(unsigned long p){
+	acquire(&alloc_lock);
 	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
+	release(&alloc_lock);
 }
 
 /*
@@ -193,7 +207,6 @@ int copy_virt_memory(struct task_struct *dst) {
 	return 0;
 }
 
-
 // Look up a virtual address, return the physical address,
 // or 0 if not mapped or invalid. 
 // Can only be used to look up user pages.
@@ -303,6 +316,39 @@ copyinstr(struct task_struct * task, char *dst, uint64 srcva, uint64 max)
     return 0;
   } else {
     return -1;
+  }
+}
+
+// Copy to either a user address, or kernel address 
+// depending on usr_dst.
+// xzl: if user_dst==1, dst is kernel va. (not pa)
+//    cf: readi(), and its callers
+// Returns 0 on success, -1 on error.
+int
+either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
+{
+  struct task_struct *p = myproc();
+  if(user_dst){
+    return copyout(p, dst, src, len);
+  } else {
+    memmove((char *)dst, src, len);
+    return 0;
+  }
+}
+
+// Copy from either a user address, or kernel address,
+// depending on usr_src.
+// Returns 0 on success, -1 on error.
+// xzl: cf above
+int
+either_copyin(void *dst, int user_src, uint64 src, uint64 len)
+{
+  struct task_struct *p = myproc();
+  if(user_src){
+    return copyin(p, dst, src, len);
+  } else {
+    memmove(dst, (char*)src, len);
+    return 0;
   }
 }
 

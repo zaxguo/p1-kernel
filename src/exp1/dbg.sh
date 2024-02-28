@@ -1,3 +1,5 @@
+# cf: https://github.com/RT-Thread/rt-thread/blob/master/bsp/qemu-virt64-aarch64/qemu.sh
+
 p1-gen-hash-ports() {
     export MYGDBPORT=`echo -n ${USER} | md5sum | cut -c1-8 | printf "%d\n" 0x$(cat -) | awk '{printf "%.0f\n", 50000 + (($1 / 0xffffffff) * 10000)}'`
     echo "set gdb port: ${MYGDBPORT}"

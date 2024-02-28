@@ -61,4 +61,9 @@ That is, one pgtable at each of PGD/PUD/PMD. See our project document */
 // "This means that each core sees its EL1 physical timer as INTID 30..."
 #define IRQ_ARM_GENERIC_TIMER       30
 
+
+// ---------------- virtio disk --------------------------- //
+#define VIRTIO0_PHYS    0x0a000000
+#define VIRTIO0_IRQ 1       // xzl: is this right? "gpio-out "sysbus-irq" 1"
+
 #endif

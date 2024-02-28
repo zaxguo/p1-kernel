@@ -78,6 +78,9 @@ struct task_struct {
 	void *chan;                  // If non-zero, sleeping on chan
 	int killed;                  // If non-zero, have been killed
 	int pid; 					 // still need this, ease of debugging...
+	struct file *ofile[NOFILE];  // Open files
+	struct inode *cwd;           // Current directory
+  	char name[16];               // Process name (debugging)	
 };
 
 extern void sched_init(void);
@@ -102,7 +105,6 @@ extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);	/
 // --------------- processor related ----------------------- // 
 // we only support 1 cpu (as of now), but xv6 code is around multicore so we keep the 
 // ds here...
-#define NCPU	1			
 struct cpu {
   struct task_struct *proc;          // The process running on this cpu, or null.
   int noff;                   		// Depth of push_off() nesting.
@@ -111,6 +113,7 @@ struct cpu {
 
 extern struct cpu cpus[NCPU];
 static inline struct cpu* mycpu(void) {return &cpus[0];};
+static inline struct task_struct *myproc(void) {return current;};
 
 // --------------- fork related ----------------------- // 
 

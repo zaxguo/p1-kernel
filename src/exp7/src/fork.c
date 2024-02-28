@@ -1,5 +1,5 @@
-#include "sched.h"
 #include "utils.h"
+#include "sched.h"
 #include "entry.h"
 
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
@@ -7,7 +7,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	preempt_disable();
 	struct task_struct *p;
 
-	p = (struct task_struct *) allocate_kernel_page();  // get kernel va
+	p = (struct task_struct *) kalloc();  // get kernel va
 	struct pt_regs *childregs = task_pt_regs(p);
 
 	if (!p)

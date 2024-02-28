@@ -3,6 +3,17 @@
 
 #include <stdint.h>
 
+// -------------- configuration -------------------------- //
+#define NOFILE          16  // open files per process
+#define NCPU	        1			
+#define MAXPATH         128   // maximum file path name
+#define NINODE          50  // maximum number of active i-nodes
+#define NDEV            10  // maximum major device number
+#define MAXARG       32  // max exec arguments
+#define NFILE       100  // open files per system
+#define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?
+#define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
+
 // keep xv6 code happy. TODO: replace them
 typedef unsigned int   uint;
 typedef unsigned short ushort;
@@ -30,6 +41,7 @@ struct file;
 struct inode;
 struct superblock;
 struct stat; 
+struct pipe; 
 
 // ------------------- misc ----------------------------- //
 
@@ -78,7 +90,8 @@ void memcpy(unsigned long src, unsigned long dst, unsigned long n); /*NB: arg1-s
 #include "sched.h"
 unsigned long *map_page(struct task_struct *task, unsigned long va, unsigned long page, int alloc);
 int copy_virt_memory(struct task_struct *dst); 
-void *allocate_kernel_page(); 
+void *kalloc(); // get kernel va
+void kfree(void *p);    // give kernel va
 void *allocate_user_page(struct task_struct *task, unsigned long va); 
 
 // the virtual base address of the pgtables. Its actual value is set by the linker. 
@@ -90,6 +103,13 @@ extern unsigned long get_pgd();
 
 #define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
 #define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va
+
+int             copyout(struct task_struct *, uint64, char *, uint64);
+int             copyin(struct task_struct *, char *, uint64, uint64);
+int             copyinstr(struct task_struct *, char *, uint64, uint64);
+int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
+int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
+
 // ------------------- spinlock ---------------------------- //
 void            acquire(struct spinlock*);
 int             holding(struct spinlock*);
@@ -165,5 +185,25 @@ int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
 
+//sys.c 
+int             fetchstr(uint64, char*, int);
+int             argstr(uint64 addr, char *buf, int max);
+int             fetchaddr(uint64 addr, uint64 *ip);
 
+// exec.c
+int             exec(char*, char**);
+
+// pipe.c
+int             pipealloc(struct file**, struct file**);
+void            pipeclose(struct pipe*, int);
+int             piperead(struct pipe*, uint64, int);
+int             pipewrite(struct pipe*, uint64, int);
+
+// virtio_disk.c
+void            virtio_disk_init(void);
+void            virtio_disk_rw(struct buf *, int);
+void            virtio_disk_intr(void);
+
+// number of elements in fixed-size array
+#define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 #endif  /*_UTILS_H */

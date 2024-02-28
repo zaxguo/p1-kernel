@@ -202,7 +202,7 @@ ni_sys:
 	handle_invalid_entry 0, SYSCALL_ERROR
 ret_from_syscall:
 	bl	disable_irq				
-	str	x0, [sp, #S_X0]				// returned x0 to the user task (saving x0 to on the stack)
+	str	x0, [sp, #S_X0]				// returned x0 to the user task (saving x0 to pt_regs)
 	kernel_exit 0
 
 el0_da:
