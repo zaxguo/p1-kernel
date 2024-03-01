@@ -4,7 +4,16 @@ exp7:
     more syscalls
     more vm functions. copyin, copyout
 
+block layer, buf, vfs, filesys, disk driver (so that we can have basicaly fs tree working)
+    disk driver woulnd't be necessary but it's tightly coupled with vfs at this time. 
 
+console, uart (improved)
+    b/c user now needs to call sys_write() to console. uart driver needs to support multithreading
+        also irq driven
+
+NEXT -- improved uart driver, then enable console. 
+
+NEXT --- fixe bug. cf sysfile.c 293
 
 source files replaced
 

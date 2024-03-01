@@ -74,8 +74,10 @@ static
 unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	unsigned long index = va >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
-	unsigned long entry = pa | MMU_PTE_FLAGS; 
-	pte[index] = entry;
+	if (pa) {
+		unsigned long entry = pa | MMU_PTE_FLAGS; 
+		pte[index] = entry;
+	}
 	return pte + index; 
 }
 
@@ -89,7 +91,7 @@ unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned l
    @shift: indicate where to find the index bits in a virtual address corresponding 
    	to the the target pgtable level. See project description for details.
    @va: the virt address of the page to be mapped
-   @alloc [in|out]: in: 1 means alloc a new table if needed; 
+   @alloc [in|out]: in: 1 means alloc a new table if needed; 0 means don't alloc
    	out: 1 means a new pgtable is allocated; 0 otherwise   
 */
 static 
@@ -128,6 +130,7 @@ unsigned long *map_page(struct task_struct *task, unsigned long va, unsigned lon
 	if (!task->mm.pgd) { 
 		if (alloc) {
 			task->mm.pgd = get_free_page();
+			assert(task->mm.pgd); 
 			task->mm.kernel_pages[++task->mm.kernel_pages_count] = task->mm.pgd;
 		} else 
 			goto no_alloc; 
@@ -140,7 +143,8 @@ unsigned long *map_page(struct task_struct *task, unsigned long va, unsigned lon
 	if (pud) {
 		if (allocated)  /* we've allocated a new kernel page. take it into account for future reclaim */
 			task->mm.kernel_pages[++task->mm.kernel_pages_count] = pud;
-		/* use existing -- fine */
+		else
+			; /* use existing -- fine */
 	} else { /* !pud */
 		if (!alloc) /* failed b/c we reached nonexisting pgtable, and asked not to alloc */
 			goto no_alloc;
@@ -177,7 +181,7 @@ unsigned long *map_page(struct task_struct *task, unsigned long va, unsigned lon
 	/* reached pt, the bottom level of pgtable tree */
 	unsigned long *pte_va = 
 		map_table_entry((unsigned long *)(pt + VA_START), va, page /*=0 for finding entry only*/);
-	if (page) { /* page installed */
+	if (page) { /* a page just installed, bookkeeping.. */
 		struct user_page p = {page, va};
 		task->mm.user_pages[task->mm.user_pages_count++] = p;
 	}
@@ -216,7 +220,7 @@ unsigned long walkaddr(struct task_struct *task, unsigned long va) {
 		return 0; 
 	if ((*pte & (~PAGE_MASK)) != MMU_PTE_FLAGS)
 		return 0; 
-	return VA2PA(pte);
+	return (*pte) & PAGE_MASK;
 }
 
 // TODO: do we need this? we can just free the list of user/kernel pages given a task

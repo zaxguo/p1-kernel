@@ -47,13 +47,14 @@ void enable_interrupt_controller()
     arm_gic_dist_init(0 /* core */, VA_START + QEMU_GIC_DIST_BASE, 0 /*irq start*/);
     arm_gic_cpu_init(0 /* core*/, VA_START + QEMU_GIC_CPU_BASE);
     arm_gic_umask(0 /* core */, IRQ_ARM_GENERIC_TIMER);
+    arm_gic_umask(0 /* core */, IRQ_UART_PL011);
     // gic_dump(); // debugging 
 #endif
 }
 
 void show_invalid_entry_message(int type, unsigned long esr, unsigned long address)
 {
-    printf("%s, ESR: %x, address: %x\r\n", entry_error_messages[type], esr, address);
+    printf("%s, esr: 0x%x, elr: 0x%x\r\n", entry_error_messages[type], esr, address);
 }
 
 // called from hw irq handler (el1_irq, entry.S)
@@ -68,6 +69,9 @@ void handle_irq(void)
         case (IRQ_ARM_GENERIC_TIMER):
             handle_generic_timer_irq();
             break;
+        case IRQ_UART_PL011:
+            uartintr();
+            break; 
         default:
             printf("Unknown irq: %d\r\n", irq);
     }

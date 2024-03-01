@@ -1,6 +1,6 @@
 #include "user_sys.h"
 #include "user.h"
-#include "printf.h"
+#include "fcntl.h"
 
 static void user_delay (unsigned long cnt) {
 	volatile unsigned long c = cnt; 
@@ -12,14 +12,13 @@ static unsigned int
 strlen(const char *s)
 {
   int n;
-
   for(n = 0; s[n]; n++)
     ;
   return n;
 }
 
 void print_to_console(char *msg) {
-	call_sys_write(0, msg, strlen(msg)); 
+	call_sys_write(1 /*stdout*/, msg, strlen(msg)); 
 }
 
 void loop(char* str)
@@ -34,9 +33,19 @@ void loop(char* str)
 	}
 }
 
+#define CONSOLE 1     // major num for device console
+
 void user_process() 
 {
+	if(call_sys_open("console", O_RDWR) < 0){
+		call_sys_mknod("console", CONSOLE, 0);
+		call_sys_open("console", O_RDWR);
+  }
+  call_sys_dup(0);  // stdout
+  call_sys_dup(0);  // stderr
+
 	print_to_console("User process entry\n\r");
+
 	int pid = call_sys_fork();
 	if (pid < 0) {
 		print_to_console("Error during fork\n\r");

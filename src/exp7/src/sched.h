@@ -91,6 +91,8 @@ extern void preempt_enable(void);
 extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);	// sched.S
 
+void procdump(void); 
+
 // the initial values for task_struct that belongs to the init task. see sched.c 
 // NB: init task is in kernel, only has kernel mapping (ttbr1) 
 // 		no user mapping (ttbr0, mm->pgd=0)

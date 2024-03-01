@@ -55,6 +55,12 @@ void uart_init (unsigned long base);
 char uart_recv ( void );
 void uart_send ( char c );
 void putc ( void* p, char c );
+// new apis, from xv6
+void            uartintr(void);
+void            uartputc(int);
+void            uartputc_sync(int);
+int             uartgetc(void);
+
 
 // ------------------- timer ----------------------------- //
 // TODO: clean up
@@ -204,6 +210,31 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
+// console.c
+void            consoleinit(void);
+void            consoleintr(int);
+void            consputc(int);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+
+#ifdef NDEBUG
+        #define assert(expr)    ((void) 0)
+#else
+    // linux
+    #define likely(exp)     __builtin_expect (!!(exp), 1)
+    #define unlikely(exp)   __builtin_expect (!!(exp), 0)
+
+    // circle assert.cpp        
+    static inline void assertion_failed (const char *pExpr, const char *pFile, unsigned nLine) {
+        printf("assertion failed: %s at %s:%u\n", pExpr, pFile, nLine); 
+        panic("kernel hangs"); 
+    }
+    #define assert(expr)    (  likely (expr)        \
+                                ? ((void) 0)           \
+                                : assertion_failed (#expr, __FILE__, __LINE__))
+#endif
+
+
 #endif  /*_UTILS_H */

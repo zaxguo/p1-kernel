@@ -72,7 +72,6 @@
     svc #0
     ret          
           
-
 .globl call_sys_mknod
     call_sys_mknod:
     mov x8, #SYS_mknod

@@ -56,6 +56,7 @@ That is, one pgtable at each of PGD/PUD/PMD. See our project document */
 
 // ---------------- uart, pl011 --------------------------- //
 #define UART_PHYS   0x09000000      // from qemu "info mtree"
+#define IRQ_UART_PL011  (32 + 1)        // "info mtree" shows irq=1
 
 // cf: "Aarch64 programmer's guide: generic timer" 3.4 Interrupts
 // "This means that each core sees its EL1 physical timer as INTID 30..."

@@ -51,6 +51,8 @@ int sys_dup(int fd) {
   struct file *f;
   int fd1;
 
+  printf("%s called\n", __func__);
+
   if(argfd(fd, &f) < 0)
     return -1;
   if((fd1=fdalloc(f)) < 0)
@@ -285,7 +287,10 @@ int sys_open(unsigned long upath, int omode) {
   struct inode *ip;
   int n;
 
-  if((n = argstr(upath, path, MAXPATH)) < 0)
+  printf("%s called\n", __func__);
+
+  // gdb: x /20i 0x250  (should show valid user insns)
+  if((n = argstr(upath, path, MAXPATH)) < 0)  // xzl: TODO: this messed up usr mappings. check out
     return -1;
 
   begin_op();
@@ -361,6 +366,8 @@ int sys_mkdir(unsigned long upath) {
 int sys_mknod(unsigned long upath, short major, short minor) {
   struct inode *ip;
   char path[MAXPATH];
+
+  printf("%s called\n", __func__);
 
   begin_op();
   if((argstr(upath, path, MAXPATH)) < 0 ||

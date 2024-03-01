@@ -6,3 +6,4 @@
 -cpu cortex-a53 -m 128M -smp 4 -kernel ./kernel8.img -serial null -nographic \
 -drive if=none,file=sd.bin,format=raw,id=blk0 -device virtio-blk-device,drive=blk0,bus=virtio-mmio-bus.0 \
 -monitor stdio
+

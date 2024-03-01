@@ -247,3 +247,36 @@ int killed(struct task_struct *p) {
     return k;
 }
 
+// Print a process listing to console.  For debugging.
+// Runs when user types ^P on console.
+// No lock to avoid wedging a stuck machine further.
+void
+procdump(void)
+{
+	printf("%s: TBD\n", __func__); 
+
+	#if 0
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [USED]      "used",
+  [SLEEPING]  "sleep ",
+  [RUNNABLE]  "runble",
+  [RUNNING]   "run   ",
+  [ZOMBIE]    "zombie"
+  };
+  struct proc *p;
+  char *state;
+
+  printf("\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    printf("%d %s %s", p->pid, state, p->name);
+    printf("\n");
+  }
+  #endif 
+}
