@@ -27,12 +27,15 @@ typedef void (*putcf) (void*,char);
 static putcf stdout_putf;
 static void* stdout_putp;
 
+// xzl: buggy?
+// printf("%lx\n", 0xffff000040084bf4);  ---> nothing
+#define PRINTF_LONG_SUPPORT 1           
 
 #ifdef PRINTF_LONG_SUPPORT
 static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)
     {
     int n=0;
-    unsigned int d=1;
+    unsigned long d=1;
     while (num/d >= base)
         d*=base;
     while (d!=0) {
@@ -220,8 +223,6 @@ static void putcp(void* p,char c)
     {
     *(*((char**)p))++ = c;
     }
-
-
 
 void tfp_sprintf(char* s,char *fmt, ...)
     {
