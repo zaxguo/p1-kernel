@@ -1,6 +1,7 @@
 qemu.log
 kernel8.asm
 *.old
+*.bin
 
 old/*
 site/*

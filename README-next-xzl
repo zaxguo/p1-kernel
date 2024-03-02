@@ -13,7 +13,37 @@ console, uart (improved)
 
 NEXT -- improved uart driver, then enable console. 
 
-NEXT --- fixe bug. cf sysfile.c 293
+NEXT --- fixe bug. cf sysfile.c 293 V
+
+NEXT --- deeper issues in fs. most related to fs/blk/cache/lock not init'd 
+    fixed a bug in printf (long)
+
+thought -- userspace printf() (write()) tightly coupled with vfs, fs, and block device driver. 
+    need to provide an easier way to debug. 
+
+
+
+
+TODO: 
+enable disk driver irq (right now not gettting irq?)
+inode for "/" must exists on disk... 
+    (it was created in memory, but invalid, meaning not loaded from disk)
+    first time the root inode gets ilocked(), it will try to read from disk ... no irq, dead.
+    fix this 
+FIXED 
+
+fsinit() must be called. <---- THIS 
+
+------------
+HOW TO BUILD DISK IMAGE... 
+xl6yq@granger1 (riscv)[xv6-riscv]$ mkfs/mkfs /tmp/sd.bin README
+nmeta 46 (boot, super, log blocks 30 inode blocks 13, bitmap blocks 1) blocks 1954 total 2000
+balloc: first 50 blocks have been allocated
+balloc: write bitmap block at sector 45
+
+"README" is a file
+
+-------------
 
 source files replaced
 

@@ -28,6 +28,7 @@ void kernel_main()
 
 	printf("kernel boots ...\n\r");
 
+	consoleinit(); 	
 	binit();         // buffer cache
     iinit();         // inode table
     fileinit();      // file table

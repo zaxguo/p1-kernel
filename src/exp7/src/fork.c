@@ -74,6 +74,11 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	current->cwd = namei("/");
 	assert(current->cwd); 
 
+    // (from xv6) File system initialization must be run in the context of a
+    // regular process (e.g., because it calls sleep), and thus cannot
+    // be run from main().
+    fsinit(ROOTDEV);
+
 	return 0;
 }
 

@@ -72,11 +72,9 @@ int sys_read(int fd, unsigned long p /*user va*/, int n) {
 int sys_write(int fd, unsigned long p /*user va*/, int n) { 
   struct file *f;
     
-  // printf("%s called\n", __func__); 
-
   if(argfd(fd, &f) < 0)
     return -1;
-
+    
   return filewrite(f, p, n);
 }
 

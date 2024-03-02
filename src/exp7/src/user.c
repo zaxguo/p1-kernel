@@ -33,6 +33,11 @@ void loop(char* str)
 	}
 }
 
+void loop1(char *str) {
+	while (1)
+		print_to_console(str);
+}
+
 #define CONSOLE 1     // major num for device console
 
 void user_process() 
@@ -52,11 +57,12 @@ void user_process()
 		call_sys_exit(1);
 		return;
 	}
-	print_to_console("fork() succeeds \n\r");
+	print_to_console("fork() succeeds\n\r");
+
 	if (pid == 0){
-		loop("abcde");
+		loop1("abcde");
 	} else {
-		loop("12345");
+		loop1("12345");
 	}
 }
 
