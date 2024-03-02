@@ -48,13 +48,20 @@ void enable_interrupt_controller()
     arm_gic_cpu_init(0 /* core*/, VA_START + QEMU_GIC_CPU_BASE);
     arm_gic_umask(0 /* core */, IRQ_ARM_GENERIC_TIMER);
     arm_gic_umask(0 /* core */, IRQ_UART_PL011);
+    arm_gic_umask(0 /* core */, VIRTIO0_IRQ);
+
+    // finding irq numbers, which I couldn't find figure out (qemu info qtree? trace events)?
+    // for (int i=0; i<64; i++)
+    //     arm_gic_umask(0, i);
+
     // gic_dump(); // debugging 
 #endif
 }
 
 void show_invalid_entry_message(int type, unsigned long esr, unsigned long address)
-{
-    printf("%s, esr: 0x%x, elr: 0x%x\r\n", entry_error_messages[type], esr, address);
+{    
+    printf("%s: %s, esr: 0x%016lx, elr: 0x%016lx\r\n", __func__, 
+        entry_error_messages[type], esr, address);
 }
 
 // called from hw irq handler (el1_irq, entry.S)
@@ -71,6 +78,9 @@ void handle_irq(void)
             break;
         case IRQ_UART_PL011:
             uartintr();
+            break; 
+        case VIRTIO0_IRQ:
+            virtio_disk_intr();
             break; 
         default:
             printf("Unknown irq: %d\r\n", irq);

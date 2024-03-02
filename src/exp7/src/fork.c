@@ -46,6 +46,8 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
    Populate pt_regs for returning to user space (via kernel_exit) for the 1st time. 
    Note that the actual switch will not happen until kernel_exit. 
 
+	Create the user init task. 
+
    @start: beginning of the user code (to be copied to the new task). kernel va
    @size: size of the area 
    @pc: offset of the startup function inside the area
@@ -67,6 +69,11 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	}
 	memmove(code_page, (void *)start, size); 
 	set_pgd(current->mm.pgd);
+
+	safestrcpy(current->name, "initcode", sizeof(current->name));
+	current->cwd = namei("/");
+	assert(current->cwd); 
+
 	return 0;
 }
 

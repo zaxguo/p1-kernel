@@ -64,7 +64,15 @@ That is, one pgtable at each of PGD/PUD/PMD. See our project document */
 
 
 // ---------------- virtio disk --------------------------- //
+// about aarch64 virtio devices, cf: 
+// https://github.com/RT-Thread/rt-thread/blob/master/components/drivers/virtio/virtio.h#L66
+// device id: invalid 0, net 1, block 2, console 3, gpu 16, input 18
+// irq num == (32+16+id) 
+// cf: https://github.com/RT-Thread/rt-thread/blob/00c6800e4e532b6996bc9cb3ce0e8e4cffed2245/bsp/qemu-virt64-aarch64/drivers/drv_virtio.c#L83
+// 
+// however I can only got things to work  with "qemu -global virtio-mmio.force-legacy=false" which 
+// enforces mmio ver=2 (as xv6 risc), in which virt-blk irq=48 (by trying out)
 #define VIRTIO0_PHYS    0x0a000000
-#define VIRTIO0_IRQ 1       // xzl: is this right? "gpio-out "sysbus-irq" 1"
+#define VIRTIO0_IRQ     (32+16)      
 
 #endif

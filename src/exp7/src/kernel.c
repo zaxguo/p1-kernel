@@ -28,6 +28,11 @@ void kernel_main()
 
 	printf("kernel boots ...\n\r");
 
+	binit();         // buffer cache
+    iinit();         // inode table
+    fileinit();      // file table
+    virtio_disk_init(); // emulated hard disk
+
 	irq_vector_init();
 	generic_timer_init();
 	enable_interrupt_controller();

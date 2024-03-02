@@ -189,7 +189,7 @@ void wakeup(void *chan) {
 
 	for (int i = 0; i < NR_TASKS; i ++) {
 		p = task[i]; 
-        if (p != current) {
+        if (p && p != current) {
             //   acquire(&p->lock);
             if (p->state == TASK_SLEEPING && p->chan == chan) {
                 p->state = TASK_RUNNABLE;
@@ -213,6 +213,7 @@ int kill(int pid) {
         p = task[i];
         // acquire(&p->lock);
         if (i == pid) { // index is pid
+            assert(p); 
             p->killed = 1;
             if (p->state == TASK_SLEEPING) {
                 // Wake process from sleep().

@@ -656,13 +656,16 @@ namex(char *path, int nameiparent, char *name)
 {
   struct inode *ip, *next;
 
-  // xzl: traverse starting point...
+  // xzl: traverse from '/'. there's a default inode in mem. 
+  //  the first we ilock() it, the root inode will be loaded from disk, which 
+  //  goes to fs then block driver... 
   if(*path == '/')
     ip = iget(ROOTDEV, ROOTINO);
   else
     ip = idup(myproc()->cwd);
+  assert(ip); 
 
-  // xzl: traverse...
+  // xzl: traverse... from cwd
   while((path = skipelem(path, name)) != 0){
     ilock(ip);
     if(ip->type != T_DIR){

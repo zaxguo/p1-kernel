@@ -17,7 +17,7 @@ struct file {
 
 // in-memory copy of an inode
 struct inode {
-  uint dev;           // Device number
+  uint dev;           // Device number   xzl: ROOTDEV=1, but not major/minor for which CONSOLE=1..?
   uint inum;          // Inode number
   int ref;            // Reference count
   struct sleeplock lock; // protects everything below here (xzl: above protected by itable spinlock)

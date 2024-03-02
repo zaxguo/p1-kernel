@@ -4,6 +4,7 @@
 //
 // qemu ... -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 // xzl: adapted for arm virt
+// qemu source: /u/xl6yq/qemu/hw/block/virtio-blk.c
 
 #include "utils.h"
 #include "spinlock.h"
@@ -65,12 +66,17 @@ virtio_disk_init(void)
 
   initlock(&disk.vdisk_lock, "virtio_disk");
 
+  // VIRTIO_MMIO_VERSION: xv6-riscv asks for 2, armv8-virt is 1? (rt-thread os also expects 1 )
+  // "qemu ... -global virtio-mmio.force-legacy=false ..."" to enforce mmio version = 2
+
   if(*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
-     *R(VIRTIO_MMIO_VERSION) != 2 ||
+     (*R(VIRTIO_MMIO_VERSION) != 2 && *R(VIRTIO_MMIO_VERSION) != 1) || 
      *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
-     *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551){
+     *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551){      
     panic("could not find virtio disk");
   }
+  // printf("%x %x %x %x\n", 
+  //       *R(VIRTIO_MMIO_MAGIC_VALUE), *R(VIRTIO_MMIO_VERSION), *R(VIRTIO_MMIO_DEVICE_ID), *R(VIRTIO_MMIO_VENDOR_ID)); 
   
   // reset device
   *R(VIRTIO_MMIO_STATUS) = status;
@@ -284,6 +290,9 @@ virtio_disk_rw(struct buf *b, int write)
   __sync_synchronize();
 
   *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 0; // value is queue number
+
+  // delay(10000*10000*10);
+  // printf("%d\n", disk.info[idx[0]].status);
 
   // Wait for virtio_disk_intr() to say request has finished.
   while(b->disk == 1) {

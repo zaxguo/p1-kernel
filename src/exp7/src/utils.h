@@ -13,6 +13,7 @@
 #define NFILE       100  // open files per system
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
+#define NR_TASKS				32
 
 // keep xv6 code happy. TODO: replace them
 typedef unsigned int   uint;

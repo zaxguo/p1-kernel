@@ -289,8 +289,7 @@ int sys_open(unsigned long upath, int omode) {
 
   printf("%s called\n", __func__);
 
-  // gdb: x /20i 0x250  (should show valid user insns)
-  if((n = argstr(upath, path, MAXPATH)) < 0)  // xzl: TODO: this messed up usr mappings. check out
+  if((n = argstr(upath, path, MAXPATH)) < 0) 
     return -1;
 
   begin_op();
