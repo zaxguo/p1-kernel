@@ -21,6 +21,8 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		p->cpu_context.x20 = arg;
 	} else {
 		struct pt_regs * cur_regs = task_pt_regs(current);
+		/* Copy cur_regs to childregs. It's a NOT bug, b/c it will be compiled to invocation of memcpy(), 
+			and our memcpy() has src/dst reversed. To reverse below, memcpy() has to be fixed as well...*/
 		*cur_regs = *childregs;
 		childregs->regs[0] = 0;
 		copy_virt_memory(p);
