@@ -93,7 +93,7 @@ static inline int intr_get(void) {return 1-is_irq_masked();};
 unsigned long get_free_page();
 void free_page(unsigned long p);
 void memzero(unsigned long src, unsigned long n);   // boot.S
-void memcpy(unsigned long src, unsigned long dst, unsigned long n); /*NB: arg1-src; arg2-dest; XXX swap*/
+void memcpy(unsigned long dst, unsigned long src, unsigned long n);
 
 #include "sched.h"
 unsigned long *map_page(struct task_struct *task, unsigned long va, unsigned long page, int alloc);

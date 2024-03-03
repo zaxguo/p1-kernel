@@ -32,7 +32,7 @@ inode for "/" must exists on disk...
     fix this 
 FIXED 
 
-fsinit() must be called. <---- THIS 
+fsinit() must be called. <---- V
 
 ------------
 HOW TO BUILD DISK IMAGE... 
@@ -42,6 +42,10 @@ balloc: first 50 blocks have been allocated
 balloc: write bitmap block at sector 45
 
 "README" is a file
+-------------
+TODO: fork() should also clone opened fd? 
+only 1 user task printing coudl be the other does not have a valid fd (always spinning then ...)
+
 
 -------------
 

@@ -3,7 +3,7 @@
 #include "sched.h"
 
 #ifdef USE_QEMU
-int interval = (1 << 26); // xzl: around 1 sec
+int interval = ((1 << 26) / 10); // xzl: (1 << 26) around 1 sec
 #else
 int interval = 1 * 1000 * 1000; // xzl: around 1 sec
 #endif

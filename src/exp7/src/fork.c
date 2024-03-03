@@ -18,10 +18,18 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		p->cpu_context.x20 = arg;
 	} else { /* fork user tasks */
 		struct pt_regs * cur_regs = task_pt_regs(current);
-		*cur_regs = *childregs; 	// copy over the entire pt_regs
+		*childregs = *cur_regs; 	// copy over the entire pt_regs
 		childregs->regs[0] = 0;		// return value (x0) for child
 		copy_virt_memory(p);		// duplicate virt memory (inc contents)
 		// that's it, no modifying pc/sp/etc
+
+		// user task only: dup fds (kernel tasks won't need them)
+		// 		increment reference counts on open file descriptors.
+		for (int i = 0; i < NOFILE; i++)
+			if (current->ofile[i])
+				p->ofile[i] = filedup(current->ofile[i]);
+		p->cwd = idup(p->cwd);
+				
 	}
 	p->flags = clone_flags;
 	p->priority = current->priority;
