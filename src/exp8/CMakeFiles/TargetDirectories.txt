@@ -1,0 +1,3 @@
+/u/xl6yq/p1-kernel-next/src/exp8/CMakeFiles/rebuild_cache.dir
+/u/xl6yq/p1-kernel-next/src/exp8/CMakeFiles/edit_cache.dir
+/u/xl6yq/p1-kernel-next/src/exp8/CMakeFiles/kernel8.elf.dir
