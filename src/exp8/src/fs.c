@@ -42,6 +42,7 @@ fsinit(int dev) {
   if(sb.magic != FSMAGIC)
     panic("invalid file system");
   initlog(dev, &sb);
+  W("fsinit done");
 }
 
 // Zero a block.

@@ -3,29 +3,7 @@
 
 #include <stdint.h>
 
-// -------------- configuration -------------------------- //
-#define NOFILE          16  // open files per process
-#define NCPU	        1			
-#define MAXPATH         128   // maximum file path name
-#define NINODE          50  // maximum number of active i-nodes
-#define NDEV            10  // maximum major device number
-#define MAXARG       32  // max exec arguments
-#define NFILE       100  // open files per system
-#define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?
-#define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
-#define NR_TASKS				32
-#define ROOTDEV       1  // device number of file system root disk xzl: just disk id, not major/minor
-
-// keep xv6 code happy. TODO: replace them
-typedef unsigned int   uint;
-typedef unsigned short ushort;
-typedef unsigned char  uchar;
-
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef unsigned int  uint32;
-typedef unsigned long uint64;
-
+#include "param.h"
 
 // the kernel's HAL
 #include "printf.h"
@@ -250,5 +228,8 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
                             ? ((void) 0)           \
                             : assertion_failed (#expr, __FILE__, __LINE__))
 #define WARN()      WARN_ON(0)
+
+// debug.h
+#include "debug.h"
 
 #endif  /*_UTILS_H */

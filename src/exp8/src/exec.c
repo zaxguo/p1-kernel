@@ -53,7 +53,7 @@ exec(char *path, char **argv)
   char *s, *last;
   int i, off;
   uint64 argc, sz = 0, sz1, sp, ustack[MAXARG], argbase; 
-  struct mm_struct *tmpmm; 
+  struct mm_struct *tmpmm = 0; 
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;

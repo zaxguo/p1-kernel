@@ -64,6 +64,8 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
 	struct pt_regs *regs = task_pt_regs(current);
+	printf("%s: pc %lx\n", __func__, pc);
+
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
 	/* assumption: our toy user program will not exceed 1 page. the 2nd page will serve as the stack */
@@ -86,7 +88,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
     fsinit(ROOTDEV);
-
+	
 	return 0;
 }
 
