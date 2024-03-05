@@ -51,7 +51,7 @@ int sys_dup(int fd) {
   struct file *f;
   int fd1;
 
-  printf("%s called\n", __func__);
+  I("called fd %d", fd);
 
   if(argfd(fd, &f) < 0)
     return -1;

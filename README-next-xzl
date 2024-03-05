@@ -22,6 +22,12 @@ thought -- userspace printf() (write()) tightly coupled with vfs, fs, and block 
     need to provide an easier way to debug. 
 
 
+TODO for mm: in the long run, maybe need a function for unmapping/freeing a user va 
+region, the problme is that mm->user_pages are stord in an array, therefore 
+unmapping/freeing will leave holes there, which complicate things. 
+
+do we really need mm->user_pages? if we need to free them, 
+    we can follow mm->pgd to find all user pages
 
 
 TODO: 
@@ -43,11 +49,22 @@ balloc: write bitmap block at sector 45
 
 "README" is a file
 -------------
-TODO: fork() should also clone opened fd? 
-only 1 user task printing coudl be the other does not have a valid fd (always spinning then ...)
+V: fork() should also clone opened fd? 
+V only 1 user task printing coudl be the other does not have a valid fd (always spinning then ...)
 
+TODO: test exec() ... with standalone user app
+
+call_sys_write(1 /*stdout*/, msg, strlen(msg));     // WILL FAIL. can be used for debugging 
+----> use this as a test case ... to improve expcetion handling... userspace unwinding, etc. 
 
 -------------
+stack unwind ref:
+https://elixir.bootlin.com/linux/latest/source/arch/arm64/kernel/stacktrace.c
+libunwind ... too heavy 
+rt-thread os... no unwind for armv8, only v7
+circle ... no unwind, only gdb stub support 
+
+---------------
 
 source files replaced
 

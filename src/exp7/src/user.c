@@ -34,7 +34,8 @@ void loop(char* str)
 }
 
 void loop1(char *str) {
-	while (1)
+	// for (;;)
+	for (int i = 0; i < 3; i++)
 		print_to_console(str);
 }
 

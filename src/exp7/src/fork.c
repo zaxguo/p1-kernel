@@ -49,7 +49,6 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	return pid;
 }
 
-
 /* 
    Populate pt_regs for returning to user space (via kernel_exit) for the 1st time. 
    Note that the actual switch will not happen until kernel_exit. 

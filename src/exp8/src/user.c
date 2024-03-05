@@ -1,6 +1,11 @@
+// "pseudo" user tasks, compiled into the kernel, but executed at EL0 and in their own va 
+// besides syscalls, CANNOT call any kernel functions -- otherwise will trigger memory protection error
+
 #include "user_sys.h"
 #include "user.h"
 #include "fcntl.h"
+#include "utils.h"
+
 
 static void user_delay (unsigned long cnt) {
 	volatile unsigned long c = cnt; 
@@ -8,8 +13,9 @@ static void user_delay (unsigned long cnt) {
 		c--; 
 }
 
-static unsigned int
-strlen(const char *s)
+// cannot call kernel's strlen
+ __attribute__((unused)) static unsigned int
+user_strlen(const char *s)    
 {
   int n;
   for(n = 0; s[n]; n++)
@@ -18,7 +24,8 @@ strlen(const char *s)
 }
 
 void print_to_console(char *msg) {
-	call_sys_write(1 /*stdout*/, msg, strlen(msg)); 
+	call_sys_write(1 /*stdout*/, msg, user_strlen(msg)); 
+  // call_sys_write(1 /*stdout*/, msg, strlen(msg));     // WILL FAIL. can be used for debugging 
 }
 
 void loop(char* str)
@@ -67,3 +74,94 @@ void user_process()
 	}
 }
 
+// -------------------------------------------
+// ls
+//
+#if 1
+#include "fs.h"
+#include "stat.h"
+
+static int
+stat(const char *n, struct stat *st)
+{
+  int fd;
+  int r;
+
+  fd = call_sys_open(n, O_RDONLY);
+  if(fd < 0)
+    return -1;
+  r = call_sys_fstat(fd, st);
+  call_sys_close(fd);
+  return r;
+}
+
+static char*
+fmtname(char *path)
+{
+  static char buf[DIRSIZ+1];
+  char *p;
+
+  // Find first character after last slash.
+  for(p=path+strlen(path); p >= path && *p != '/'; p--)
+    ;
+  p++;
+
+  // Return blank-padded name.
+  if(strlen(p) >= DIRSIZ)
+    return p;
+  memmove(buf, p, strlen(p));
+  memset(buf+strlen(p), ' ', DIRSIZ-strlen(p));
+  return buf;
+}
+
+void
+ls(char *path)
+{
+  char buf[512], *p;
+  int fd;
+  struct dirent de;
+  struct stat st;
+
+  if((fd = call_sys_open(path, 0)) < 0){
+    //fprintf(2, "ls: cannot open %s\n", path);
+	W("ls: cannot open %s\n", path);
+    return;
+  }
+
+  if(call_sys_fstat(fd, &st) < 0){
+    // fprintf(2, "ls: cannot stat %s\n", path);
+	W("ls: cannot stat %s\n", path);
+    call_sys_close(fd);
+    return;
+  }
+
+  switch(st.type){
+  case T_DEVICE:
+  case T_FILE:
+    printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
+    break;
+
+  case T_DIR:
+    if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf){
+      printf("ls: path too long\n");
+      break;
+    }
+    safestrcpy(buf, path, 512);
+    p = buf+strlen(buf);
+    *p++ = '/';
+    while(call_sys_read(fd, &de, sizeof(de)) == sizeof(de)){
+      if(de.inum == 0)
+        continue;
+      memmove(p, de.name, DIRSIZ);
+      p[DIRSIZ] = 0;
+      if(stat(buf, &st) < 0){
+        printf("ls: cannot stat %s\n", buf);
+        continue;
+      }
+      printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
+    }
+    break;
+  }
+  call_sys_close(fd);
+}
+#endif

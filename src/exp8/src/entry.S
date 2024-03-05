@@ -1,14 +1,30 @@
 #include "sysregs.h"
 #include "entry.h"
 #include "syscall.h"
+#ifdef PLAT_VIRT
+#include "plat-virt.h"
+#endif
 
 	.macro handle_invalid_entry el, type
-	# xzl: bad - if sp is already bad, this could trigger more exception
+	// make sure we have a good sp. as the kernel will hang anyway, so 
+	// we use the kernel stack
+	mrs x27, sctlr_el1		// assume nothing valuable in x27/x28...
+	orr x27, x27, SCTLR_MMU_ENABLED
+	cmp x27, #0		
+	b.eq 99f
+	mov x27, #LOW_MEMORY	// MMU on, use VA 	
+	mov x28, #VA_START	
+	b 100f 
+99: 	// MMU off, use PA 
+	mov x27, #LOW_MEMORY	
+	mov x28, #0			
+100: 
+	add sp, x27, x28	
 	kernel_entry \el		
 	mov	x0, #\type
 	mrs	x1, esr_el1
 	mrs	x2, elr_el1
-	bl	show_invalid_entry_message
+	bl	show_invalid_entry_message		// irq.c
 	b	err_hang
 	.endm
 

@@ -27,7 +27,7 @@ const char *entry_error_messages[] = {
     [FIQ_INVALID_EL0_32] "FIQ_INVALID_EL0_32",		
     [ERROR_INVALID_EL0_32] "ERROR_INVALID_EL0_32",
 
-    [SYNC_ERROR]    "SYNC_ERROR",
+    [SYNC_ERROR]    "Unhandled EL0 sync exception",
     [SYSCALL_ERROR] "SYSCALL_ERROR",
     [DATA_ABORT_ERROR] "DATA_ABORT_ERROR"
 };
@@ -60,8 +60,10 @@ void enable_interrupt_controller()
 
 void show_invalid_entry_message(int type, unsigned long esr, unsigned long address)
 {    
-    printf("%s: %s, esr: 0x%016lx, elr: 0x%016lx\r\n", __func__, 
+    EE("%s, esr: 0x%016lx, elr: 0x%016lx",  
         entry_error_messages[type], esr, address);
+    EE("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
+    // TODO: dump FAR
 }
 
 // called from hw irq handler (el1_irq, entry.S)
