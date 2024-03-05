@@ -20,7 +20,7 @@ main(int argc, char *argv[])
   dup(0);  // stderr
 
   printf(" --- HELLO USER SPACE ----- \n");
-  printf("argc %d, argv[0] %s, argv[1] %s", argc, argv[0], argv[1]);
+  printf("argc %d, argv[0] %s, argv[1] %s\n", argc, argv[0], argv[1]);
 
   // write(1, msg, strlen(msg)); 
 

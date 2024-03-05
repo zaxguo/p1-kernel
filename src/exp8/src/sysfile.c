@@ -1,3 +1,4 @@
+#define K2_DEBUG_VERBOSE 1
 //
 // File-system system calls.
 // Mostly argument checking, since we don't trust
@@ -408,6 +409,9 @@ int sys_exec(unsigned long upath, unsigned long uargv) {
   if(argstr(upath, path, MAXPATH) < 0) {
     return -1;
   }
+  
+  V("fetched path %s. uargv %lx", path, uargv);
+
   memset(argv, 0, sizeof(argv));
   for(i=0;; i++){
     if(i >= NELEM(argv)){
@@ -416,15 +420,17 @@ int sys_exec(unsigned long upath, unsigned long uargv) {
     if(fetchaddr(uargv+sizeof(uint64)*i, (uint64*)&uarg) < 0){
       goto bad;
     }
+    V("fetched uarg %lx", uarg);
+
     if(uarg == 0){ // xzl: end of argv
       argv[i] = 0;
       break;
     }
-    argv[i] = kalloc(); // xzl: one page per argument (ok?? b/c will freed?)
+    argv[i] = kalloc(); // 1 page per argument, exec() will copy them to task stak. also free below
     if(argv[i] == 0)
       goto bad;
     if(fetchstr(uarg, argv[i], PAGE_SIZE) < 0)
-      goto bad;
+      goto bad;    
   }
 
   int ret = exec(path, argv);

@@ -40,6 +40,9 @@ FIXED
 
 fsinit() must be called. <---- V
 
+
+
+
 ------------
 HOW TO BUILD DISK IMAGE... 
 xl6yq@granger1 (riscv)[xv6-riscv]$ mkfs/mkfs /tmp/sd.bin README
@@ -52,10 +55,14 @@ balloc: write bitmap block at sector 45
 V: fork() should also clone opened fd? 
 V only 1 user task printing coudl be the other does not have a valid fd (always spinning then ...)
 
-TODO: test exec() ... with standalone user app
+TODO: test exec() ... with standalone user app   v
 
 call_sys_write(1 /*stdout*/, msg, strlen(msg));     // WILL FAIL. can be used for debugging 
 ----> use this as a test case ... to improve expcetion handling... userspace unwinding, etc. 
+
+
+TODO: exec() cannot parse arguments correctly... argc always 0. fix it. 
+
 
 -------------
 stack unwind ref:

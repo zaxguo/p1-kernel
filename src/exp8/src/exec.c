@@ -79,7 +79,8 @@ exec(char *path, char **argv)   // called from sys_exec
   if(p->mm.pgd == 0)
     goto bad;
 
-  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  // need more memory for mm....
+  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  // otherwise, need more memory for mm....
+  
   tmpmm = kalloc(); BUG_ON(!tmpmm); 
   // we will only remap user pages, so copy over kernel pages bookkeeping info
   //  the caveat is that some of the kernel pages (eg for the old pgtables) will become unused and will not be

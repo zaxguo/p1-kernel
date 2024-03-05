@@ -262,6 +262,7 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
     uint64_t n, va0, pa0;
 
+	BUG_ON(dstva > USER_VA_END);  // illegal user va. a kernel va??
     while (len > 0) {
         va0 = PGROUNDDOWN(dstva); // va0 pagebase
         pa0 = walkaddr(mm, va0);
@@ -285,6 +286,8 @@ int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
 int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
     uint64 n, va0, pa0;
 
+	BUG_ON(srcva > USER_VA_END);  // illegal user va. a kernel va??
+
     while (len > 0) {
         va0 = PGROUNDDOWN(srcva);  // xzl: user virt page base...
         pa0 = walkaddr(mm, va0); // xzl: phys addr for user va pagebase
@@ -306,43 +309,43 @@ int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
 // Copy bytes to dst from virtual address srcva in a given page table,
 // until a '\0', or max.
 // Return 0 on success, -1 on error.
-int
-copyinstr(struct mm_struct * mm, char *dst, uint64 srcva, uint64 max)
-{
-  uint64 n, va0, pa0;
-  int got_null = 0;
+int copyinstr(struct mm_struct *mm, char *dst, uint64 srcva, uint64 max) {
+    uint64 n, va0, pa0;
+    int got_null = 0;
 
-  while(got_null == 0 && max > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(mm, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PAGE_SIZE - (srcva - va0);
-    if(n > max)
-      n = max;
+    BUG_ON(srcva > USER_VA_END); // illegal user va. a kernel va??
 
-    char *p = (char *) PA2VA(pa0 + (srcva - va0));
-    while(n > 0){
-      if(*p == '\0'){
-        *dst = '\0';
-        got_null = 1;
-        break;
-      } else {
-        *dst = *p;
-      }
-      --n;
-      --max;
-      p++;
-      dst++;
+    while (got_null == 0 && max > 0) {
+        va0 = PGROUNDDOWN(srcva);
+        pa0 = walkaddr(mm, va0);
+        if (pa0 == 0)
+            return -1;
+        n = PAGE_SIZE - (srcva - va0);
+        if (n > max)
+            n = max;
+
+        char *p = (char *)PA2VA(pa0 + (srcva - va0));
+        while (n > 0) {
+            if (*p == '\0') {
+                *dst = '\0';
+                got_null = 1;
+                break;
+            } else {
+                *dst = *p;
+            }
+            --n;
+            --max;
+            p++;
+            dst++;
+        }
+
+        srcva = va0 + PAGE_SIZE;
     }
-
-    srcva = va0 + PAGE_SIZE;
-  }
-  if(got_null){
-    return 0;
-  } else {
-    return -1;
-  }
+    if (got_null) {
+        return 0;
+    } else {
+        return -1;
+    }
 }
 
 // Copy to either a user address, or kernel address 

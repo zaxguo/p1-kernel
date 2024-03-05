@@ -53,7 +53,16 @@ void ls(char *path);
 
 void user_process() 
 {
-  char *argv[] = {0};
+	// make sure they are linked in user va
+	char arg0[] = {"arg0"};
+	char arg1[] = {"arg1"};
+	char arg2[] = {"arg2"};
+
+	// won't work as "arg0"	const string will be linked to kernel va.
+	// exec() expecting user va will fail to "copyin" them
+   //char *argv[] = {"arg0", "arg1", 0};
+
+   char *argv[] = {arg0, arg1, arg2, 0};
 
 	if(call_sys_open("console", O_RDWR) < 0){
 		call_sys_mknod("console", CONSOLE, 0);
@@ -63,8 +72,6 @@ void user_process()
   call_sys_dup(0);  // stderr
 
 	print_to_console("User process entry\n\r");
-
-
   call_sys_exec("/echo.elf", argv);
 }
 
@@ -87,9 +94,10 @@ void user_process1()
 	}
 	print_to_console("fork() succeeds\n\r");
 
+	static char *argv[] = {"arg0", "arg1", 0};
+
 	if (pid == 0){
 		// loop1("abcde");
-    char *argv[] = {"arg0", "arg1", 0};
     call_sys_exec("/echo.elf", argv);
 	} else {
 		loop1("12345");

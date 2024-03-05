@@ -2,6 +2,7 @@ ARMGNU ?= aarch64-linux-gnu
 
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc -mgeneral-regs-only \
 -g -O0 -DUSE_QEMU -DPLAT_VIRT
+COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
 
 # COPS += -DUSE_LFB		# uncomment this to enable GUI console. 
 ASMOPS = -Isrc  -g -DUSE_QEMU \

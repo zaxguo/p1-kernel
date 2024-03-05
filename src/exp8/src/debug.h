@@ -23,9 +23,9 @@
 #ifndef  __K2_TRACEBUFFER__
 #define __K2_TRACEBUFFER__
 
-/* Select KAGE_GLOBAL_DEBUG_LEVEL (arch/arm/common/Kconfig)
- * to globally select dbg msg.
- *
+/* 
+ * set CONFIG_KAGE_GLOBAL_DEBUG_LEVEL in makefile or compiler option
+ 
  * The intersection of global level and per-file K2_NO_DEBUG decides
  * the final outpout.
  *
@@ -36,8 +36,8 @@
  *
  */
 
+
 #ifndef CONFIG_KAGE_GLOBAL_DEBUG_LEVEL
-//#error "Must define KAGE_GLOBAL_DEBUG_LEVEL"
 #define CONFIG_KAGE_GLOBAL_DEBUG_LEVEL 30 // default
 #endif
 
@@ -99,7 +99,7 @@
 #define K2_LOCAL_DEBUG_LEVEL 20
 #endif
 
-/* global or local debug level, we select the higher one.
+/* global or local debug level, we select the higher one (i.e. fewer msgs)
  * (so that msgs are effectively suppressed) */
 #if CONFIG_KAGE_GLOBAL_DEBUG_LEVEL > K2_LOCAL_DEBUG_LEVEL
 #define K2_ACTUAL_DEBUG_LEVEL CONFIG_KAGE_GLOBAL_DEBUG_LEVEL
@@ -126,10 +126,10 @@
 
 /* V conflicts with boost */
 #if K2_ACTUAL_DEBUG_LEVEL <= 20
-#define VV(fmt, arg...) \
+#define V(fmt, arg...) \
   print_to_tracebuffer(K2_PRINT_TAG  "%d %s: " fmt _k2clr_none "\n", __LINE__, __func__, ## arg)
 #else
-#define VV(fmt, arg...)
+#define V(fmt, arg...)
 #endif
 
 #if K2_ACTUAL_DEBUG_LEVEL <= 30
