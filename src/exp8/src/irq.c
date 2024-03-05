@@ -29,7 +29,7 @@ const char *entry_error_messages[] = {
 
     [SYNC_ERROR]    "Unhandled EL0 sync exception",
     [SYSCALL_ERROR] "SYSCALL_ERROR",
-    [DATA_ABORT_ERROR] "DATA_ABORT_ERROR"
+    [DATA_ABORT_ERROR] "Unhandled EL0 data abort (after kernel's trying)"
 };
 
 // Enables Core 0 Timers interrupt control for the generic timer 

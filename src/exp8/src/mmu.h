@@ -27,7 +27,7 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 #define MM_AP_MASK              (0x3UL << 6)
 #define MM_AP_EL1_RW            (0x0 << 6)      // EL0:no access; EL1/2/3: rw
 #define MM_AP_RW                (0x1 << 6)      // EL0/1/2/3: rw
-#define MM_AP_EL1_RO            (0x2 << 6)      // EL0:ro; EL1/2/3: rw
+#define MM_AP_EL0_RO            (0x2 << 6)      // EL0:ro; EL1/2/3: rw
 #define MM_AP_RO                (0x3 << 6)      // EL0/1/2/3: ro
 
 /* "D4.3.3 Memory attribute fields in the VMSAv8-64 translation table format descriptors" */

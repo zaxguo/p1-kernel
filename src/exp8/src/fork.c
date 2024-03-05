@@ -69,7 +69,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
 	/* assumption: our toy user program will not exceed 1 page. the 2nd page will serve as the stack */
-	regs->sp = 2 *  PAGE_SIZE;  
+	regs->sp = USER_VA_END; // 2 *  PAGE_SIZE;  
 	/* only allocate 1 code page here b/c the stack page is to be mapped on demand. 
 	   this will trigger allocating the task's pgtable tree (mm.pgd)
 	*/

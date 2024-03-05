@@ -222,7 +222,7 @@ int copy_virt_memory(struct task_struct *dst) {
 		unsigned long perm = PTE_TO_PERM(*pte); 
 		void *kernel_va = allocate_user_page(dst, src->mm.user_pages[i].virt_addr, perm);
 		if(kernel_va == 0) {
-			WARN(); 
+			BUG(); 
 			return -1;
 		}
 		// xzl: src uses user va. this assumes the current task's va is active
@@ -239,8 +239,7 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 	if (!pte)
 		return 0; 
 	if ((*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)) != MMU_PTE_FLAGS) {
-		printf("%016lx, %016lx\n", (*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
-		WARN(); 
+		W("bug? %016lx, %016lx\n", (*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
 		return 0; 
 	}
 	return (*pte) & PAGE_MASK;
@@ -416,6 +415,7 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 //	TODO
 static int ind = 1; // # of times we tried memory access
 int do_mem_abort(unsigned long addr, unsigned long esr) {
+	struct pt_regs *regs = task_pt_regs(current);
 	unsigned long dfs = (esr & 0b111111);
 	/* whether the current exception is actually a translation fault? */		
 	if ((dfs & 0b111100) == 0b100) { /* translation fault */
@@ -425,11 +425,14 @@ int do_mem_abort(unsigned long addr, unsigned long esr) {
 		}
 		map_page(&(current->mm), addr & PAGE_MASK, page, 1/*alloc*/, MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
 		ind++; // return to user, give it a second chance
-		if (ind > 2) {  // repeated fault
+		if (ind > 5) {  // repeated fault
+		    W("cannot handle. too many mem faults. ind %d", ind); 
 			return -1;
 		}
+		I("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
 		return 0;
 	} 
 	/* other causes, e.g. permission... */
+	W("cannot handle. faulty addr 0x%lx not translation fault", addr); 
 	return -1;
 }

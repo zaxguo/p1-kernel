@@ -47,13 +47,14 @@ struct cpu_context {
 	unsigned long pc;
 };
 
-#define MAX_PROCESS_PAGES			256	  // TODO: move such defs to one place
+#define MAX_PROCESS_PAGES			16	  // TODO: move such defs to one place
 
 struct user_page {
 	unsigned long phys_addr;
 	unsigned long virt_addr; // user va
 };
 
+// the size grows with MAX_PROCESS_PAGES, could be problem for larger user programs in the future...
 struct mm_struct {
 	unsigned long pgd;	// pa. NB this is loaded to ttbr0 (user va)
 	int user_pages_count;
@@ -80,6 +81,9 @@ struct task_struct {
 	struct inode *cwd;           // Current directory
   	char name[16];               // Process name (debugging)	
 };
+
+// bottom half a page; make sure the top half enough space for ker stack...
+_Static_assert(sizeof(struct task_struct) < 2048);	
 
 extern void sched_init(void);
 extern void schedule(void);

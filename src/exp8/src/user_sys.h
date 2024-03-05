@@ -13,6 +13,7 @@ int call_sys_close(int);
 
 int call_sys_fork();
 int call_sys_exit(int);
+int call_sys_exec(char *, char **);
 
 // xzl: TODO move non syscalls out... as inline asm . 
 extern unsigned long get_sp ( void );

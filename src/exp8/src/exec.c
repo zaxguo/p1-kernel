@@ -18,13 +18,12 @@ int flags2perm(int flags)
 #define   PF_R    4
 
     int perm = 0;    
-
-    WARN_ON(!(flags & PF_R));  // exec only??
+    BUG_ON(!(flags & PF_R));  // not readable? exec only??
 
     if(flags & PF_W)
-      perm = MM_AP_EL1_RW;
+      perm = MM_AP_RW;
     else 
-      perm = MM_AP_EL1_RO; 
+      perm = MM_AP_EL0_RO; 
 
     if(!(flags & PF_X)) 
       perm |= MM_XN;
@@ -48,7 +47,7 @@ int flags2perm(int flags)
 //
 
 int
-exec(char *path, char **argv)
+exec(char *path, char **argv)   // called from sys_exec
 {
   char *s, *last;
   int i, off;
@@ -59,6 +58,8 @@ exec(char *path, char **argv)
   struct proghdr ph;
   void *kva; 
   struct task_struct *p = myproc();
+
+  I("exec called. path %s", path);
 
   begin_op();
 
@@ -78,7 +79,7 @@ exec(char *path, char **argv)
   if(p->mm.pgd == 0)
     goto bad;
 
-  BUG_ON(sizeof(struct mm_struct) > PAGE_SIZE);  // need more memory for mm....
+  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  // need more memory for mm....
   tmpmm = kalloc(); BUG_ON(!tmpmm); 
   // we will only remap user pages, so copy over kernel pages bookkeeping info
   //  the caveat is that some of the kernel pages (eg for the old pgtables) will become unused and will not be
@@ -91,9 +92,10 @@ exec(char *path, char **argv)
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
     if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
-    assert(ph.vaddr >= sz); // sz: last seg's va end (exclusive)
     if(ph.type != ELF_PROG_LOAD)
       continue;
+    // W("%lx %lx", ph.vaddr, sz);
+    BUG_ON(ph.vaddr < sz); // sz: last seg's va end (exclusive)      
     if(ph.memsz < ph.filesz)
       goto bad;
       // xzl: TODO: load this seg only (vaddr,+memsz)
@@ -176,10 +178,14 @@ exec(char *path, char **argv)
   // Commit to the user image. free previous user mapping, pages. if any
   regs->pc = elf.entry;  // initial program counter = main
   regs->sp = sp; // initial stack pointer
+  I("init sp 0x%lx", sp);
   free_task_pages(&p->mm, 1 /*useronly*/); 
   p->mm = *tmpmm; 
-
   kfree(tmpmm); 
+
+  set_pgd(p->mm.pgd);
+
+  I("exec succeeds argc=%d", argc);
   return argc; // this ends up in x0, the first argument to main(argc, argv)
 
  bad:
@@ -192,6 +198,7 @@ exec(char *path, char **argv)
     iunlockput(ip);
     end_op();
   }
+  I("exec failed");
   return -1;
 }
 

@@ -224,11 +224,6 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
 #define BUG_ON(exp)	assert (!(exp))
 #define BUG()		assert (0)
 
-#define WARN_ON(expr) (  likely (expr)        \
-                            ? ((void) 0)           \
-                            : assertion_failed (#expr, __FILE__, __LINE__))
-#define WARN()      WARN_ON(0)
-
 // debug.h
 #include "debug.h"
 

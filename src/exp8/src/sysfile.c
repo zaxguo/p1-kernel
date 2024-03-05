@@ -405,7 +405,7 @@ int sys_exec(unsigned long upath, unsigned long uargv) {
   int i;
   unsigned long uarg; // one element from uargv
 
-  if(argstr(0, path, MAXPATH) < 0) {
+  if(argstr(upath, path, MAXPATH) < 0) {
     return -1;
   }
   memset(argv, 0, sizeof(argv));
