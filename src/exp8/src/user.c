@@ -55,6 +55,7 @@ void user_process() {
     // make sure they are linked in user va
 	// char path[] = {"/echo.elf"};
 	char path[] = {"/ls.elf"};
+	// char path[] = {"/mkdir.elf"};
     char arg0[] = {"arg0"};
     char arg1[] = {"/"};
     __attribute__((unused)) char arg2[] = {"arg2"};
@@ -104,3 +105,4 @@ void user_process1() {
         loop1("12345");
     }
 }
+

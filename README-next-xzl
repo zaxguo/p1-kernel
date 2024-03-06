@@ -40,9 +40,6 @@ FIXED
 
 fsinit() must be called. <---- V
 
-
-
-
 ------------
 HOW TO BUILD DISK IMAGE... 
 xl6yq@granger1 (riscv)[xv6-riscv]$ mkfs/mkfs /tmp/sd.bin README
@@ -61,7 +58,10 @@ call_sys_write(1 /*stdout*/, msg, strlen(msg));     // WILL FAIL. can be used fo
 ----> use this as a test case ... to improve expcetion handling... userspace unwinding, etc. 
 
 
-TODO: exec() cannot parse arguments correctly... argc always 0. fix it. 
+[x] TODO: exec() cannot parse arguments correctly... argc always 0. fix it. 
+1st standalone user program -- "echo" -- will test exec() and arg passing. 
+then "ls" -- will test more fs functions
+
 
 
 -------------
