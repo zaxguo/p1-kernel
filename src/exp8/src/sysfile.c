@@ -1,4 +1,4 @@
-#define K2_DEBUG_VERBOSE 1
+#define K2_DEBUG_INFO 1
 //
 // File-system system calls.
 // Mostly argument checking, since we don't trust
@@ -286,7 +286,7 @@ int sys_open(unsigned long upath, int omode) {
   struct inode *ip;
   int n;
 
-  printf("%s called\n", __func__);
+  V("%s called\n", __func__);
 
   if((n = argstr(upath, path, MAXPATH)) < 0) 
     return -1;

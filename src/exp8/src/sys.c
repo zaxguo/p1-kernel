@@ -59,6 +59,7 @@ int sys_fork(void) {
 }
 
 int sys_exit(int c){
+	I("called");
 	exit_process();
 	return 0; 
 }

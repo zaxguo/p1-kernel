@@ -3,7 +3,7 @@ ARMGNU ?= aarch64-linux-gnu
 ULIB = ulib.o printf.o usys_s.o
 
 UPROGS = \
-	echo.elf
+	echo.elf ls.elf
 
 sd.bin: $(UPROGS) mkfs
 	./mkfs sd.bin $(UPROGS)

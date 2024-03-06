@@ -51,55 +51,56 @@ void loop1(char *str) {
 #define CONSOLE 1     // major num for device console
 void ls(char *path);
 
-void user_process() 
-{
-	// make sure they are linked in user va
-	char arg0[] = {"arg0"};
-	char arg1[] = {"arg1"};
-	char arg2[] = {"arg2"};
+void user_process() {
+    // make sure they are linked in user va
+	// char path[] = {"/echo.elf"};
+	char path[] = {"/ls.elf"};
+    char arg0[] = {"arg0"};
+    char arg1[] = {"/"};
+    __attribute__((unused)) char arg2[] = {"arg2"};
 
-	// won't work as "arg0"	const string will be linked to kernel va.
-	// exec() expecting user va will fail to "copyin" them
-   //char *argv[] = {"arg0", "arg1", 0};
+    // won't work as "arg0"	const string will be linked to kernel va.
+    // exec() expecting user va will fail to "copyin" them
+    // char *argv[] = {"arg0", "arg1", 0};
 
-   char *argv[] = {arg0, arg1, arg2, 0};
+    // char *argv[] = {arg0, arg1, arg2, 0};
+	char *argv[] = {arg0, arg1, 0};
 
-	if(call_sys_open("console", O_RDWR) < 0){
-		call_sys_mknod("console", CONSOLE, 0);
-		call_sys_open("console", O_RDWR);
-  }
-  call_sys_dup(0);  // stdout
-  call_sys_dup(0);  // stderr
+    if (call_sys_open("console", O_RDWR) < 0) {
+        call_sys_mknod("console", CONSOLE, 0);
+        call_sys_open("console", O_RDWR);
+    }
+    call_sys_dup(0); // stdout
+    call_sys_dup(0); // stderr
 
-	print_to_console("User process entry\n\r");
-  call_sys_exec("/echo.elf", argv);
+    print_to_console("User process entry\n\r");
+    call_sys_exec(path, argv);
 }
 
-void user_process1() 
-{
-	if(call_sys_open("console", O_RDWR) < 0){
-		call_sys_mknod("console", CONSOLE, 0);
-		call_sys_open("console", O_RDWR);
-  }
-  call_sys_dup(0);  // stdout
-  call_sys_dup(0);  // stderr
+void user_process1() {
+    if (call_sys_open("console", O_RDWR) < 0) {
+        call_sys_mknod("console", CONSOLE, 0);
+        call_sys_open("console", O_RDWR);
+    }
+    call_sys_dup(0); // stdout
+    call_sys_dup(0); // stderr
 
-	print_to_console("User process entry\n\r");
+    print_to_console("User process entry\n\r");
 
-	int pid = call_sys_fork();
-	if (pid < 0) {
-		print_to_console("Error during fork\n\r");
-		call_sys_exit(1);
-		return;
-	}
-	print_to_console("fork() succeeds\n\r");
+    int pid = call_sys_fork();
+    if (pid < 0) {
+        print_to_console("Error during fork\n\r");
+        call_sys_exit(1);
+        return;
+    }
+    print_to_console("fork() succeeds\n\r");
 
-	static char *argv[] = {"arg0", "arg1", 0};
+    static char *argv[] = {"arg0", "arg1", 0};
 
-	if (pid == 0){
-		// loop1("abcde");
-    call_sys_exec("/echo.elf", argv);
-	} else {
-		loop1("12345");
-	}
+    if (pid == 0) {
+        // loop1("abcde");
+        call_sys_exec("/echo.elf", argv);
+    } else {
+        loop1("12345");
+    }
 }
