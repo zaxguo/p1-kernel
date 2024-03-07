@@ -3,16 +3,27 @@
 #include "mmu.h"
 #include "entry.h"
 
+extern struct spinlock wait_lock;  // sched.c
+
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
-	preempt_disable();
 	struct task_struct *p;
-
+	push_off();	// stil need this for entire task array. may remove later
+	
+	int pid = nr_tasks++;  // xzl: TODO need to recycle pid.
+	BUG_ON(pid >= NR_TASKS); // TODO add dynamic pid recycling 
 	p = (struct task_struct *) kalloc();  // get kernel va
-	struct pt_regs *childregs = task_pt_regs(p);
-
-	if (!p)
+	BUG_ON(!p);	
+	if (!p) {
+		pop_off(); 
 		return -1;
+	}
+	task[pid] = p;	// take the spot. scheduler cannot kick in
+	initlock(&p->lock,"proc");
+	pop_off();
+
+	acquire(&p->lock);	
+	struct pt_regs *childregs = task_pt_regs(p);
 
 	if (clone_flags & PF_KTHREAD) { /* create a kernel task */
 		p->cpu_context.x19 = fn;
@@ -29,24 +40,33 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		for (int i = 0; i < NOFILE; i++)
 			if (current->ofile[i])
 				p->ofile[i] = filedup(current->ofile[i]);
-		p->cwd = idup(p->cwd);
-				
+		p->cwd = idup(p->cwd);		
 	}
+
+	// also inherit task name
+	safestrcpy(p->name, current->name, sizeof(current->name));		
+
 	p->flags = clone_flags;
 	p->priority = current->priority;
-	p->state = TASK_RUNNABLE;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemption until schedule_tail
 	// TODO: init more field here
 	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
 
 	p->cpu_context.pc = (unsigned long)ret_from_fork;
-	p->cpu_context.sp = (unsigned long)childregs;
-	int pid = nr_tasks++;  // xzl: TODO need to recycle pid.
-	task[pid] = p;	 
+	p->cpu_context.sp = (unsigned long)childregs;	
 	p->pid = pid; 
+	release(&p->lock);	
 
-	preempt_enable();
+  	acquire(&wait_lock);
+ 	p->parent = current;
+  	release(&wait_lock);
+
+	// should be the last thing ... hence scheduler can pick up
+	acquire(&p->lock);	
+	p->state = TASK_RUNNABLE;
+	release(&p->lock);	
+
 	return pid;
 }
 
@@ -100,3 +120,4 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk)
 	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
+

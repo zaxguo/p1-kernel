@@ -60,13 +60,12 @@ int sys_fork(void) {
 
 int sys_exit(int c){
 	I("called");
-	exit_process();
+	exit_process(c);
 	return 0; 
 }
 
-int sys_wait(int *c) {
-	/* TBD */
-	return 0; 
+int sys_wait(unsigned long p /* user va*/) {	
+	return wait(p); 
 }
 
 int sys_kill(int pid) {

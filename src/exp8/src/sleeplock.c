@@ -3,6 +3,7 @@
 
 #include "utils.h"
 #include "spinlock.h"
+#include "sched.h"
 #include "sleeplock.h"
 
 void initsleeplock(struct sleeplock *lk, char *name) {

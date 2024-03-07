@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "spinlock.h"
 #include "sleeplock.h"
+#include "sched.h"
 #include "fs.h"
 #include "file.h"
 

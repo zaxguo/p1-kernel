@@ -18,15 +18,16 @@
 	However, in the simple impl. below, 
 	TASK_RUNNING represents either RUNNING or READY 
 */
-#define TASK_RUNNING					0
-#define TASK_SLEEPING					1
-#define TASK_ZOMBIE						2
-#define TASK_RUNNABLE					3
+#define TASK_UNUSED						0  // unused tcb slot
+#define TASK_RUNNING					1
+#define TASK_SLEEPING					2
+#define TASK_ZOMBIE						3
+#define TASK_RUNNABLE					4
 /* TODO: define more task states (as constants) below, e.g. TASK_WAIT */
 
 #define PF_KTHREAD		            	0x00000002	
 
-extern struct task_struct *current;
+extern struct task_struct *current; // sched.c
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
@@ -65,6 +66,8 @@ struct mm_struct {
 	unsigned long kernel_pages[MAX_PROCESS_PAGES]; 
 };
 
+#include "spinlock.h"
+
 // the metadata describing a task
 struct task_struct {
 	struct cpu_context cpu_context;	// register values
@@ -73,10 +76,16 @@ struct task_struct {
 	long priority;	// when kernel schedules a new task, the kernel copies the task's  `priority` value to `counter`. Regulate CPU time the task gets relative to other tasks 
 	long preempt_count; // a flag. A non-zero means that the task is executing in a critical code region cannot be interrupted, Any timer tick should be ignored and not triggering rescheduling
 	unsigned long flags;
+	struct spinlock lock;	 // protect this task_struct
 	struct mm_struct mm;
 	void *chan;                  // If non-zero, sleeping on chan
 	int killed;                  // If non-zero, have been killed
 	int pid; 					 // still need this, ease of debugging...
+  	int xstate;  				// Exit status to be returned to parent's wait
+
+	// wait_lock must be held when using this:
+	struct task_struct *parent;         // Parent process
+
 	struct file *ofile[NOFILE];  // Open files
 	struct inode *cwd;           // Current directory
   	char name[16];               // Process name (debugging)	
@@ -84,27 +93,6 @@ struct task_struct {
 
 // bottom half a page; make sure the top half enough space for ker stack...
 _Static_assert(sizeof(struct task_struct) < 2048);	
-
-extern void sched_init(void);
-extern void schedule(void);
-extern void timer_tick(void);
-extern void preempt_disable(void);
-extern void preempt_enable(void);
-extern void switch_to(struct task_struct* next);
-extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);	// sched.S
-
-void procdump(void); 
-
-// the initial values for task_struct that belongs to the init task. see sched.c 
-// NB: init task is in kernel, only has kernel mapping (ttbr1) 
-// 		no user mapping (ttbr0, mm->pgd=0)
-#define INIT_TASK \
-/*cpu_context*/ { { 0,0,0,0,0,0,0,0,0,0,0,0,0}, \
-0 /*state*/, 0 /*counter*/, 2 /*priority*/, 0 /*preempt_count*/, PF_KTHREAD, \
-/* mm */ { 0, 0, {{0}}, 0, {0}}, \
-0 /*chan*/, 0 /*killed*/ 		\
-}
-// TODO: init more fields
 
 // --------------- processor related ----------------------- // 
 // we only support 1 cpu (as of now), but xv6 code is around multicore so we keep the 
@@ -115,7 +103,7 @@ struct cpu {
   int intena;                 		// Were interrupts enabled before push_off()?
 };
 
-extern struct cpu cpus[NCPU];
+extern struct cpu cpus[NCPU];		// sched.c
 static inline struct cpu* mycpu(void) {return &cpus[0];};
 static inline struct task_struct *myproc(void) {return current;};
 
@@ -132,9 +120,6 @@ static inline struct task_struct *myproc(void) {return current;};
 #define PSR_MODE_EL3t	0x0000000c
 #define PSR_MODE_EL3h	0x0000000d
 
-int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg);
-int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc);
-struct pt_regs * task_pt_regs(struct task_struct *tsk);
 
 struct pt_regs {
 	unsigned long regs[31];

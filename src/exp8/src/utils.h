@@ -22,6 +22,8 @@ struct inode;
 struct superblock;
 struct stat; 
 struct pipe; 
+struct mm_struct; 
+struct task_struct; 
 
 // ------------------- misc ----------------------------- //
 
@@ -73,7 +75,6 @@ void free_page(unsigned long p);
 void memzero(void *src, unsigned long n);   // util.S
 void memcpy(void* dst, const void* src, unsigned long n);
 
-#include "sched.h"
 unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page, int alloc, 
     unsigned long perm);
 int copy_virt_memory(struct task_struct *dst); 
@@ -115,7 +116,7 @@ int             holdingsleep(struct sleeplock*);
 void            initsleeplock(struct sleeplock*, char*);
 
 // ------------------- sched ---------------------------- //
-void exit_process(void);
+void exit_process(int);
 void sleep(void *, struct spinlock *);
 int wait(uint64_t);
 void wakeup(void *);
@@ -202,7 +203,19 @@ void            consputc(int);
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
+// sched.c
+extern void sched_init(void);
+extern void schedule(void);
+extern void timer_tick(void);
+extern void preempt_disable(void);
+extern void preempt_enable(void);
+extern void switch_to(struct task_struct* next);
+extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);	// sched.S
+void procdump(void); 
 
+int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg);
+int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc);
+struct pt_regs * task_pt_regs(struct task_struct *tsk);
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)

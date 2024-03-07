@@ -1,13 +1,40 @@
+#define K2_DEBUG_INFO
+
 #include "utils.h"
 #include "sched.h"
 #include "printf.h"
+#include "spinlock.h"
 
-static struct task_struct init_task = INIT_TASK;
+// the initial values for task_struct that belongs to the init task. see sched.c 
+// NB: init task is in kernel, only has kernel mapping (ttbr1) 
+// 		no user mapping (ttbr0, mm->pgd=0)
+static struct task_struct init_task = {
+    .cpu_context = {0,0,0,0,0,0,0,0,0,0,0,0,0}, 
+    .state = TASK_RUNNABLE, 					
+    .counter = 0, 
+    .priority = 2, 
+    .preempt_count = 0, 
+    .flags = PF_KTHREAD, 
+    .mm = { 0, 0, {{0}}, 0, {0}}, 
+    .chan = 0, 
+    .killed = 0,
+    .pid = 0, 
+    .ofile = {0}, 
+    .cwd = 0, 
+    .name = "init"
+};
+
 struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
 int nr_tasks = 1;
 
 struct cpu cpus[NCPU]; 
+
+// helps ensure that wakeups of wait()ing
+// parents are not lost. helps obey the
+// memory model when using p->parent.
+// must be acquired before any p->lock.
+struct spinlock wait_lock = {.locked=0, .cpu=0, .name="wait_lock"};
 
 // this only prevents timer_tick() from calling schedule(). 
 // they don't prevent voluntary switch; or irq context
@@ -30,42 +57,56 @@ void _schedule(void)
 	preempt_disable(); 
 	int next,c;
 	struct task_struct * p;
+    int has_runnable; 
 
 	while (1) {
 		c = -1; // the maximum counter of all tasks 
 		next = 0;
+        has_runnable = 0; 
+
+        push_off();  // our scheduler lock, as irq context may touch @tasks 
 
 		/* Iterates over all tasks and tries to find a task in 
 		TASK_RUNNING state with the maximum counter. If such 
 		a task is found, we immediately break from the while loop 
 		and switch to this task. */
-
-		push_off();  // our scheduler lock, as irq context may touch @tasks 
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
-			if (p && (p->state == TASK_RUNNING || p->state == TASK_RUNNABLE)
-						&& p->counter > c) {
-				c = p->counter;
-				next = i;
+			if (p && (p->state == TASK_RUNNING || p->state == TASK_RUNNABLE)) {
+                has_runnable = 1; 
+				if (p->counter > c) {
+				    c = p->counter;
+				    next = i;
+                }
 			}
 		}
 		pop_off(); 
-		if (c) {
+        // pick such a task as next
+		if (c > 0) { 
 			break;
 		}
 
 		/* If no such task is found, this is either because i) no 
-		task is in TASK_RUNNING|RUNNABLE state or ii) all such tasks have 0 counters.
-		in our current implemenation which misses TASK_WAIT, only condition ii) is possible. 
-		Hence, we recharge counters. Bump counters for all tasks once. */
+		task is in TASK_RUNNING|RUNNABLE or ii) all such tasks have 0 counters.*/
 		
-		for (int i = 0; i < NR_TASKS; i++) {
-			p = task[i];
-			if (p) {
-				p->counter = (p->counter >> 1) + p->priority;
-			}
-		}
+        if (has_runnable) { // recharge counters for all tasks once, per priority */		
+            for (int i = 0; i < NR_TASKS; i++) {
+                p = task[i];
+                if (p) {
+                    p->counter = (p->counter >> 1) + p->priority;
+                }
+            }
+        } else { /* nothing to run */
+            // W("nothing to run"); 
+            // for (int i = 0; i < NR_TASKS; i++) {
+            //         p= task[i];
+            //     if (p)
+            //         W("pid %d state %d chan %lx", p->pid, p->state, (unsigned long) p->chan);
+            // }
+            asm volatile("wfi");
+        }
 	}
+    W("picked pid %d state %d", next, task[next]->state);
 	switch_to(task[next]);
 	preempt_enable();
 }
@@ -129,17 +170,35 @@ void timer_tick()
 	disable_irq(); 
 }
 
-void exit_process() {
-    preempt_disable();
-    for (int i = 0; i < NR_TASKS; i++) {
-        if (task[i] == current) {
-            task[i]->state = TASK_ZOMBIE;
-            break;
+// Wake up all processes sleeping on chan.
+// Must be called without any p->lock.
+// xzl: may be called from irq & tasks?
+void wakeup(void *chan) {
+    struct task_struct *p;
+
+    // our scheduler lock. can't do disable_irq()/enable_irq() here b/c the func may be called with
+    // another spinlock held (which already disabled irq), cf. releasesleep()
+    // if so, the enable_irq below
+    // would prematurely release that spinlock -- bad.
+    push_off();
+
+    // W("chan=%lx", (unsigned long)chan);
+
+	for (int i = 0; i < NR_TASKS; i ++) {
+		p = task[i]; 
+        // xzl: why p!=current? e.g. current task can be the only task sleeping on 
+        //      an io event. it shall wake up
+        // if (p && p != current) { 
+        if (p) { 
+            //   acquire(&p->lock);
+            if (p->state == TASK_SLEEPING && p->chan == chan) {
+                p->state = TASK_RUNNABLE;
+                V("wakeup chan=%lx pid %d", (unsigned long)p->chan, p->pid);
+            }
+            //   release(&p->lock);
         }
     }
-    /* no need to free stack page...*/
-    preempt_enable();
-    schedule();
+    pop_off();
 }
 
 // Atomically release lock and sleep on chan.
@@ -175,29 +234,145 @@ void sleep(void *chan, struct spinlock *lk) {
     acquire(lk);
 }
 
-// Wake up all processes sleeping on chan.
-// Must be called without any p->lock.
-// xzl: may be called from irq & tasks?
-void wakeup(void *chan) {
-    struct task_struct *p;
-
-    // our scheduler lock. can't do disable_irq()/enable_irq() here b/c the func may be called with
-    // another spinlock held (which already disabled irq), cf. releasesleep()
-    // if so, the enable_irq below
-    // would prematurely release that spinlock -- bad.
-    push_off();
-
-	for (int i = 0; i < NR_TASKS; i ++) {
-		p = task[i]; 
-        if (p && p != current) {
-            //   acquire(&p->lock);
-            if (p->state == TASK_SLEEPING && p->chan == chan) {
-                p->state = TASK_RUNNABLE;
-            }
-            //   release(&p->lock);
+// Pass p's abandoned children to init.
+// Caller must hold wait_lock.   xzl: direct reparent to initprocess..
+void reparent(struct task_struct *p) {
+    struct task_struct **child;
+    // we scan all tasks to be compatible with future "pid recycling" design
+    for (child = task; child < &task[NR_TASKS]; child++) {
+        if ((*child)->parent == p) {
+            (*child)->parent = &init_task;
+            wakeup(&init_task);
         }
     }
-    pop_off();
+}
+
+// xzl: this only makes a task zombie, the actual destruction happens
+// when parent calls wait() successfully
+void exit_process(int status) {
+    struct task_struct *p = myproc();
+
+    if (p == &init_task)
+        panic("init exiting");
+
+    // Close all open files.
+    for (int fd = 0; fd < NOFILE; fd++) {
+        if (p->ofile[fd]) {
+            struct file *f = p->ofile[fd];
+            fileclose(f);
+            p->ofile[fd] = 0;
+        }
+    }
+
+    begin_op();
+    iput(p->cwd);
+    end_op();
+    p->cwd = 0;
+
+    acquire(&wait_lock);
+
+    // Give any children to init.
+    reparent(p);
+
+    // Parent might be sleeping in wait().
+    wakeup(p->parent);
+
+    acquire(&p->lock); // xzl: cf wait() code below
+
+    p->xstate = status;
+    p->state = TASK_ZOMBIE;
+
+    release(&p->lock); // xzl: dont hold the lock to scheduler(), unlike xv6...
+
+    release(&wait_lock);
+
+    // Jump into the scheduler, never to return.
+    W("exit done. will call schedule...");
+    schedule();
+    panic("zombie exit");
+
+#if 0     
+    preempt_disable();
+    for (int i = 0; i < NR_TASKS; i++) {
+        if (task[i] == current) {
+            task[i]->state = TASK_ZOMBIE;
+            break;
+        }
+    }
+    /* no need to free stack page...*/
+    preempt_enable();    
+    schedule();
+#endif
+}
+
+// xzl: destorys a task: task_struct, kernel stack, etc. 
+// free a proc structure and the data hanging from it,
+// including user pages. (and kernel pages)
+// p->lock must be held.
+static void
+freeproc(struct task_struct *p) {
+    BUG_ON(!p);
+    free_task_pages(&p->mm, 0 /* free all user and kernel pages*/);
+    // no need to zero task_struct, which is on the task's kernel page
+    // FIX: since we cannot recycle task slot now, so we dont dec nr_tasks ...
+}
+
+// Wait for a child process to exit and return its pid.
+// Return -1 if this process has no children. 
+// addr=0 a special case, dont care about status
+int wait(uint64 addr /*dst user va to copy status to*/) {
+    struct task_struct **pp;
+    int havekids, pid;
+    struct task_struct *p = myproc();
+
+    W("entering wait()");
+
+    acquire(&wait_lock);
+
+    for (;;) {
+        // Scan through table looking for exited children. xzl pp:child
+        havekids = 0;
+        for (pp = task; pp < &task[NR_TASKS]; pp++) {
+            if (!(*pp)) 
+                continue; 
+            if ((*pp)->parent == p) {
+                // make sure the child isn't still in exit() or swtch().
+                acquire(&(*pp)->lock);
+
+                havekids = 1;
+                if ((*pp)->state == TASK_ZOMBIE) {
+                    // Found one.
+                    pid = (*pp)->pid;
+                    if (addr != 0 && copyout(&p->mm, addr, (char *)&(*pp)->xstate,
+                                             sizeof((*pp)->xstate)) < 0) {
+                        release(&(*pp)->lock);
+                        release(&wait_lock);
+                        return -1;
+                    }
+                    // xzl: detach pp from scheduler... sufficient to prevent race on pp?
+                    //    another design is to disable irq here... 
+                    task[(*pp)->pid] = 0; 
+                    release(&(*pp)->lock);
+                    freeproc(*pp); // xzl: do it after release b/c it will destory the lock
+                    release(&wait_lock);
+                    return pid;
+                }
+                release(&(*pp)->lock);
+            }
+        }
+
+        // No point waiting if we don't have any children.
+        if (!havekids || killed(p)) {
+            release(&wait_lock);
+            return -1;
+        }
+
+        // Wait for a child to exit.
+        W("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
+        sleep(p, &wait_lock); // DOC: wait-sleep
+        W("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
+            (unsigned long)p->chan, p->state);
+    }
 }
 
 // Kill the process with the given pid.

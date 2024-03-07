@@ -119,9 +119,9 @@
 */
 
 #if K2_ACTUAL_DEBUG_LEVEL <= 10
-#define DD(fmt, arg...) print_to_tracebuffer(fmt, ##arg)
+#define D(fmt, arg...) print_to_tracebuffer(fmt, ##arg)
 #else
-#define DD(x...)
+#define D(x...)
 #endif
 
 /* V conflicts with boost */

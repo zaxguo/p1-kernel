@@ -7,6 +7,7 @@
 
 #include "utils.h"
 #include "spinlock.h"
+#include "sched.h"
 
 void
 initlock(struct spinlock *lk, char *name)
@@ -22,7 +23,7 @@ void
 acquire(struct spinlock *lk)
 {
   push_off(); // disable interrupts to avoid deadlock.
-  if(holding(lk))
+  if(!lk || holding(lk))
     panic("acquire");
 
   while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
@@ -42,7 +43,7 @@ acquire(struct spinlock *lk)
 void
 release(struct spinlock *lk)
 {
-  if(!holding(lk))
+  if(!lk || !holding(lk))
     panic("release");
 
   lk->cpu = 0;
@@ -73,6 +74,7 @@ int
 holding(struct spinlock *lk)
 {
   int r;
+  // W("%lx %s %d", (unsigned long)lk, lk->name, lk->locked);
   r = (lk->locked && lk->cpu == mycpu());
   return r;
 }

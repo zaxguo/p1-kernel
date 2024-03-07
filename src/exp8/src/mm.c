@@ -1,6 +1,8 @@
 #include "utils.h"
 #include "mmu.h"
 #include "spinlock.h"
+#include "sched.h"
+
 
 /* 
 	Minimalist page allocation 
@@ -381,7 +383,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
   }
 }
 
-// only free user pages if useronly=1, otherwise free user/kernel pages
+// free user pages only if useronly=1, otherwise free user/kernel pages
 // NB: wont update pgtables for umapping freed user pages
 void free_task_pages(struct mm_struct *mm, int useronly) {
 	unsigned long page; 
@@ -400,6 +402,14 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 	mm->user_pages_count = 0;
 
 	if (!useronly) {
+		// must handle with care. 
+		// task_struct and mm all live on the kernel pages. so once we 
+		// free them, they could be grabbed away by other contexts. 
+		// as a result we may have bad mm in the loop below. 
+		// alloc_lock does not help: it only protects single page alloc/free.
+		// we need to lock the whole mem allocator. 
+		// for now, just disable irq...
+		push_off(); 
 		for (int i = 0; i < mm->kernel_pages_count; i++) {
 			page = mm->kernel_pages[i]; 
 			BUG_ON(!page);
@@ -408,6 +418,7 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 		memzero(&mm->kernel_pages, sizeof(mm->kernel_pages));
 		mm->kernel_pages_count = 0;
 		mm->pgd = 0; // should we do this? 
+		pop_off(); 
 	}
 }
 

@@ -1,5 +1,5 @@
 #include "utils.h"
-#include "spinlock.h"
+#include "sched.h"
 #include "mmu.h"
 #include "elf.h"
 

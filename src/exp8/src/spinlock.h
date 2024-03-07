@@ -1,6 +1,8 @@
 // Mutual exclusion lock.
 // derived from xv6
 
+#ifndef SPINLOCK_H
+#define SPINLOCK_H
 struct spinlock {
   unsigned int locked;       // Is the lock held?
 
@@ -9,3 +11,4 @@ struct spinlock {
   struct cpu *cpu;   // The cpu holding the lock. // we only assume 1 cpu core
 };
 
+#endif

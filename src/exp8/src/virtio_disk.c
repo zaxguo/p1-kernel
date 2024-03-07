@@ -334,6 +334,7 @@ virtio_disk_intr()
 
     struct buf *b = disk.info[id].b;
     b->disk = 0;   // disk is done with buf xzl:for read, buf already been filled by dma
+    D("wakeup chan =%lx", (unsigned long)b);
     wakeup(b);  // xzl: irq context will call wakeup
 
     disk.used_idx += 1;

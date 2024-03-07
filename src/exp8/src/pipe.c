@@ -1,7 +1,8 @@
-#include "spinlock.h"
 #include "utils.h"
-#include "fs.h"
+#include "spinlock.h"
 #include "sleeplock.h"
+#include "sched.h"
+#include "fs.h"
 #include "file.h"
 
 // xzl: feels like a toy. copy one char at a time (using copyin/copyout). 

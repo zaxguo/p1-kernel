@@ -8,7 +8,7 @@
 
 // main body of kernel thread
 void kernel_process() {
-	printf("Kernel process started at EL %d\r\n", get_el());
+	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	unsigned long begin = (unsigned long)&user_begin;  	// defined in linker-qemu.ld
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
@@ -49,7 +49,14 @@ void kernel_main()
 
 	printf("%s:%d called\n", __func__, __LINE__);
 
-	while (1){
-		schedule();
+	int wpid; 
+	while (1) {
+		// schedule();
+		wpid = wait(0 /* does not care status*/); 
+		if (wpid < 0) {
+			BUG(); // wait failed? 
+		} else {
+			// a parentless task 
+		}		
 	}	
 }
