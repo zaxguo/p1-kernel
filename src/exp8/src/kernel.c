@@ -1,3 +1,5 @@
+#define K2_DEBUG_INFO
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -54,8 +56,10 @@ void kernel_main()
 		// schedule();
 		wpid = wait(0 /* does not care status*/); 
 		if (wpid < 0) {
-			BUG(); // wait failed? 
+			W("init wait failed with %d", wpid);
+			panic("maybe no child. has nothing to do. bye"); 
 		} else {
+			I("wait returns pid=%d", wpid);
 			// a parentless task 
 		}		
 	}	

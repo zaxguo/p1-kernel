@@ -57,11 +57,27 @@ TODO: test exec() ... with standalone user app   v
 call_sys_write(1 /*stdout*/, msg, strlen(msg));     // WILL FAIL. can be used for debugging 
 ----> use this as a test case ... to improve expcetion handling... userspace unwinding, etc. 
 
+[ ] ramdisk ... 
+convert to c header; 
+or use linker to include binary image (just like how we link font   and pic)
+    shall we include a zip fuction?
+
+==== THOUGHTS ====
+by using ramdisk, the actual disk driver (irq driven) can come in much later. 
+
+hence, less concurrncy issus in fs, easier to debug other parts of the OS (scheduling etc)
+
+uart driver ... should maintaina trivial version (in addition to the full fledged one that can support console). easier to debug 
+    * no spinlock, 
+    * no "wakeup" 
+    * no tx irq 
+    can be invoked from a "debug" syscall (instead of as console dev file)... also simplify things 
+
 
 [x] TODO: exec() cannot parse arguments correctly... argc always 0. fix it. 
 
 
-[ ] after some changes, task1 was waiting for blockio but didnt get woken up??
+[x] after some changes, task1 was waiting for blockio but didnt get woken up??
 check: if driver's irq called wakeup() and why it is not changing task1's state
 to RUNNABLE
 (still WAITING)

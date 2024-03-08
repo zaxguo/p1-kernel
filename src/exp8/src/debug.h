@@ -127,28 +127,28 @@
 /* V conflicts with boost */
 #if K2_ACTUAL_DEBUG_LEVEL <= 20
 #define V(fmt, arg...) \
-  print_to_tracebuffer(K2_PRINT_TAG  "%d %s: " fmt _k2clr_none "\n", __LINE__, __func__, ## arg)
+  print_to_tracebuffer(K2_PRINT_TAG  "%s:%d " fmt _k2clr_none "\n", __FILE__, __LINE__, ## arg)
 #else
 #define V(fmt, arg...)
 #endif
 
 #if K2_ACTUAL_DEBUG_LEVEL <= 30
 #define I(fmt, arg...) \
-  print_to_tracebuffer(K2_PRINT_TAG _k2clr_green "%d %s: " fmt _k2clr_none "\n", __LINE__, __func__, ## arg)
+  print_to_tracebuffer(K2_PRINT_TAG _k2clr_green "%s:%d " fmt _k2clr_none "\n", __FILE__, __LINE__, ## arg)
 #else
 #define I(fmt, arg...)
 #endif
 
 #if K2_ACTUAL_DEBUG_LEVEL <= 40
 #define W(fmt, arg...) \
-  print_to_tracebuffer(K2_PRINT_TAG _k2clr_brown "%d %s: " fmt _k2clr_none "\n", __LINE__, __func__, ## arg)
+  print_to_tracebuffer(K2_PRINT_TAG _k2clr_brown "%s:%d " fmt _k2clr_none "\n", __FILE__, __LINE__, ## arg)
 #else
 #define W(fmt, arg...)
 #endif
 
 #if K2_ACTUAL_DEBUG_LEVEL <= 50
 #define EE(fmt, arg...) \
-  print_to_tracebuffer(K2_PRINT_TAG _k2clr_red "%d %s: " fmt _k2clr_none "\n", __LINE__, __func__, ## arg)
+  print_to_tracebuffer(K2_PRINT_TAG _k2clr_red "%s:%d " fmt _k2clr_none "\n", __FILE__, __LINE__, ## arg)
 #else
 #error "not implemented or wrong debug level"
 #endif

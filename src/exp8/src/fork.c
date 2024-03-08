@@ -23,6 +23,10 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	pop_off();
 
 	acquire(&p->lock);	
+	// bookkeep the 1st kernel page (kern stack)
+	p->mm.kernel_pages[0] = VA2PA(p); 
+	p->mm.kernel_pages_count = 1; 
+
 	struct pt_regs *childregs = task_pt_regs(p);
 
 	if (clone_flags & PF_KTHREAD) { /* create a kernel task */

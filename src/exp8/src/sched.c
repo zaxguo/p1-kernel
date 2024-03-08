@@ -106,7 +106,7 @@ void _schedule(void)
             asm volatile("wfi");
         }
 	}
-    W("picked pid %d state %d", next, task[next]->state);
+    V("picked pid %d state %d", next, task[next]->state);
 	switch_to(task[next]);
 	preempt_enable();
 }
@@ -287,7 +287,7 @@ void exit_process(int status) {
     release(&wait_lock);
 
     // Jump into the scheduler, never to return.
-    W("exit done. will call schedule...");
+    V("exit done. will call schedule...");
     schedule();
     panic("zombie exit");
 
@@ -325,7 +325,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
     int havekids, pid;
     struct task_struct *p = myproc();
 
-    W("entering wait()");
+    V("entering wait()");
 
     acquire(&wait_lock);
 
@@ -333,31 +333,33 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
         // Scan through table looking for exited children. xzl pp:child
         havekids = 0;
         for (pp = task; pp < &task[NR_TASKS]; pp++) {
-            if (!(*pp)) 
+            struct task_struct *p0 = *pp; 
+            if (!p0) 
                 continue; 
-            if ((*pp)->parent == p) {
+            if (p0->parent == p) {
                 // make sure the child isn't still in exit() or swtch().
-                acquire(&(*pp)->lock);
+                acquire(&p0->lock);
 
                 havekids = 1;
-                if ((*pp)->state == TASK_ZOMBIE) {
+                if (p0->state == TASK_ZOMBIE) {
                     // Found one.
-                    pid = (*pp)->pid;
-                    if (addr != 0 && copyout(&p->mm, addr, (char *)&(*pp)->xstate,
-                                             sizeof((*pp)->xstate)) < 0) {
-                        release(&(*pp)->lock);
+                    pid = p0->pid;
+                    V("found zombie pid=%d", pid);
+                    if (addr != 0 && copyout(&p->mm, addr, (char *)&(p0->xstate),
+                                             sizeof(p0->xstate)) < 0) {
+                        release(&p0->lock);
                         release(&wait_lock);
                         return -1;
                     }
                     // xzl: detach pp from scheduler... sufficient to prevent race on pp?
                     //    another design is to disable irq here... 
-                    task[(*pp)->pid] = 0; 
-                    release(&(*pp)->lock);
-                    freeproc(*pp); // xzl: do it after release b/c it will destory the lock
+                    task[pid] = 0;  
+                    release(&p0->lock);  // XXX
+                    freeproc(p0); // xzl: do it after release b/c it will destory the lock
                     release(&wait_lock);
                     return pid;
                 }
-                release(&(*pp)->lock);
+                release(&p0->lock);
             }
         }
 
@@ -368,9 +370,9 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
         }
 
         // Wait for a child to exit.
-        W("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
+        V("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
         sleep(p, &wait_lock); // DOC: wait-sleep
-        W("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
+        V("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
             (unsigned long)p->chan, p->state);
     }
 }

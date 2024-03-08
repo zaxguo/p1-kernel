@@ -53,7 +53,7 @@ int sys_dup(int fd) {
   struct file *f;
   int fd1;
 
-  I("called fd %d", fd);
+  V("called fd %d", fd);
 
   if(argfd(fd, &f) < 0)
     return -1;

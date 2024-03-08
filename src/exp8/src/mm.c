@@ -148,7 +148,8 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 		if (alloc) {
 			mm->pgd = get_free_page();
 			assert(mm->pgd); 
-			mm->kernel_pages[++mm->kernel_pages_count] = mm->pgd;
+			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			mm->kernel_pages[mm->kernel_pages_count++] = mm->pgd;
 		} else 
 			goto no_alloc; 
 	} 
@@ -158,8 +159,10 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	/* move to the next level pgtable. allocate one if absent */
 	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &allocated);
 	if (pud) {
-		if (allocated)  /* we've allocated a new kernel page. take it into account for future reclaim */
-			mm->kernel_pages[++mm->kernel_pages_count] = pud;
+		if (allocated) { /* we've allocated a new kernel page. take it into account for future reclaim */
+			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			mm->kernel_pages[mm->kernel_pages_count++] = pud;
+		}
 		else
 			; /* use existing -- fine */
 	} else { /* !pud */
@@ -173,8 +176,10 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	allocated = alloc; 
 	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &allocated);
 	if (pmd) {
-		if (allocated)
-			mm->kernel_pages[++mm->kernel_pages_count] = pmd;
+		if (allocated) {
+			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			mm->kernel_pages[mm->kernel_pages_count++] = pmd;
+		}
 	} else {
 		if (!alloc)
 			goto no_alloc; 
@@ -186,8 +191,10 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	allocated = alloc; 
 	unsigned long pt = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &allocated);
 	if (pt) {
-		if (allocated)
-			mm->kernel_pages[++mm->kernel_pages_count] = pt;
+		if (allocated) {
+			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			mm->kernel_pages[mm->kernel_pages_count++] = pt;
+		}
 	} else {
 		if (!alloc)
 			goto no_alloc; 
@@ -200,6 +207,7 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 		map_table_entry((unsigned long *)(pt + VA_START), va, page /*=0 for finding entry only*/, perm);
 	if (page) { /* a page just installed, bookkeeping.. */
 		struct user_page p = {page, va};
+		BUG_ON(mm->user_pages_count >= MAX_PROCESS_PAGES); 
 		mm->user_pages[mm->user_pages_count++] = p;
 	}
 	return pte_va;

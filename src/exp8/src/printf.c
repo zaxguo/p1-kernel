@@ -240,6 +240,7 @@ void panic(char *s)
   printf(s);
   printf("\n");
 //   panicked = 1; // freeze uart output from other CPUs
+    asm volatile("msr	daifset, #0b0010 "); // disable irq
   for(;;)
     ;
 }
