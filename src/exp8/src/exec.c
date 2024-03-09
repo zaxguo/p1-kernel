@@ -111,7 +111,7 @@ exec(char *path, char **argv)   // called from sys_exec
     // xzl: TODO: also respect seg permission... flags2perm()
     for (sz1 = ph.vaddr; sz1 < ph.vaddr + ph.memsz; sz1 += PAGE_SIZE) {
       kva = allocate_user_page_mm(tmpmm, sz1, flags2perm(ph.flags)); 
-      assert(kva); 
+      BUG_ON(!kva); 
     }
     sz = sz1; 
     if(loadseg(tmpmm, ph.vaddr, ip, ph.off, ph.filesz) < 0)
@@ -121,10 +121,9 @@ exec(char *path, char **argv)   // called from sys_exec
   end_op();
   ip = 0;
   
-  // Allocate two pages at the next page boundary.
-  // Make the first inaccessible as a stack guard.
-  // Use the second as the user stack.
-  sz = PGROUNDUP(sz); 
+  sz = PGROUNDUP(sz);  
+  
+  // User stack 
   assert(sz + PAGE_SIZE + USER_MAX_STACK <= USER_VA_END); 
   // alloc the 1st stack page (instead of demand paging), for pushing args (below)
   if (!(kva=allocate_user_page_mm(tmpmm, USER_VA_END - PAGE_SIZE, MMU_PTE_FLAGS | MM_AP_RW))) {
@@ -182,6 +181,7 @@ exec(char *path, char **argv)   // called from sys_exec
   I("init sp 0x%lx", sp);
   free_task_pages(&p->mm, 1 /*useronly*/); 
   p->mm = *tmpmm; 
+  p->sz = p->codesz = sz; 
   kfree(tmpmm); 
 
   set_pgd(p->mm.pgd);

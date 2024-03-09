@@ -54,10 +54,14 @@ void ls(char *path);
 void user_process() {
     // make sure they are linked in user va
 	// char path[] = {"/echo.elf"};
-	char path[] = {"/ls.elf"};
+	// char path[] = {"/ls.elf"};
 	// char path[] = {"/mkdir.elf"};
+    // char path[] = {"/forktest.elf"};
+    char path[] = {"/usertests.elf"};
+
     char arg0[] = {"arg0"};
-    char arg1[] = {"/"};
+    // char arg1[] = {"/"};
+    char arg1[] = {"sbrkbasic"};
     __attribute__((unused)) char arg2[] = {"arg2"};
 
     // won't work as "arg0"	const string will be linked to kernel va.

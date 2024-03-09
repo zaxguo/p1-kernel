@@ -1,3 +1,5 @@
+#define K2_DEBUG_WARN
+
 #include "utils.h"
 #include "mmu.h"
 #include "spinlock.h"
@@ -35,8 +37,10 @@ void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned lo
 	if (page == 0) {
 		return 0;
 	}
-	map_page(&(task->mm), va, page, 1 /*alloc*/, perm);
-	return PA2VA(page);
+	if (map_page(&(task->mm), va, page, 1 /*alloc*/, perm))
+		return PA2VA(page);
+	else 
+		return 0; 
 }
 
 /* same as above, but 1st arg is mm*/
@@ -45,10 +49,11 @@ void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned lon
 	if (page == 0) {
 		return 0;
 	}
-	map_page(mm, va, page, 1 /*alloc*/, perm);
-	return PA2VA(page);
+	if (map_page(mm, va, page, 1 /*alloc*/, perm))
+		return PA2VA(page);
+	else 
+		return 0; 
 }
-
 
 /* allocate a page (zero filled). return pa of the page. 0 if failed */
 unsigned long get_free_page()
@@ -207,13 +212,17 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 		map_table_entry((unsigned long *)(pt + VA_START), va, page /*=0 for finding entry only*/, perm);
 	if (page) { /* a page just installed, bookkeeping.. */
 		struct user_page p = {page, va};
-		BUG_ON(mm->user_pages_count >= MAX_PROCESS_PAGES); 
+		if (mm->user_pages_count >= MAX_PROCESS_PAGES) {
+			E("# user pages reachs limit");
+			goto no_alloc; 
+		}
 		mm->user_pages[mm->user_pages_count++] = p;
 	}
 	return pte_va;
 
 no_alloc:
 	// xzl: TODO: reverse allocated pgtables during tree walk
+	E("failed. TODO: reverse allocated pgtables during tree walk"); 
 	return 0; 	
 }
 
@@ -430,6 +439,85 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 	}
 }
 
+/* unmap and free user pages. start_va and size must be page aligned 
+	caller must flush tlb (e.g. via set_pgd(mm->pgd))
+	reutrn 0 on success. -1 on failure 
+
+	TODO: need to grab any lock?
+*/
+static 
+int free_user_page_range(struct mm_struct *mm, unsigned long start_va, 
+		unsigned long size) {
+	unsigned long *pte; 
+	unsigned long page; // pa; 
+
+	BUG_ON((start_va & (~PAGE_MASK)) || (size & (~PAGE_MASK)) || !mm);
+
+	for (unsigned long i = start_va; i < start_va + size; i+= PAGE_SIZE) {		
+		pte = map_page(mm, i, 0/*only locate pte*/, 0/*no alloc*/, 0/*dont care*/); 
+		if (!pte)
+			goto bad; 
+		page = PTE_TO_PA(*pte); 
+		free_page(page); 
+		*pte = 0; // nuke pte		
+	}
+	return 0; 
+bad: 
+	BUG(); 
+	return -1; 	
+}
+
+/* 
+	On success, sbrk() returns the previous program break. 
+	(If the break was increased, then this value is a pointer to the start of 
+	the newly allocated memory). On error, (void *) -1 is returned, 
+	https://linux.die.net/man/2/sbrk
+*/
+unsigned long sys_sbrk(int incr) {
+	unsigned long sz = current->sz, sz1; 
+	struct pt_regs *regs = task_pt_regs(current);
+	void *kva; 
+	struct mm_struct *mm = &(current->mm);
+
+	V("incr %d", incr); 
+
+	if (sz + incr > regs->sp - PAGE_SIZE) {
+		W("new brk too large. too close to sp"); 
+		goto bad; 
+	} 
+	if (sz + incr < current->codesz) {
+		W("new brk too small. into code/data region"); 
+		goto bad; 
+	} 	
+
+	// TODO: need to grab any lock?
+	if (incr >= 0) {
+		for (sz1 = PGROUNDUP(sz); sz1 < sz + incr; sz1 += PAGE_SIZE) {
+			kva = allocate_user_page(current, sz1, MM_AP_RW | MM_XN); 
+			if (!kva)
+				goto bad; 
+		}
+	} else {
+		// since it's shrinking, unmap from the next page boundary of the new brk, 
+		// to the page start of the old brk (sz)
+		int ret = free_user_page_range(mm, PGROUNDUP(sz+incr),  
+			PGROUNDDOWN(sz) - PGROUNDUP(sz+incr)); 
+		if (ret == -1)
+			goto bad; 
+	}
+	sz1 = current->sz; // old sz
+	current->sz = current->sz + incr; 
+	set_pgd(mm->pgd); // tlb flush
+
+	V("succeeds. return old brk %lx new brk %lx", sz1, current->sz); 
+
+	return sz1; 	
+bad: 
+	// TODO: reverse user page allocation.... by calling free_user_page_range()
+	E("failed. TODO: reverse user page allocation");
+	return (unsigned long)(void *)-1; 	
+}
+
 // called from el0_da, which was from data abort exception 
 // @esr: value of error syndrome register, indicating the error reason
 // xzl: limitations -- didn't check whether @addr is a legal user va
@@ -437,7 +525,7 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 //	TODO
 static int ind = 1; // # of times we tried memory access
 int do_mem_abort(unsigned long addr, unsigned long esr) {
-	struct pt_regs *regs = task_pt_regs(current);
+	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(current);
 	unsigned long dfs = (esr & 0b111111);
 	/* whether the current exception is actually a translation fault? */		
 	if ((dfs & 0b111100) == 0b100) { /* translation fault */

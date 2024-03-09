@@ -86,13 +86,13 @@ to RUNNABLE
 "ls" -- will test more fs functions
 "mkdir" then "ls"
 
-forktest (the basis of shell, cannot always call exec() from kernel 
+[x] forktest (the basis of shell, cannot always call exec() from kernel 
 and change the arguments
     for which sys_wait() must be implemented; sys_exit() also shall improve.
         ZOMBIE state....
 
-
-
+[ ] reivew code sbrk.. make p->sz p->codesz not have to be page aligned. 
+sbrk: make sure no additiona pages are allocate freed...
 
 
 -------------

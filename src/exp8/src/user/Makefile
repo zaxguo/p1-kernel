@@ -1,9 +1,9 @@
 ARMGNU ?= aarch64-linux-gnu
 
-ULIB = ulib.o printf.o usys_s.o
+ULIB = ulib.o printf.o usys_s.o umalloc.o 
 
 UPROGS = \
-	echo.elf ls.elf mkdir.elf
+	echo.elf ls.elf mkdir.elf forktest.elf usertests.elf
 
 sd.bin: $(UPROGS) mkfs
 	./mkfs sd.bin $(UPROGS)

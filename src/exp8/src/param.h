@@ -15,6 +15,7 @@
 #define ROOTDEV       1  // device number of file system root disk xzl: just disk id, not major/minor
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define FSSIZE       2000  // size of file system in blocks
+#define MAX_PROCESS_PAGES			32      // max userpages per task, max kernel pages per task
 
 // keep xv6 code happy. TODO: replace them
 typedef unsigned int   uint;

@@ -56,8 +56,8 @@ void kernel_main()
 		// schedule();
 		wpid = wait(0 /* does not care status*/); 
 		if (wpid < 0) {
-			W("init wait failed with %d", wpid);
-			panic("maybe no child. has nothing to do. bye"); 
+			W("init: wait failed with %d", wpid);
+			panic("init: maybe no child. has nothing to do. bye"); 
 		} else {
 			I("wait returns pid=%d", wpid);
 			// a parentless task 

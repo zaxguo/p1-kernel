@@ -62,9 +62,9 @@ void enable_interrupt_controller()
 void show_invalid_entry_message(int type, unsigned long esr, 
     unsigned long elr, unsigned long far)
 {    
-    EE("%s, esr: 0x%016lx, elr: 0x%016lx, far: 0x%016lx",  
+    E("%s, esr: 0x%016lx, elr: 0x%016lx, far: 0x%016lx",  
         entry_error_messages[type], esr, elr, far);
-    EE("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
+    E("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
     // TODO: dump FAR
 }
 

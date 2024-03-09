@@ -147,7 +147,7 @@
 #endif
 
 #if K2_ACTUAL_DEBUG_LEVEL <= 50
-#define EE(fmt, arg...) \
+#define E(fmt, arg...) \
   print_to_tracebuffer(K2_PRINT_TAG _k2clr_red "%s:%d " fmt _k2clr_none "\n", __FILE__, __LINE__, ## arg)
 #else
 #error "not implemented or wrong debug level"

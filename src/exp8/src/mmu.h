@@ -37,6 +37,11 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 
 // extract perm bits from pte
 #define PTE_TO_PERM(x)      (x & (unsigned long)(MM_AP_MASK | MM_XN_MASK))
+#ifndef __ASSEMBLER__
+    // extract pa from pte. assuming pa within 32bits TODO: fix this for larger phys mem system...
+    _Static_assert(PHYS_SIZE < 0xffffffff); 
+#endif
+#define PTE_TO_PA(x)        (x & (0xffffffff) & PAGE_MASK)
 /*
  * Memory region attributes:
  *

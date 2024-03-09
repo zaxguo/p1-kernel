@@ -11,7 +11,9 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	push_off();	// stil need this for entire task array. may remove later
 	
 	int pid = nr_tasks++;  // xzl: TODO need to recycle pid.
-	BUG_ON(pid >= NR_TASKS); // TODO add dynamic pid recycling 
+	if (pid >= NR_TASKS)  // TODO add dynamic pid recycling 
+		return -1; 
+
 	p = (struct task_struct *) kalloc();  // get kernel va
 	BUG_ON(!p);	
 	if (!p) {
@@ -54,6 +56,8 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	p->priority = current->priority;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemption until schedule_tail
+	p->sz = current->sz; p->codesz = current->codesz; 
+
 	// TODO: init more field here
 	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
 
@@ -75,10 +79,10 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 }
 
 /* 
+	Create 1st user task by elevating a kernel task to EL1
+
    Populate pt_regs for returning to user space (via kernel_exit) for the 1st time. 
    Note that the actual switch will not happen until kernel_exit. 
-
-	Create the user init task. 
 
    @start: beginning of the user code (to be copied to the new task). kernel va
    @size: size of the area 
@@ -97,11 +101,13 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	/* only allocate 1 code page here b/c the stack page is to be mapped on demand. 
 	   this will trigger allocating the task's pgtable tree (mm.pgd)
 	*/
+	BUG_ON(size > PAGE_SIZE);
 	void *code_page = allocate_user_page(current, 0 /*va*/, MMU_PTE_FLAGS | MM_AP_RW);
 	if (code_page == 0)	{
 		return -1;
-	}
-	memmove(code_page, (void *)start, size); 
+	}	
+	current->sz = current->codesz = PAGE_SIZE; // at this time, user va only covers [0,PAGE_SIZE)
+	memmove(code_page, (void *)start, size); 	
 	set_pgd(current->mm.pgd);
 
 	safestrcpy(current->name, "initcode", sizeof(current->name));

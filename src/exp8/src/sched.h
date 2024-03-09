@@ -48,8 +48,6 @@ struct cpu_context {
 	unsigned long pc;
 };
 
-#define MAX_PROCESS_PAGES			16	  // TODO: move such defs to one place
-
 struct user_page {
 	unsigned long phys_addr;
 	unsigned long virt_addr; // user va
@@ -70,7 +68,8 @@ struct mm_struct {
 
 // the metadata describing a task
 struct task_struct {
-	struct cpu_context cpu_context;	// register values
+	struct cpu_context cpu_context;	// register values. must come first. 
+
 	long state;		// the state of the current task, e.g. TASK_RUNNING
 	long counter;	// how long this task has been running? decreases by 1 each timer tick. Reaching 0, kernel will attempt to schedule another task. Support our simple sched
 	long priority;	// when kernel schedules a new task, the kernel copies the task's  `priority` value to `counter`. Regulate CPU time the task gets relative to other tasks 
@@ -78,6 +77,7 @@ struct task_struct {
 	unsigned long flags;
 	struct spinlock lock;	 // protect this task_struct
 	struct mm_struct mm;
+	unsigned long sz, codesz; 	// for a user task, VA [0, sz) covers its code,data,&heap. [0,codesz) covers code &data. not page aligned
 	void *chan;                  // If non-zero, sleeping on chan
 	int killed;                  // If non-zero, have been killed
 	int pid; 					 // still need this, ease of debugging...

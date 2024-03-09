@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "sched.h"
 #include "syscall.h"
+#include "mmu.h"
 
 // in-kernel syscall impl
 // we have a simplified mechanism getting syscall arguments & return values.
@@ -59,7 +60,7 @@ int sys_fork(void) {
 }
 
 int sys_exit(int c){
-	I("called");
+	I("exit called. pid %d code %d", current->pid, c);
 	exit_process(c);
 	return 0; 
 }
@@ -74,13 +75,7 @@ int sys_kill(int pid) {
 }
 
 int sys_getpid(void) {
-	/* TBD */
 	return current->pid; 
-}
-
-char *sys_sbrk(int incre) {
-	/* TBD */
-	return 0; 
 }
 
 int sys_sleep(int t) {
@@ -107,6 +102,10 @@ extern int sys_mknod(unsigned long upath, short major, short minor);
 extern int sys_chdir(unsigned long upath);
 extern int sys_exec(unsigned long upath, unsigned long uargv);
 extern int sys_pipe(unsigned long fdarray);
+
+// mm.c
+extern unsigned long sys_sbrk(int incr); 
+
 
 /* An array of pointers to all syscall handlers. 
 	Each syscall has a "syscall number" (sys.h) — which is just an index in this array 		
