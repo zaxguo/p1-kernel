@@ -91,9 +91,10 @@ and change the arguments
     for which sys_wait() must be implemented; sys_exit() also shall improve.
         ZOMBIE state....
 
-[ ] reivew code sbrk.. make p->sz p->codesz not have to be page aligned. 
+[x] reivew code sbrk.. make p->sz p->codesz not have to be page aligned. 
 sbrk: make sure no additiona pages are allocate freed...
 
+[ ] alloc_user_pages ... implement logic to "bail out" and reserve page allocation
 
 -------------
 stack unwind ref:

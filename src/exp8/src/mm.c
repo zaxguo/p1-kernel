@@ -29,30 +29,28 @@ void kfree(void *p) {
 }
 
 /* allocate & map a page to user. return kernel va of the page, 0 if failed.
-	@task: the user task 
+	@mm: the user's task->mm
 	@va: the user va to map the page to 
 */
-void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm) {
-	unsigned long page = get_free_page();
-	if (page == 0) {
-		return 0;
-	}
-	if (map_page(&(task->mm), va, page, 1 /*alloc*/, perm))
-		return PA2VA(page);
-	else 
-		return 0; 
-}
-
-/* same as above, but 1st arg is mm*/
 void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned long perm) {
-	unsigned long page = get_free_page();
+	unsigned long page;
+	if (mm->user_pages_count == MAX_TASK_USER_PAGES) // no need to go further
+		return 0; 
+
+	page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
 	if (map_page(mm, va, page, 1 /*alloc*/, perm))
 		return PA2VA(page);
-	else 
+	else {
+		free_page(page);
 		return 0; 
+	}
+}
+
+void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm) {
+	return allocate_user_page_mm(&task->mm, va, perm);
 }
 
 /* allocate a page (zero filled). return pa of the page. 0 if failed */
@@ -104,7 +102,7 @@ unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned l
 /* Extract table index from the virtual address and prepares a descriptor 
 	in the parent table that points to the child table.
 	Allocate the child table as needed. 
-	Return: the phys addr of the next pgtable. 0 if failed.
+	Return: the phys addr of the next pgtable. 0 if failed to alloc.
 
    @table: a (virt) pointer to the parent page table. This page table is assumed 
    	to be already allocated, but might contain empty entries.
@@ -113,11 +111,16 @@ unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned l
    @va: the virt address of the page to be mapped
    @alloc [in|out]: in: 1 means alloc a new table if needed; 0 means don't alloc
    	out: 1 means a new pgtable is allocated; 0 otherwise   
+   @desc [out]: ptr (kern va) to the pgtable descriptor installed/located
 */
 static 
-unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long va, int* alloc) {
+unsigned long map_table(unsigned long *table, unsigned long shift, 
+	unsigned long va, int* alloc, unsigned long **pdesc) {
 	unsigned long index = va >> shift;
+
 	index = index & (PTRS_PER_TABLE - 1);
+	if (pdesc)
+		*pdesc = table + index; 
 	if (!table[index]) { /* next level pgtable absent. */
 		if (*alloc) { /* asked to alloc. then alloc a page & install */
 			unsigned long next_level_table = get_free_page();
@@ -142,18 +145,28 @@ unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long
    @perm: permission, only matters page!=0 & alloc!=0
    return: kernel va of the pte set or found; 0 if failed (cannot proceed w/o pgtable alloc)
    */
-unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page,
+unsigned long *map_page_old(struct mm_struct *mm, unsigned long va, unsigned long page,
 				int alloc, unsigned long perm) {
-	unsigned long pgd;
+	unsigned long pgd, desc; 
+	BUG_ON(!mm); 
+
+	// pointers to pgtable descriptors installed during walk. kern va. max four
+	// for reversing them in case we bail out
+	int nk = mm->kernel_pages_count, k = 0; 
+	unsigned long *ker_pages[4] = {0}; 
+	unsigned long alloc_kern_pages[4] = {0}; // pa
+
+	// reached limit for user pages 
+	if (page != 0 && alloc == 1 && mm->user_pages_count >= MAX_TASK_USER_PAGES)
+		return 0; 
+
 	/* start from the task's top-level pgtable. allocate if absent 
 		this is how a task's pgtable tree gets allocated
 	*/
-	BUG_ON(!mm); 
 	if (!mm->pgd) { 
 		if (alloc) {
 			mm->pgd = get_free_page();
-			assert(mm->pgd); 
-			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			BUG_ON(!mm->pgd || mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
 			mm->kernel_pages[mm->kernel_pages_count++] = mm->pgd;
 		} else 
 			goto no_alloc; 
@@ -162,10 +175,11 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	int allocated = alloc; 
 	pgd = mm->pgd;
 	/* move to the next level pgtable. allocate one if absent */
-	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &allocated);
+	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, 
+		va, &allocated, &desc);
 	if (pud) {
 		if (allocated) { /* we've allocated a new kernel page. take it into account for future reclaim */
-			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			BUG_ON(mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
 			mm->kernel_pages[mm->kernel_pages_count++] = pud;
 		}
 		else
@@ -182,7 +196,7 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &allocated);
 	if (pmd) {
 		if (allocated) {
-			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			BUG_ON(mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
 			mm->kernel_pages[mm->kernel_pages_count++] = pmd;
 		}
 	} else {
@@ -197,7 +211,7 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	unsigned long pt = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &allocated);
 	if (pt) {
 		if (allocated) {
-			BUG_ON(mm->kernel_pages_count >= MAX_PROCESS_PAGES); 
+			BUG_ON(mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
 			mm->kernel_pages[mm->kernel_pages_count++] = pt;
 		}
 	} else {
@@ -212,10 +226,7 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 		map_table_entry((unsigned long *)(pt + VA_START), va, page /*=0 for finding entry only*/, perm);
 	if (page) { /* a page just installed, bookkeeping.. */
 		struct user_page p = {page, va};
-		if (mm->user_pages_count >= MAX_PROCESS_PAGES) {
-			E("# user pages reachs limit");
-			goto no_alloc; 
-		}
+		BUG_ON(mm->user_pages_count >= MAX_TASK_USER_PAGES); // shouldn't happen, as we checked above
 		mm->user_pages[mm->user_pages_count++] = p;
 	}
 	return pte_va;
@@ -225,6 +236,102 @@ no_alloc:
 	E("failed. TODO: reverse allocated pgtables during tree walk"); 
 	return 0; 	
 }
+
+/* Walk a task's pgtable tree. Find and (optionally) update the pte corresponding to a user va 
+   @mm: the user virt addd under question, can be obtained via task_struct::mm
+   @va: given user va 
+   @page: the phys addr of the page start. if 0, do not map (just locate the pte)
+   @alloc: if 1, alloate any absent pgtables if needed.
+   @perm: permission, only matters page!=0 & alloc!=0
+   return: kernel va of the pte set or found; 0 if failed (cannot proceed w/o pgtable alloc)
+   */
+unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page,
+				int alloc, unsigned long perm) {
+	unsigned long pgd, *desc; 
+	BUG_ON(!mm); 
+
+	// record pgtable descriptors installed & ker pages allocated during walk. 
+	// for reversing them in case we bail out. most four (pud..pte)
+	int nk = mm->kernel_pages_count; 
+	unsigned long *descs[4] = {0}; 	
+	unsigned long ker_pages[4] = {0}; // pa
+
+	// reached limit for user pages 
+	if (page != 0 && alloc == 1 && mm->user_pages_count >= MAX_TASK_USER_PAGES)
+		return 0; 
+
+	/* start from the task's top-level pgtable. allocate if absent 
+		this is how a task's pgtable tree gets allocated
+	*/
+	if (!mm->pgd) { 
+		if (alloc) {
+			if (nk == MAX_TASK_KER_PAGES)
+				goto fail; 
+			if (!(mm->pgd = get_free_page()))
+				goto fail; 
+			ker_pages[0] = mm->pgd; 
+			descs[0] = &(mm->pgd); 
+			// mm->kernel_pages[mm->kernel_pages_count++] = mm->pgd;
+		} else 
+			goto fail; 
+	} 
+	
+	const char *lvs[] = {"pgd","pud","pmd","pte"};
+	const int shifts [] = {0, PGD_SHIFT, PUD_SHIFT, PMD_SHIFT}; 
+	unsigned long table = mm->pgd; 	// pa of a pgd/pud/pmd/pte
+	int allocated = alloc; 
+
+	for (int i = 1; i < 4; i++) { // pud->pmd->pte
+		table = map_table(PA2VA(table), shifts[i], va, &allocated, &desc); 
+		if (table) { 
+			if (allocated) { 
+				ker_pages[i] = table; 
+				descs[i] = desc; 
+				if (nk+i > MAX_TASK_KER_PAGES) { /* exceeding the limit, bail out*/
+					goto fail; 
+				}
+			} else 
+				; /* use existing table -- fine */
+		} else { /*!table*/
+			if (!alloc)
+				W("%s: failed b/c we reached nonexisting pgtable, and asked not to alloc",
+					lvs[i]);
+			else
+				W("%s: asked to alloc but still failed. low kernel mem?", lvs[i]);
+			goto fail; 
+		}
+	}	
+
+	/* Now, pgtables at all levels are in place. table points to a pte, 
+		the bottom level of pgtable tree. Install the actual user page */
+	unsigned long *pte_va = 
+		map_table_entry(PA2VA(table), va, page /* 0 for finding entry only*/, perm);
+	if (page) { /* a page just installed, bookkeeping.. */
+		struct user_page p = {page, va};
+		BUG_ON(mm->user_pages_count >= MAX_TASK_USER_PAGES); // shouldn't happen, as we checked above
+		mm->user_pages[mm->user_pages_count++] = p;
+	}
+
+	// success -- bookkeepin the kern pages ever allocated
+	for (int i = 0; i < 4; i++) {
+		if (ker_pages[i] == 0) 
+			continue; 	
+		mm->kernel_pages[mm->kernel_pages_count++] = ker_pages[i]; 
+	}
+	return pte_va;
+
+fail:
+	for (int i = 0; i < 4; i++) {
+		if (ker_pages[i] == 0) 
+			continue; 	 		
+		BUG_ON(!alloc || !descs[i]); 
+		free_page(ker_pages[i]); 
+		*descs = 0; 	// nuke the descriptor 
+	}
+	W("failed. reverse allocated pgtables during tree walk"); 
+	return 0; 	
+}
+
 
 /* duplicate the contents of the @current task's user pages to the @dst task, at same va.
 	allocate & map pages for @dsk on demand

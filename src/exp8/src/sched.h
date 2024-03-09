@@ -53,15 +53,15 @@ struct user_page {
 	unsigned long virt_addr; // user va
 };
 
-// the size grows with MAX_PROCESS_PAGES, could be problem for larger user programs in the future...
+// the size grows with MAX_TASK_XXX_PAGES, could be problem for larger user programs in the future...
 struct mm_struct {
 	unsigned long pgd;	// pa. NB this is loaded to ttbr0 (user va)
 	int user_pages_count;
 	/* keep track of which user pages are used for this task */
-	struct user_page user_pages[MAX_PROCESS_PAGES];
+	struct user_page user_pages[MAX_TASK_USER_PAGES];
 	int kernel_pages_count;
 	/* phys addrs of which (kernel) pages are used for this task, e.g. those for pgtables.  */
-	unsigned long kernel_pages[MAX_PROCESS_PAGES]; 
+	unsigned long kernel_pages[MAX_TASK_KER_PAGES]; 
 };
 
 #include "spinlock.h"
