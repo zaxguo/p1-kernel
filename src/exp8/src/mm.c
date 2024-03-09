@@ -1,4 +1,4 @@
-#define K2_DEBUG_WARN
+#define K2_DEBUG_INFO
 
 #include "utils.h"
 #include "mmu.h"
@@ -124,6 +124,10 @@ unsigned long map_table(unsigned long *table, unsigned long shift,
 	if (!table[index]) { /* next level pgtable absent. */
 		if (*alloc) { /* asked to alloc. then alloc a page & install */
 			unsigned long next_level_table = get_free_page();
+			if (!next_level_table) {
+				*alloc = 0; 
+				return 0; 
+			}
 			unsigned long entry = next_level_table | MM_TYPE_PAGE_TABLE;
 			table[index] = entry;
 			return next_level_table;
@@ -137,6 +141,7 @@ unsigned long map_table(unsigned long *table, unsigned long shift,
 	}
 }
 
+#if 0 // obsoeletd. ref desgin
 /* Walk a task's pgtable tree. Find and (optionally) update the pte corresponding to a user va 
    @mm: the user virt addd under question, can be obtained via task_struct::mm
    @va: given user va 
@@ -147,7 +152,7 @@ unsigned long map_table(unsigned long *table, unsigned long shift,
    */
 unsigned long *map_page_old(struct mm_struct *mm, unsigned long va, unsigned long page,
 				int alloc, unsigned long perm) {
-	unsigned long pgd, desc; 
+	unsigned long pgd, *desc; 
 	BUG_ON(!mm); 
 
 	// pointers to pgtable descriptors installed during walk. kern va. max four
@@ -236,6 +241,7 @@ no_alloc:
 	E("failed. TODO: reverse allocated pgtables during tree walk"); 
 	return 0; 	
 }
+#endif
 
 /* Walk a task's pgtable tree. Find and (optionally) update the pte corresponding to a user va 
    @mm: the user virt addd under question, can be obtained via task_struct::mm
@@ -247,7 +253,7 @@ no_alloc:
    */
 unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page,
 				int alloc, unsigned long perm) {
-	unsigned long pgd, *desc; 
+	unsigned long *desc; 
 	BUG_ON(!mm); 
 
 	// record pgtable descriptors installed & ker pages allocated during walk. 
@@ -279,15 +285,17 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 	const char *lvs[] = {"pgd","pud","pmd","pte"};
 	const int shifts [] = {0, PGD_SHIFT, PUD_SHIFT, PMD_SHIFT}; 
 	unsigned long table = mm->pgd; 	// pa of a pgd/pud/pmd/pte
-	int allocated = alloc; 
+	int allocated; 
 
 	for (int i = 1; i < 4; i++) { // pud->pmd->pte
+		allocated = alloc; 
 		table = map_table(PA2VA(table), shifts[i], va, &allocated, &desc); 
 		if (table) { 
 			if (allocated) { 
 				ker_pages[i] = table; 
 				descs[i] = desc; 
 				if (nk+i > MAX_TASK_KER_PAGES) { /* exceeding the limit, bail out*/
+					W("MAX_TASK_KER_PAGES %d reached", MAX_TASK_KER_PAGES); 
 					goto fail; 
 				}
 			} else 
@@ -317,6 +325,7 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 		if (ker_pages[i] == 0) 
 			continue; 	
 		mm->kernel_pages[mm->kernel_pages_count++] = ker_pages[i]; 
+		I("pid %d now has %d kern pages", current->pid, mm->kernel_pages_count); 
 	}
 	return pte_va;
 
@@ -546,10 +555,14 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 	}
 }
 
-/* unmap and free user pages. start_va and size must be page aligned 
+/* unmap and free user pages. 
 	caller must flush tlb (e.g. via set_pgd(mm->pgd))
-	reutrn 0 on success. -1 on failure 
+	reutrn # of freed pages on success. -1 on failure 
 
+	start_va and size must be page aligned 
+
+	TODO: make it transactional. now if any page fails to unmap, it will abort 
+		there. 
 	TODO: need to grab any lock?
 */
 static 
@@ -557,18 +570,19 @@ int free_user_page_range(struct mm_struct *mm, unsigned long start_va,
 		unsigned long size) {
 	unsigned long *pte; 
 	unsigned long page; // pa; 
+	int cnt = 0; 
 
 	BUG_ON((start_va & (~PAGE_MASK)) || (size & (~PAGE_MASK)) || !mm);
 
-	for (unsigned long i = start_va; i < start_va + size; i+= PAGE_SIZE) {		
+	for (unsigned long i = start_va; i < start_va + size; i+= PAGE_SIZE, cnt++) {		
 		pte = map_page(mm, i, 0/*only locate pte*/, 0/*no alloc*/, 0/*dont care*/); 
 		if (!pte)
 			goto bad; 
 		page = PTE_TO_PA(*pte); 
 		free_page(page); 
-		*pte = 0; // nuke pte		
+		*pte = 0; // nuke pte				
 	}
-	return 0; 
+	return cnt; 
 bad: 
 	BUG(); 
 	return -1; 	
@@ -585,11 +599,13 @@ unsigned long sys_sbrk(int incr) {
 	struct pt_regs *regs = task_pt_regs(current);
 	void *kva; 
 	struct mm_struct *mm = &(current->mm);
+	int ret; 
 
-	V("incr %d", incr); 
+	if (incr>100)
+	W("incr %d. requested new brk %lx", incr, sz+incr); 
 
 	if (sz + incr > regs->sp - PAGE_SIZE) {
-		W("new brk too large. too close to sp"); 
+		W("new brk %lx too large. too close to sp %lx", sz+incr, regs->sp); 
 		goto bad; 
 	} 
 	if (sz + incr < current->codesz) {
@@ -598,30 +614,33 @@ unsigned long sys_sbrk(int incr) {
 	} 	
 
 	// TODO: need to grab any lock?
-	if (incr >= 0) {
+	if (incr >= 0) {		// brk grows
 		for (sz1 = PGROUNDUP(sz); sz1 < sz + incr; sz1 += PAGE_SIZE) {
 			kva = allocate_user_page(current, sz1, MM_AP_RW | MM_XN); 
 			if (!kva)
-				goto bad; 
+				goto reverse; 
 		}
-	} else {
+	} else {	// brk shrinks
 		// since it's shrinking, unmap from the next page boundary of the new brk, 
 		// to the page start of the old brk (sz)
 		int ret = free_user_page_range(mm, PGROUNDUP(sz+incr),  
 			PGROUNDDOWN(sz) - PGROUNDUP(sz+incr)); 
-		if (ret == -1)
-			goto bad; 
+		BUG_ON(ret == -1); // user va has bad mapping
 	}
 	sz1 = current->sz; // old sz
 	current->sz = current->sz + incr; 
 	set_pgd(mm->pgd); // tlb flush
 
 	V("succeeds. return old brk %lx new brk %lx", sz1, current->sz); 
-
 	return sz1; 	
+
+reverse: 	
+	// sz was old brk, sz1 was the failed va to allocate 	
+	ret = free_user_page_range(mm, PGROUNDUP(sz), sz1 - PGROUNDUP(sz)); 
+	BUG_ON(ret == -1); // user va has bad mapping.
+	W("reverse user page allocation %d pages sz %lx sz1 %lx", ret, sz, sz1);
 bad: 
-	// TODO: reverse user page allocation.... by calling free_user_page_range()
-	E("failed. TODO: reverse user page allocation");
+	W("sys_sbrk failed"); 
 	return (unsigned long)(void *)-1; 	
 }
 
