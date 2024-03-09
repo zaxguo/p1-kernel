@@ -51,25 +51,55 @@ void loop1(char *str) {
 #define CONSOLE 1     // major num for device console
 void ls(char *path);
 
-void user_process() {
-    // make sure they are linked in user va
-	// char path[] = {"/echo.elf"};
-	// char path[] = {"/ls.elf"};
-	// char path[] = {"/mkdir.elf"};
-    // char path[] = {"/forktest.elf"};
-    char path[] = {"/usertests.elf"};
+#if 0       // wont work 
+char usertests[][] = {
+    {"/usertests.elf"}, // path
+    {"/usertests.elf"}, 
+    {"sbrkbasic"},
+    0
+};
+#endif 
 
-    char arg0[] = {"arg0"};
-    // char arg1[] = {"/"};
-    char arg1[] = {"sbrkbasic"};
-    __attribute__((unused)) char arg2[] = {"arg2"};
+// make sure they are linked in user va
+// are there better ways?? 
+// args must be in user va. not static (kernel va)
+
+#define USER_PROGRAM1(name, arg0, arg1)  \
+    char path[] = {name};            \
+    char argv0[] = {arg0};            \
+    char argv1[] = {arg1};            \
+    char *argv[] = {argv0, argv1, 0};
+
+#define USER_PROGRAM2(name, arg0, arg1, arg2)  \
+    char path[] = {name};            \
+    char argv0[] = {arg0};            \
+    char argv1[] = {arg1};            \
+    char argv2[] = {arg2};            \
+    char *argv[] = {argv0, argv1, argv2, 0};
+
+#define USER_PROGRAM3(name, arg0, arg1, arg2, arg3)  \
+    char path[] = {name};            \
+    char argv0[] = {arg0};            \
+    char argv1[] = {arg1};            \
+    char argv2[] = {arg2};            \
+    char argv3[] = {arg3};            \
+    char *argv[] = {argv0, argv1, argv2, argv3, 0};
+
+void user_process() {
+
 
     // won't work as "arg0"	const string will be linked to kernel va.
     // exec() expecting user va will fail to "copyin" them
     // char *argv[] = {"arg0", "arg1", 0};
-
     // char *argv[] = {arg0, arg1, arg2, 0};
-	char *argv[] = {arg0, arg1, 0};
+	// char *argv[] = {arg0, arg1, 0};
+
+    // USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
+    // USER_PROGRAM1("/ls.elf", "/ls.elf", "/");    
+    // USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
+    // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
+
+    USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
 
     if (call_sys_open("console", O_RDWR) < 0) {
         call_sys_mknod("console", CONSOLE, 0);

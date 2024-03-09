@@ -2058,6 +2058,7 @@ sbrkbasic(char *s)
   exit(xstatus);
 }
 
+// xzl:  requires efficient rep of task va (otherwise cannot grow to ~100MB)
 void
 sbrkmuch(char *s)
 {
