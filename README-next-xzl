@@ -94,7 +94,11 @@ and change the arguments
 [x] reivew code sbrk.. make p->sz p->codesz not have to be page aligned. 
 sbrk: make sure no additiona pages are allocate freed...
 
-[ ] alloc_user_pages ... implement logic to "bail out" and reserve page allocation
+[x] alloc_user_pages ... implement logic to "bail out" and reserve page allocation
+
+-------------
+exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
+    dont track each page, just a range. otherwise we cannot scale to large user task
 
 -------------
 stack unwind ref:
