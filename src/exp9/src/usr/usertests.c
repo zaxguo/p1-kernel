@@ -2593,11 +2593,11 @@ struct test {
   void (*f)(char *);
   char *s;
 } quicktests[] = {
-  {copyin, "copyin"},
-  {copyout, "copyout"},
-  {copyinstr1, "copyinstr1"},
-  {copyinstr2, "copyinstr2"},
-  {copyinstr3, "copyinstr3"},
+  {copyin, "copyin"},     //[x]
+  {copyout, "copyout"},   //[x]
+  {copyinstr1, "copyinstr1"}, //[x]
+  {copyinstr2, "copyinstr2"}, //[x]
+  {copyinstr3, "copyinstr3"}, //[x]
   {rwsbrk, "rwsbrk" },    // [x]
   {truncate1, "truncate1"},
   {truncate2, "truncate2"},

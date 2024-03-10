@@ -422,7 +422,11 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
     uint64_t n, va0, pa0;
 
-	BUG_ON(dstva > USER_VA_END);  // illegal user va. a kernel va??
+	if (dstva > USER_VA_END) {
+		W("illegal user va. a kernel va??");
+		return -1; 
+	} 
+
     while (len > 0) {
         va0 = PGROUNDDOWN(dstva); // va0 pagebase
         pa0 = walkaddr(mm, va0);
@@ -446,8 +450,10 @@ int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
 int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
     uint64 n, va0, pa0;
 
-	BUG_ON(srcva > USER_VA_END);  // illegal user va. a kernel va??
-
+	if (srcva > USER_VA_END) {
+		W("// illegal user va. a kernel va??");
+		return -1; 
+	}
 	V("%lx %lx", srcva, len);
 
     while (len > 0) {
@@ -475,7 +481,10 @@ int copyinstr(struct mm_struct *mm, char *dst, uint64 srcva, uint64 max) {
     uint64 n, va0, pa0;
     int got_null = 0;
 
-    BUG_ON(srcva > USER_VA_END); // illegal user va. a kernel va??
+    if (srcva > USER_VA_END) {
+		W("// illegal user va. a kernel va??");
+		return -1; 
+	}
 
     while (got_null == 0 && max > 0) {
         va0 = PGROUNDDOWN(srcva);
@@ -559,7 +568,6 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 	}
 	// TODO: free stack pages.... 
 	
-
 	if (!useronly) {
 		// free kern pages. must handle with care. 
 		// task_struct and mm all live on the kernel pages. so once we 

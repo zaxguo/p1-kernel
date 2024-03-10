@@ -111,7 +111,12 @@ void user_process() {
     //  USER_PROGRAM1("/usertests.elf", "/usertests.elf", "sbrkarg");    
 
     // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "killstatus");    
-    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "kernmem");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "kernmem");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyin");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyout");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr1");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr2");    
+    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr3");    
 
     char console[] = {"console"}; 
 
