@@ -100,7 +100,17 @@ sbrk: make sure no additiona pages are allocate freed...
 exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
     dont track each page, just a range. otherwise we cannot scale to large user task
 
-[ ] -O2 exec() will fail. 
+[x]  get kill() works, which reuirese to modify syacall path entry/exit kernel. 
+    has to write asm
+
+[?] -O2 exec() will fail. user.c problem. cannot control link-relative addr
+    impl an assembly launcher ...   
+    USE A TEMP SOLUTION --- use -O0 only for user. c
+
+[x] improve demand paging, do_mem_abort only for user va range 
+    sbrkfail passed
+
+
 -------------
 stack unwind ref:
 https://elixir.bootlin.com/linux/latest/source/arch/arm64/kernel/stacktrace.c

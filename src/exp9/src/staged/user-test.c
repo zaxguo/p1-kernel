@@ -1,3 +1,6 @@
+// EXPERIMENTAL CODE ... PLAY AROUND 
+// user.c
+
 // the kernel launcher for user tasks
 
 // "pseudo" user tasks, compiled into the kernel, but executed at EL0 and in their own va 
@@ -25,6 +28,17 @@ user_strlen(const char *s)
   for(n = 0; s[n]; n++)
     ;
   return n;
+}
+
+char*
+strcpy(char *s, const char *t)
+{
+  char *os;
+
+  os = s;
+  while((*s++ = *t++) != 0)
+    ;
+  return os;
 }
 
 void print_to_console(char *msg) {
@@ -70,7 +84,7 @@ char usertests[][] = {
     char path[] = {name};            \
     char argv0[] = {arg0};            \
     char argv1[] = {arg1};            \
-    char *argv[] = {argv0, argv1, 0};
+    char *argv[3];
 
 #define USER_PROGRAM2(name, arg0, arg1, arg2)  \
     char path[] = {name};            \
@@ -87,7 +101,18 @@ char usertests[][] = {
     char argv3[] = {arg3};            \
     char *argv[] = {argv0, argv1, argv2, argv3, 0};
 
+// USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
+// USER_PROGRAM1("/ls.elf", "/ls.elf", "/");    
+// USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
+// USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
 
+// USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
+// USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
+// USER_PROGRAM1("/usertests.elf", "/usertests.elf", "rwsbrk");    
+//  USER_PROGRAM1("/usertests.elf", "/usertests.elf", "sbrkarg");    
+
+// USER_PROGRAM1("/usertests.elf", "/usertests.elf", "killstatus");    
+// USER_PROGRAM1("/usertests.elf", "/usertests.elf", "kernmem");    
 
 // "launcher" for standalone user programs
 void user_process() {
@@ -99,19 +124,21 @@ void user_process() {
 
     // variables defined on stack... forced to load based on PC relative 
 
-    
     // USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
-    // USER_PROGRAM1("/ls.elf", "/ls.elf", "/");    
-    // USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
-    // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
 
-    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
-    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "rwsbrk");    
-    //  USER_PROGRAM1("/usertests.elf", "/usertests.elf", "sbrkarg");    
+    // char path[64]; 
+    char argv0[64], argv1[64]; 
+    // strcpy(path, "/echo.elf");
+    char path[] = {'e', 'c', 'h', 'o', '.', 'e', 'l', 'f', '\0'};
+    strcpy(argv0, "/echo.elf");
+    strcpy(argv1, "aaa");
 
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "killstatus");    
-    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "kernmem");    
+    char *argv[3];
+
+    argv[0] = argv0; // - user_begin; 
+    argv[1] = argv1; // - user_begin; 
+    argv[2] = 0; 
+
 
     char console[] = {"console"}; 
 

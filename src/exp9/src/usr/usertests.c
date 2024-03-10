@@ -2638,7 +2638,7 @@ struct test {
   {forktest, "forktest"},
   {sbrkbasic, "sbrkbasic"}, // [x]
   {sbrkmuch, "sbrkmuch"},   // [x]
-  {kernmem, "kernmem"},
+  {kernmem, "kernmem"},     // [x]
   {MAXVAplus, "MAXVAplus"},
   {sbrkfail, "sbrkfail"},   // [ ] need kill
   {sbrkarg, "sbrkarg"},     // [x]

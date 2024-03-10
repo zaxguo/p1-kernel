@@ -688,24 +688,34 @@ bad:
 //	TODO
 static int ind = 1; // # of times we tried memory access
 int do_mem_abort(unsigned long addr, unsigned long esr) {
-	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(current);
+	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(current);	 
 	unsigned long dfs = (esr & 0b111111);
+
+	if (addr > USER_VA_END) {
+		E("do_mem_abort: bad user va. faulty addr 0x%lx > USER_VA_END %lx", addr, 
+			USER_VA_END); 
+		goto exit; 
+	}
+
 	/* whether the current exception is actually a translation fault? */		
 	if ((dfs & 0b111100) == 0b100) { /* translation fault */
 		unsigned long page = get_free_page();
 		if (page == 0) {
-			return -1;
+			E("do_mem_abort: insufficient mem"); 
+			goto exit; 
 		}
 		map_page(&(current->mm), addr & PAGE_MASK, page, 1/*alloc*/, MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
 		ind++; // return to user, give it a second chance
 		if (ind > 5) {  // repeated fault
-		    W("cannot handle. too many mem faults. ind %d", ind); 
-			return -1;
+		    E("do_mem_abort: too many mem faults. ind %d", ind); 
+			return -1;  // likely a bug?
 		}
-		I("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
+		W("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
 		return 0;
 	} 
 	/* other causes, e.g. permission... */
-	W("cannot handle. faulty addr 0x%lx not translation fault", addr); 
+	E("do_mem_abort: cannot handle. faulty addr 0x%lx not translation fault", addr); 
+exit: 	
+	exit_process(-1); 
 	return -1;
 }

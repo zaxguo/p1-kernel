@@ -22,6 +22,16 @@ clean :
 #${SRC_DIR}/mkfs/mkfs: ${SRC_DIR}/mkfs/mkfs.c
 #	gcc -Werror -Wall -I. -o $@ $^
 
+# use -O0 only for user.c (launcher), for which -O2 emits references to kernel va and crashes things
+COPS1 = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc -mgeneral-regs-only \
+-g -DUSE_QEMU -DPLAT_VIRT
+COPS1 += -O0
+COPS1 += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
+$(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
+	mkdir -p $(@D)
+	$(ARMGNU)-gcc $(COPS1) -MMD -c $< -o $@
+
+
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
