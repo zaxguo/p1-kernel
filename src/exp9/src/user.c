@@ -1,3 +1,5 @@
+// the kernel launcher for user tasks
+
 // "pseudo" user tasks, compiled into the kernel, but executed at EL0 and in their own va 
 // besides syscalls, CANNOT call any kernel functions -- otherwise will trigger memory protection error
 //
@@ -99,7 +101,8 @@ void user_process() {
     // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
 
     // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
-    USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
+   // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
+    USER_PROGRAM1("usertests.elf", "/usertests.elf", "rwsbrk");    
 
     if (call_sys_open("console", O_RDWR) < 0) {
         call_sys_mknod("console", CONSOLE, 0);

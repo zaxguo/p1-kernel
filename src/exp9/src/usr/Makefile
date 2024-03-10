@@ -6,7 +6,7 @@ UPROGS = \
 	echo.elf ls.elf mkdir.elf forktest.elf usertests.elf
 
 sd.bin: $(UPROGS) mkfs
-	./mkfs sd.bin $(UPROGS)
+	./mkfs sd.bin README $(UPROGS)
 
 COPS = -Wall -Werror -nostdlib -g -O0 -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only

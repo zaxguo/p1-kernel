@@ -624,7 +624,7 @@ unsigned long growproc (struct mm_struct *mm, int incr) {
 	int ret; 
 
 	if (incr>10000 || incr <0)
-		W("sz 0x%lx %ld (dec) incr %d (dec). requested new brk 0x%lx", 
+		V("sz 0x%lx %ld (dec) incr %d (dec). requested new brk 0x%lx", 
 			sz, sz, incr, sz+incr); 
 	
 	// careful: sz is unsigned; incr is signed
@@ -669,7 +669,7 @@ reverse:
 	// sz was old brk, sz1 was the failed va to allocate 	
 	ret = free_user_page_range(mm, PGROUNDUP(sz), sz1 - PGROUNDUP(sz)); 
 	BUG_ON(ret == -1); // user va has bad mapping.
-	W("reversed user page allocation %d pages sz %lx sz1 %lx", ret, sz, sz1);
+	I("reversed user page allocation %d pages sz %lx sz1 %lx", ret, sz, sz1);
 bad: 
 	W("growproc failed");	 
 	return (unsigned long)(void *)-1; 	

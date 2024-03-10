@@ -2592,7 +2592,7 @@ struct test {
   {copyinstr1, "copyinstr1"},
   {copyinstr2, "copyinstr2"},
   {copyinstr3, "copyinstr3"},
-  {rwsbrk, "rwsbrk" },
+  {rwsbrk, "rwsbrk" },    // xzl: this 
   {truncate1, "truncate1"},
   {truncate2, "truncate2"},
   {truncate3, "truncate3"},

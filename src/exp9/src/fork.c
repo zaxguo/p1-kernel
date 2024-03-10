@@ -46,7 +46,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		for (int i = 0; i < NOFILE; i++)
 			if (current->ofile[i])
 				p->ofile[i] = filedup(current->ofile[i]);
-		p->cwd = idup(p->cwd);		
+		p->cwd = idup(current->cwd);		
 	}
 
 	// also inherit task name
@@ -112,7 +112,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 
 	safestrcpy(current->name, "initcode", sizeof(current->name));
 	current->cwd = namei("/");
-	assert(current->cwd); 
+	BUG_ON(!current->cwd); 
 
     // (from xv6) File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot

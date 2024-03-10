@@ -1,4 +1,4 @@
-#define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
 
 #include "utils.h"
 #include "sched.h"
@@ -319,7 +319,7 @@ void exit_process(int status) {
 static void
 freeproc(struct task_struct *p) {
     BUG_ON(!p);
-    W("%s entered. target pid %d", __func__, p->pid);
+    V("%s entered. target pid %d", __func__, p->pid);
     free_task_pages(&p->mm, 0 /* free all user and kernel pages*/);
     // no need to zero task_struct, which is on the task's kernel page
     // FIX: since we cannot recycle task slot now, so we dont dec nr_tasks ...

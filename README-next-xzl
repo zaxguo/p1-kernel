@@ -100,6 +100,7 @@ sbrk: make sure no additiona pages are allocate freed...
 exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
     dont track each page, just a range. otherwise we cannot scale to large user task
 
+[ ] -O2 exec() will fail. 
 -------------
 stack unwind ref:
 https://elixir.bootlin.com/linux/latest/source/arch/arm64/kernel/stacktrace.c

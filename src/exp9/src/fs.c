@@ -661,12 +661,13 @@ namex(char *path, int nameiparent, char *name)
   // xzl: traverse from '/'. there's a default inode in mem. 
   //  the first we ilock() it, the root inode will be loaded from disk, which 
   //  goes to fs then block driver... 
+  V("namex path %s", path);
   if(*path == '/')
     ip = iget(ROOTDEV, ROOTINO);
-  else
+  else {
     ip = idup(myproc()->cwd);
-    
-  W(" namex path %s", path);
+    V("cwd is %lx", (unsigned long)(myproc()->cwd));
+  } 
   BUG_ON(!ip); 
 
   // xzl: traverse... from cwd
