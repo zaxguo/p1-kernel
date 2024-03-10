@@ -540,6 +540,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
   // block to ip->addrs[].
   iupdate(ip);
 
+  W("writei succeeds");
   return tot;
 }
 
@@ -666,7 +667,7 @@ namex(char *path, int nameiparent, char *name)
     ip = iget(ROOTDEV, ROOTINO);
   else {
     ip = idup(myproc()->cwd);
-    V("cwd is %lx", (unsigned long)(myproc()->cwd));
+    // V("cwd is %lx", (unsigned long)(myproc()->cwd));
   } 
   BUG_ON(!ip); 
 

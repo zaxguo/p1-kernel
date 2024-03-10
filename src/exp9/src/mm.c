@@ -83,12 +83,15 @@ void free_page(unsigned long p){
 	Virtual memory implementation
 */
 
-/* set (or find) a pte, i.e. the leaf of a pgtable tree
+/* set (or find) a pte, i.e. the entry in a bottom-level pgtable 
 	@pte: the 0-th pte of that pgtable, kernel va
 	@va: corresponding to @pte
 	@pa: if 0, dont touch pte (just return its addr); otherwise update pte
 	@perm: permission bits to be written to pte (cf mmu.h)
-   return: kernel va of the pte set or found*/
+   return: kernel va of the pte set or found
+   
+   NB: the found pte can be invalid 
+   */
 static 
 unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa, 
 			unsigned long perm) {
@@ -251,7 +254,9 @@ no_alloc:
    @page: the phys addr of the page start. if 0, do not map (just locate the pte)
    @alloc: if 1, alloate any absent pgtables if needed.
    @perm: permission, only matters page!=0 & alloc!=0
+   
    return: kernel va of the pte set or found; 0 if failed (cannot proceed w/o pgtable alloc)
+	the located pte could be invalid
    */
 unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page,
 				int alloc, unsigned long perm) {
@@ -392,7 +397,8 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 	if (!pte)
 		return 0; 
 	if ((*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)) != MMU_PTE_FLAGS) {
-		W("bug? %016lx, %016lx\n", (*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
+		W("pte found but invalid %016lx, %016lx", 
+			(*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
 		return 0; 
 	}
 	BUG_ON(PTE_TO_PA(*pte) < PHYS_SIZE);

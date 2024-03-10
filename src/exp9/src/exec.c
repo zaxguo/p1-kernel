@@ -131,7 +131,7 @@ exec(char *path, char **argv)   // called from sys_exec
     goto bad; 
   }
   memzero(kva, PAGE_SIZE); 
-  // map a guard page at USER_VA_END - PAGE_SIZE as non accessible
+  // map a guard page near USER_MAX_STACK as non accessible
   if (!(kva=allocate_user_page_mm(tmpmm, USER_VA_END - USER_MAX_STACK - PAGE_SIZE, MMU_PTE_FLAGS | MM_AP_EL1_RW))) {
     BUG(); 
     goto bad; 
@@ -140,8 +140,8 @@ exec(char *path, char **argv)   // called from sys_exec
   sp = USER_VA_END; 
   argbase = USER_VA_END - PAGE_SIZE; // args at most 1 PAGE
   // Push argument strings, prepare rest of stack in ustack.
-  // xzl: push arg strings on stack. save arg pointers to ustack (a scratch buf)
-  //    then push "ustack" to the stack
+  // xzl: populate arg strings on stack. save arg pointers to ustack (a scratch buf)
+  //    then populate "ustack" on the stack
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
       goto bad;

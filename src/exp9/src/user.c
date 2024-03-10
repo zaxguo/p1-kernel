@@ -95,23 +95,28 @@ void user_process() {
     // char *argv[] = {arg0, arg1, arg2, 0};
 	// char *argv[] = {arg0, arg1, 0};
 
-    // USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
+    USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
     // USER_PROGRAM1("/ls.elf", "/ls.elf", "/");    
     // USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
     // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
 
     // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
-    USER_PROGRAM1("usertests.elf", "/usertests.elf", "rwsbrk");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "rwsbrk");    
 
-    if (call_sys_open("console", O_RDWR) < 0) {
-        call_sys_mknod("console", CONSOLE, 0);
-        call_sys_open("console", O_RDWR);
+    char console[] = {"console"}; 
+
+    if (call_sys_open(console, O_RDWR) < 0) {
+        call_sys_mknod(console, CONSOLE, 0);
+        call_sys_open(console, O_RDWR);
     }
     call_sys_dup(0); // stdout
     call_sys_dup(0); // stderr
 
-    print_to_console("User process entry\n\r");
+    char msg[] = {"User process entry\n\r"};
+    print_to_console(msg);
+    print_to_console(path);
+    
     call_sys_exec(path, argv);
 }
 

@@ -1,4 +1,6 @@
-#define K2_DEBUG_INFO 1
+// #define K2_DEBUG_INFO 1
+#define K2_DEBUG_VERBOSE 1
+
 //
 // File-system system calls.
 // Mostly argument checking, since we don't trust
@@ -53,7 +55,7 @@ int sys_dup(int fd) {
   struct file *f;
   int fd1;
 
-  V("called fd %d", fd);
+  V("sys_dup called fd %d", fd);
 
   if(argfd(fd, &f) < 0)
     return -1;
@@ -287,7 +289,7 @@ int sys_open(unsigned long upath, int omode) {
   struct inode *ip;
   int n;
 
-  V("%s called\n", __func__);
+  V("%s called", __func__);
 
   if((n = argstr(upath, path, MAXPATH)) < 0) 
     return -1;
@@ -411,7 +413,7 @@ int sys_exec(unsigned long upath, unsigned long uargv) {
     return -1;
   }
   
-  V("fetched path %s. uargv %lx", path, uargv);
+  V("fetched path %s upath %lx uargv %lx", path, upath, uargv);
 
   memset(argv, 0, sizeof(argv));
   for(i=0;; i++){
