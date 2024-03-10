@@ -471,5 +471,6 @@ int sys_pipe(unsigned long fdarray) {
     fileclose(wf);
     return -1;
   }
+  W("sys_pipe ok %d %d dfarray %lx", fd0, fd1, fdarray);
   return 0;
 }

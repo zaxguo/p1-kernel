@@ -137,7 +137,7 @@ unsigned long map_table(unsigned long *table, unsigned long shift,
 		}
 	} else {  /* next lv pgtable exists */
 		*alloc = 0; /* didn't alloc */
-		return table[index] & PAGE_MASK;
+		return PTE_TO_PA(table[index]);
 	}
 }
 
@@ -282,7 +282,7 @@ unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long pa
 			goto fail; 
 	} 
 	
-	const char *lvs[] = {"pgd","pud","pmd","pte"};
+	__attribute__((unused)) const char *lvs[] = {"pgd","pud","pmd","pte"};
 	const int shifts [] = {0, PGD_SHIFT, PUD_SHIFT, PMD_SHIFT}; 
 	unsigned long table = mm->pgd; 	// pa of a pgd/pud/pmd/pte
 	int allocated; 
@@ -348,6 +348,7 @@ fail:
 	return 0 on success
 */
 int copy_virt_memory(struct task_struct *dst) {
+	struct pt_regs *regs = task_pt_regs(current);
 	struct task_struct* src = current;
 	// go through the @dst task's virt pages, allocate & map phys pages, then copy the content
 	// from the corresponding va from the @current task
@@ -357,14 +358,28 @@ int copy_virt_memory(struct task_struct *dst) {
 		BUG_ON(!pte);  // bad user mapping? 
 		unsigned long perm = PTE_TO_PERM(*pte); 
 		void *kernel_va = allocate_user_page(dst, i, perm);
-		if(kernel_va == 0) {
-			BUG(); 
-			return -1;
-		}
+		if(kernel_va == 0)
+			goto no_mem; 
 		// xzl: src uses user va. this assumes the current task's va is active
 		memmove(kernel_va, (void *)i, PAGE_SIZE);
 	}
+
+	// copy user stack 
+	W("regs->sp %lx", regs->sp);
+	for (unsigned long i = PGROUNDDOWN(regs->sp); i < USER_VA_END; i+=PAGE_SIZE) {
+		unsigned long *pte = map_page(&src->mm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
+		BUG_ON(!pte);  // bad user mapping (stack)? 	
+		void *kernel_va = allocate_user_page(dst, i, MM_AP_RW | MM_XN);
+		if(kernel_va == 0)
+			goto no_mem; 
+		// xzl: src uses user va. this assumes the current task's va is active
+		W("kern va %lx i %x", kernel_va, i);
+		memmove(kernel_va, (void *)i, PAGE_SIZE);
+	}
+
 	return 0;
+no_mem: 	// TODO: revserse allocation .. 
+	return -1; 
 }
 
 // Look up a virtual address, return the physical address,
@@ -378,7 +393,8 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 		W("bug? %016lx, %016lx\n", (*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
 		return 0; 
 	}
-	return (*pte) & PAGE_MASK;
+	BUG_ON(PTE_TO_PA(*pte) < PHYS_SIZE);
+	return PTE_TO_PA(*pte);
 }
 
 // TODO: do we need this? we can just free the list of user/kernel pages given a task
@@ -423,6 +439,8 @@ int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
     uint64 n, va0, pa0;
 
 	BUG_ON(srcva > USER_VA_END);  // illegal user va. a kernel va??
+
+	V("%lx %lx", srcva, len);
 
     while (len > 0) {
         va0 = PGROUNDDOWN(srcva);  // xzl: user virt page base...

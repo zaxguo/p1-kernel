@@ -3015,6 +3015,7 @@ countfree()
   if(pid == 0){
     close(fds[0]);
     
+    // xzl: use a loop to count pages. for each page write a char to the pipe
     while(1){
       uint64 a = (uint64) sbrk(4096);
       if(a == 0xffffffffffffffff){
@@ -3024,16 +3025,18 @@ countfree()
       // modify the memory to make sure it's really allocated.
       *(char *)(a + 4096 - 1) = 1;
 
-      // report back one more page.
+      // printf("fds %x %d %d\n", (unsigned long)fds, fds[0], fds[1]);
+      // report back one more page.   xzl: write to pipe
       if(write(fds[1], "x", 1) != 1){
         printf("write() failed in countfree()\n");
         exit(1);
-      }
+      } // else printf("write x \n");
     }
 
     exit(0);
   }
 
+  // xzl: use a loop to receive chars from the pipe...
   close(fds[1]);
 
   int n = 0;
