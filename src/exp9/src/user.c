@@ -95,7 +95,7 @@ void user_process() {
     // char *argv[] = {arg0, arg1, arg2, 0};
 	// char *argv[] = {arg0, arg1, 0};
 
-    USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
+    // USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
     // USER_PROGRAM1("/ls.elf", "/ls.elf", "/");    
     // USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
     // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
@@ -103,6 +103,9 @@ void user_process() {
     // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
     // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "rwsbrk");    
+    //  USER_PROGRAM1("/usertests.elf", "/usertests.elf", "sbrkarg");    
+
+    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "killstatus");    
 
     char console[] = {"console"}; 
 
@@ -116,7 +119,7 @@ void user_process() {
     char msg[] = {"User process entry\n\r"};
     print_to_console(msg);
     print_to_console(path);
-    
+
     call_sys_exec(path, argv);
 }
 

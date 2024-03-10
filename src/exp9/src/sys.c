@@ -96,8 +96,7 @@ bad:
 }
 
 int sys_kill(int pid) {
-	/* TBD */
-	return 0; 
+	return kill(pid); 
 }
 
 int sys_getpid(void) {

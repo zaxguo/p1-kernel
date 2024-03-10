@@ -1,4 +1,5 @@
 #define K2_DEBUG_WARN
+// #define K2_DEBUG_VERBOSE
 
 #include "utils.h"
 #include "sched.h"
@@ -259,6 +260,8 @@ void reparent(struct task_struct *p) {
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
+    I("exit_process called %d", status); 
+
     if (p == &init_task)
         panic("init exiting");
 
@@ -333,7 +336,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
     int havekids, pid;
     struct task_struct *p = myproc();
 
-    V("entering wait()");
+    V("%d entering wait()", p->pid);
 
     acquire(&wait_lock);
 
@@ -398,7 +401,7 @@ int kill(int pid) {
         p = task[i];
         // acquire(&p->lock);
         if (i == pid) { // index is pid
-            assert(p); 
+            BUG_ON(!p); 
             p->killed = 1;
             if (p->state == TASK_SLEEPING) {
                 // Wake process from sleep().
@@ -406,11 +409,13 @@ int kill(int pid) {
             }
             //   release(&p->lock);
             pop_off();
+            I("kill succeeds, pid =%d", pid);
             return 0;
         }
         // release(&p->lock);
     }
     pop_off();
+    W("kill failed, pid =%d", pid);
     return -1;
 }
 

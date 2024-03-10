@@ -791,20 +791,22 @@ pipe1(char *s)
 void
 killstatus(char *s)
 {
+#define NN 32    // 100  
+
   int xst;
-  
-  for(int i = 0; i < 100; i++){
+  for(int i = 0; i < NN; i++){
     int pid1 = fork();
     if(pid1 < 0){
       printf("%s: fork failed\n", s);
       exit(1);
-    }
+    } 
     if(pid1 == 0){
       while(1) {
         getpid();
       }
       exit(0);
-    }
+    } else printf("fork ok with pid %d\n", pid1);
+
     sleep(1);
     kill(pid1);
     wait(&xst);
@@ -2124,6 +2126,7 @@ sbrkmuch(char *s)
 #include "../plat-virt.h"
 #define KERNBASE VA_START
 
+// xzl: fork a bunch of tasks to sweep kernel va ...
 void
 kernmem(char *s)
 {
@@ -2137,6 +2140,8 @@ kernmem(char *s)
       exit(1);
     }
     if(pid == 0){
+      // xzl: if ever printed out, then task can access kern va. 
+      //    expected behavior is task gets killed? 
       printf("%s: oops could read %x = %x\n", s, a, *a);
       exit(1);
     }
@@ -2191,6 +2196,7 @@ sbrkfail(char *s)
     printf("%s: pipe() failed\n", s);
     exit(1);
   }
+  // xzl: spawn a bunch of tasks, each allocating a lot ...
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
     if((pids[i] = fork()) == 0){
       // allocate a lot of memory
@@ -2592,7 +2598,7 @@ struct test {
   {copyinstr1, "copyinstr1"},
   {copyinstr2, "copyinstr2"},
   {copyinstr3, "copyinstr3"},
-  {rwsbrk, "rwsbrk" },    // xzl: this 
+  {rwsbrk, "rwsbrk" },    // [x]
   {truncate1, "truncate1"},
   {truncate2, "truncate2"},
   {truncate3, "truncate3"},
@@ -2606,7 +2612,7 @@ struct test {
   {dirtest, "dirtest"},
   {exectest, "exectest"},
   {pipe1, "pipe1"},
-  {killstatus, "killstatus"},
+  {killstatus, "killstatus"}, // [ ]
   {preempt, "preempt"},
   {exitwait, "exitwait"},
   {reparent, "reparent" },
@@ -2630,12 +2636,12 @@ struct test {
   {dirfile, "dirfile"},
   {iref, "iref"},
   {forktest, "forktest"},
-  {sbrkbasic, "sbrkbasic"},
-  {sbrkmuch, "sbrkmuch"},
+  {sbrkbasic, "sbrkbasic"}, // [x]
+  {sbrkmuch, "sbrkmuch"},   // [x]
   {kernmem, "kernmem"},
   {MAXVAplus, "MAXVAplus"},
-  {sbrkfail, "sbrkfail"},
-  {sbrkarg, "sbrkarg"},
+  {sbrkfail, "sbrkfail"},   // [ ] need kill
+  {sbrkarg, "sbrkarg"},     // [x]
   {validatetest, "validatetest"},
   {bsstest, "bsstest"},
   {bigargtest, "bigargtest"},

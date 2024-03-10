@@ -1,4 +1,4 @@
-#define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
 
 #include "utils.h"
 #include "mmu.h"

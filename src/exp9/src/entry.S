@@ -1,6 +1,7 @@
 #include "sysregs.h"
 #include "entry.h"
 #include "syscall.h"
+#include "sched.h"
 #ifdef PLAT_VIRT
 #include "plat-virt.h"
 #endif
@@ -219,6 +220,25 @@ el0_svc:
 ni_sys:
 	handle_invalid_entry 0, SYSCALL_ERROR
 ret_from_syscall:
+	/* --- deal with killed() tasks ---
+	if (!current->killed) 
+		exit_process(-1);
+	*/
+	mov x27, sp
+	and x26, x27, #0xfffffffffffff000	// page mask
+	add x26, x26, #THREAD_CPU_CONTEXT
+	// x26 points to task_struct *current
+	add x26, x26, #TASK_STRUCT_KILLED_OFFSET
+	// x26 points to current->killed
+	ldr w27, [x26]
+	cmp x27, #0
+	b.eq cont_exit
+	// exit_process(-1)
+	mov x25, x0 	// preserve x0 
+	mov x0, #0xffffffffffffffff	
+	bl exit_process
+	mov x0, x25
+cont_exit: 
 	bl	disable_irq				
 	str	x0, [sp, #S_X0]				// returned x0 to the user task (saving x0 to pt_regs)
 	kernel_exit 0

@@ -23,6 +23,7 @@
 #define TASK_SLEEPING					2
 #define TASK_ZOMBIE						3
 #define TASK_RUNNABLE					4
+
 /* TODO: define more task states (as constants) below, e.g. TASK_WAIT */
 
 #define PF_KTHREAD		            	0x00000002	
@@ -32,7 +33,7 @@ extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
 // Contains values of all registers that might be different between the tasks.
-struct cpu_context {
+struct cpu_context {	
 	unsigned long x19;
 	unsigned long x20;
 	unsigned long x21;
@@ -47,6 +48,7 @@ struct cpu_context {
 	unsigned long sp;
 	unsigned long pc;
 };
+// 13 regs
 
 struct user_page {
 	unsigned long phys_addr;
@@ -72,6 +74,7 @@ struct mm_struct {
 // the metadata describing a task
 struct task_struct {
 	struct cpu_context cpu_context;	// register values. must come first. 
+	int killed;                  // If non-zero, have been killed. checked by entry.S. 
 
 	long state;		// the state of the current task, e.g. TASK_RUNNING
 	long counter;	// how long this task has been running? decreases by 1 each timer tick. Reaching 0, kernel will attempt to schedule another task. Support our simple sched
@@ -81,7 +84,6 @@ struct task_struct {
 	struct spinlock lock;	 // protect this task_struct
 	struct mm_struct mm;
 	void *chan;                  // If non-zero, sleeping on chan
-	int killed;                  // If non-zero, have been killed
 	int pid; 					 // still need this, ease of debugging...
   	int xstate;  				// Exit status to be returned to parent's wait
 
@@ -130,5 +132,18 @@ struct pt_regs {
 	unsigned long pstate;
 };
 
+#define MEMBER_OFFSET(type, member) ((long)(&((type *)0)->member))
+#define TASK_STRUCT_KILLED_OFFSET_C MEMBER_OFFSET(struct task_struct, killed)
 #endif		// ! __ASSEMBLER__
+
+// exposed to asm...
+#define TASK_STRUCT_KILLED_OFFSET	(13*8) 	// cpu_context size, 13 regs
+#define S_FRAME_SIZE			272 		// size of all saved registers 
+#define S_X0				    0		// offset of x0 register in saved stack frame
+
+#ifndef __ASSEMBLER__
+_Static_assert(TASK_STRUCT_KILLED_OFFSET == TASK_STRUCT_KILLED_OFFSET_C);
 #endif
+
+#endif
+

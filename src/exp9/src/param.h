@@ -11,16 +11,24 @@
 #define NFILE       100  // open files per system
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
-#define NR_TASKS				32
+#define NR_TASKS				128     // 32 should be fine. usertests.c seems to expect > 100
 #define ROOTDEV       1  // device number of file system root disk xzl: just disk id, not major/minor
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define FSSIZE       2000  // size of file system in blocks
 
-#define USER_VA_END         (128 * 1024 * 1024) // == user stack top
-#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
 
+// large user vm, works, but usertests slow b/c freecount()
+// #define USER_VA_END         (128 * 1024 * 1024) // == user stack top
+// #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
+// #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
+// #define MAX_TASK_KER_PAGES      64       //max kernel pages per task. 128MB user va
+
+// small user vm
+#define USER_VA_END         (4 * 1024 * 1024) // == user stack top
+#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
 #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-#define MAX_TASK_KER_PAGES      64       //max kernel pages per task. 128MB user va
+#define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 128MB user va
+
 
 // keep xv6 code happy. TODO: replace them
 typedef unsigned int   uint;
