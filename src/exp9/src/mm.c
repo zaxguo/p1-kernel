@@ -39,11 +39,13 @@ void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned lon
 
 	page = get_free_page();
 	if (page == 0) {
+		W("get_free_page failed");
 		return 0;
 	}
 	if (map_page(mm, va, page, 1 /*alloc*/, perm))
 		return PA2VA(page);
 	else {
+		W("map_page failed");
 		free_page(page);
 		return 0; 
 	}
@@ -365,7 +367,7 @@ int copy_virt_memory(struct task_struct *dst) {
 	}
 
 	// copy user stack 
-	W("regs->sp %lx", regs->sp);
+	V("regs->sp %lx", regs->sp);
 	for (unsigned long i = PGROUNDDOWN(regs->sp); i < USER_VA_END; i+=PAGE_SIZE) {
 		unsigned long *pte = map_page(&src->mm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
 		BUG_ON(!pte);  // bad user mapping (stack)? 	
@@ -373,7 +375,7 @@ int copy_virt_memory(struct task_struct *dst) {
 		if(kernel_va == 0)
 			goto no_mem; 
 		// xzl: src uses user va. this assumes the current task's va is active
-		W("kern va %lx i %x", kernel_va, i);
+		V("kern va %lx i %x", kernel_va, i);
 		memmove(kernel_va, (void *)i, PAGE_SIZE);
 	}
 
@@ -621,8 +623,8 @@ unsigned long growproc (struct mm_struct *mm, int incr) {
 	void *kva; 
 	int ret; 
 
-	if (incr>100 || incr <0)
-		V("sz 0x%lx %ld (dec) incr %d (dec). requested new brk 0x%lx", 
+	if (incr>10000 || incr <0)
+		W("sz 0x%lx %ld (dec) incr %d (dec). requested new brk 0x%lx", 
 			sz, sz, incr, sz+incr); 
 	
 	// careful: sz is unsigned; incr is signed
@@ -643,8 +645,10 @@ unsigned long growproc (struct mm_struct *mm, int incr) {
 	if (incr >= 0) {		// brk grows
 		for (sz1 = PGROUNDUP(sz); sz1 < sz + incr; sz1 += PAGE_SIZE) {
 			kva = allocate_user_page_mm(mm, sz1, MM_AP_RW | MM_XN); 
-			if (!kva)
+			if (!kva) {
+				W("allocate_user_page_mm failed");
 				goto reverse; 
+			}
 		}
 	} else {	// brk shrinks
 		// since it's shrinking, unmap from the next page boundary of the new brk, 
@@ -665,7 +669,7 @@ reverse:
 	// sz was old brk, sz1 was the failed va to allocate 	
 	ret = free_user_page_range(mm, PGROUNDUP(sz), sz1 - PGROUNDUP(sz)); 
 	BUG_ON(ret == -1); // user va has bad mapping.
-	W("reverse user page allocation %d pages sz %lx sz1 %lx", ret, sz, sz1);
+	W("reversed user page allocation %d pages sz %lx sz1 %lx", ret, sz, sz1);
 bad: 
 	W("growproc failed");	 
 	return (unsigned long)(void *)-1; 	

@@ -98,7 +98,8 @@ void user_process() {
     // USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
     // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
 
-    USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
+    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
+    USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
 
     if (call_sys_open("console", O_RDWR) < 0) {
         call_sys_mknod("console", CONSOLE, 0);

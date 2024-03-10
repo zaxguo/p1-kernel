@@ -1,3 +1,5 @@
+#define K2_DEBUG_INFO
+
 #include "utils.h"
 #include "sched.h"
 #include "syscall.h"
@@ -73,7 +75,7 @@ unsigned long sys_sbrk(int incr) {
 	unsigned long sz = current->mm.sz; 
 	struct pt_regs *regs = task_pt_regs(current);
 	
-	I("cal sys_sbrk");
+	V("cal sys_sbrk");
 
 	// all kinds of checks. careful: sz is unsigned; incr is signed
 	if (incr < 0 && sz + incr < current->mm.codesz) {

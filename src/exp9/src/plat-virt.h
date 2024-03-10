@@ -15,7 +15,7 @@
 
 #define PHYS_BASE       0x40000000              // start of sys mem
 #define KERNEL_START    0x40080000              // qemu will load ker to this addr and boot
-#define PHYS_SIZE       (1 *1024*1024*1024U)    // size of phys mem, "qemu ... -m 1024M ..."
+#define PHYS_SIZE       (1 *128*1024*1024U)    // size of phys mem, "qemu ... -m 128M ..."
 
 // TODO: move below to mmu.h
 #define PAGE_MASK			    0xfffffffffffff000
@@ -44,9 +44,6 @@
 #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
 
 #define VA_START 			0xffff000000000000
-
-#define USER_VA_END         (16 * 1024 * 1024) // == user stack top
-#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
 
 /* The kernel uses section mapping. The whole pgtable tree only needs three pgtables (each PAGE_SIZE). 
 That is, one pgtable at each of PGD/PUD/PMD. See our project document */

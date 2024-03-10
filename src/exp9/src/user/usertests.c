@@ -2062,7 +2062,8 @@ sbrkbasic(char *s)
 void
 sbrkmuch(char *s)
 {
-  enum { BIG=100*1024*1024 };
+  // enum { BIG=100*1024*1024 };     
+  enum { BIG=10*1024*1024 };     
   char *c, *oldbrk, *a, *lastaddr, *p;
   uint64 amt;
 
