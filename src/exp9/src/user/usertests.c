@@ -2062,8 +2062,8 @@ sbrkbasic(char *s)
 void
 sbrkmuch(char *s)
 {
-  // enum { BIG=100*1024*1024 };     
-  enum { BIG=10*1024*1024 };     
+  enum { BIG=100*1024*1024 };       // need <64 kernel pages
+  // enum { BIG=10*1024*1024 };     // need <16 kernel pages (for pgtables)
   char *c, *oldbrk, *a, *lastaddr, *p;
   uint64 amt;
 
@@ -2076,7 +2076,7 @@ sbrkmuch(char *s)
   if (p != a) {
     printf("%s: sbrk test failed to grow big address space; enough phys mem?\n", s);
     exit(1);
-  }
+  } else printf("ok to get big space\n");
 
   // touch each page to make sure it exists.
   char *eee = sbrk(0);
@@ -2092,12 +2092,12 @@ sbrkmuch(char *s)
   if(c == (char*)0xffffffffffffffffL){
     printf("%s: sbrk could not deallocate\n", s);
     exit(1);
-  }
+  } else printf("ok to deallocate\n");
   c = sbrk(0);
   if(c != a - PGSIZE){
     printf("%s: sbrk deallocation produced wrong address, a %x c %x\n", s, a, c);
     exit(1);
-  }
+  } else printf("deallocation addr ok\n");
 
   // can one re-allocate that page?
   a = sbrk(0);
@@ -2117,7 +2117,7 @@ sbrkmuch(char *s)
   if(c != a){
     printf("%s: sbrk downsize failed, a %x c %x\n", s, a, c);
     exit(1);
-  }
+  } else printf("downsize ok\n");
 }
 
 // can we read the kernel's memory?
@@ -3000,7 +3000,8 @@ int
 countfree()
 {
   int fds[2];
-
+  printf("countfree starts");
+  
   if(pipe(fds) < 0){
     printf("pipe() failed in countfree()\n");
     exit(1);
@@ -3059,6 +3060,7 @@ countfree()
   return n;
 }
 
+// xzl: the main entry... 
 int
 drivetests(int quick, int continuous, char *justone) {
   do {
@@ -3080,7 +3082,7 @@ drivetests(int quick, int continuous, char *justone) {
         }
       }
     }
-    if((free1 = countfree()) < free0) {
+    if((free1 = countfree()) < free0) { // xzl: will count free again...
       printf("FAILED -- lost some free pages %d (out of %d)\n", free1, free0);
       if(continuous != 2) {
         return 1;
