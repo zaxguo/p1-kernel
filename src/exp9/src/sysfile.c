@@ -1,5 +1,5 @@
-// #define K2_DEBUG_INFO 1
-#define K2_DEBUG_VERBOSE 1
+#define K2_DEBUG_INFO 1
+// #define K2_DEBUG_VERBOSE 1
 
 //
 // File-system system calls.

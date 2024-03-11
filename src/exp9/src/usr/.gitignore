@@ -1,6 +1,2 @@
-echo 
-ls 
-mkdir 
-forktest 
-usertests 
-sh
+build/*
+mkfs

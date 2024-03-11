@@ -3,10 +3,15 @@ ARMGNU ?= aarch64-linux-gnu
 ULIB = ulib.o printf.o usys_s.o umalloc.o 
 
 UPROGS = \
-	echo ls mkdir forktest usertests sh
+	build/echo \
+	build/ls \
+	build/mkdir \
+	build/forktest \
+	build/usertests \
+	build/sh
 
-sd.bin: $(UPROGS) mkfs
-	./mkfs sd.bin README $(UPROGS)
+sd.bin: $(UPROGS) mkfs	
+	cd build && ../mkfs ../sd.bin `ls`
 
 COPS = -Wall -Werror -nostdlib -g -O0 -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only
@@ -25,7 +30,8 @@ mkfs: mkfs.c
 % : %.c
 
 #%.elf: %.o $(ULIB)
-%: %.o $(ULIB)		
+build/%: %.o $(ULIB)		
+	mkdir -p build
 	$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
 	$(ARMGNU)-objdump -S $@ > $*.asm
 	$(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
