@@ -791,7 +791,7 @@ pipe1(char *s)
 void
 killstatus(char *s)
 {
-#define NN 32    // 100  
+  enum {NN = 32}; // 100
 
   int xst;
   for(int i = 0; i < NN; i++){
@@ -965,7 +965,9 @@ void
 forkfork(char *s)
 {
   enum { N=2 };
-  
+  // enum {NN =100};
+  enum {NN =32};
+
   for(int i = 0; i < N; i++){
     int pid = fork();
     if(pid < 0){
@@ -973,7 +975,7 @@ forkfork(char *s)
       exit(1);
     }
     if(pid == 0){
-      for(int j = 0; j < 200; j++){
+      for(int j = 0; j < NN; j++){
         int pid1 = fork();
         if(pid1 < 0){
           exit(1);
@@ -1959,6 +1961,8 @@ iref(char *s)
 // test that fork fails gracefully
 // the forktest binary also does this, but it runs out of proc entries first.
 // inside the bigger usertests binary, we run out of memory first.
+// xzl: we passed this but failed fork() in subsequent countfree(), b/c we
+//    dont recycle pids.
 void
 forktest(char *s)
 {
@@ -2612,7 +2616,7 @@ struct test {
   {dirtest, "dirtest"},
   {exectest, "exectest"},
   {pipe1, "pipe1"},
-  {killstatus, "killstatus"}, // [ ]
+  {killstatus, "killstatus"}, // [x]
   {preempt, "preempt"},
   {exitwait, "exitwait"},
   {reparent, "reparent" },

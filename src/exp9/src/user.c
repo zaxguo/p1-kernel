@@ -116,7 +116,9 @@ void user_process() {
     // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyout");    
     // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr1");    
     // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr2");    
-    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr3");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr3");    
+    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "forkfork");    
+    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "forktest");    
 
     char console[] = {"console"}; 
 

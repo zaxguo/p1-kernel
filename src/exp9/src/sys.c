@@ -103,14 +103,29 @@ int sys_getpid(void) {
 	return current->pid; 
 }
 
-int sys_sleep(int t) {
-	/* TBD */
-	return 0; 
+// n: # of ticks to sleep 
+int sys_sleep(int n) {
+	uint ticks0;
+    acquire(&tickslock);
+    ticks0 = ticks;
+    while (ticks - ticks0 < n) {
+        if (killed(myproc())) {
+            release(&tickslock);
+            return -1;
+        }
+        sleep(&ticks, &tickslock);
+    }
+    release(&tickslock);
+    return 0;
 }
 
 int sys_uptime(void) {
-	/* TBD */
-	return 0; 
+    uint xticks;
+
+    acquire(&tickslock);
+    xticks = ticks;
+    release(&tickslock);
+    return (int)xticks;		// xzl: loss of precision?
 }
 
 // sysfile.c

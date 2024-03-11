@@ -58,6 +58,8 @@ extern void gen_timer_init();
 /* set timer to be fired after @interval System ticks */
 extern void gen_timer_reset(int interval); 
 
+extern struct spinlock tickslock;
+extern unsigned int ticks; 
 // ------------------- irq ---------------------------- //
 void enable_interrupt_controller( void ); // irq.c 
 
