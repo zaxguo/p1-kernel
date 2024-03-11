@@ -8,7 +8,13 @@ UPROGS = \
 	build/mkdir \
 	build/forktest \
 	build/usertests \
-	build/sh
+	build/sh	\
+	build/cat	\
+	build/grep	\
+	build/kill	\
+	build/ln	\
+	build/rm	\
+	build/wc	
 
 sd.bin: $(UPROGS) mkfs	
 	cd build && ../mkfs ../sd.bin `ls`
