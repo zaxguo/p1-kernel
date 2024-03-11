@@ -3,7 +3,7 @@ ARMGNU ?= aarch64-linux-gnu
 ULIB = ulib.o printf.o usys_s.o umalloc.o 
 
 UPROGS = \
-	echo.elf ls.elf mkdir.elf forktest.elf usertests.elf
+	echo ls mkdir forktest usertests sh
 
 sd.bin: $(UPROGS) mkfs
 	./mkfs sd.bin README $(UPROGS)
@@ -20,8 +20,12 @@ mkfs: mkfs.c
 %_s.o: %.S
 	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
 
-%.elf: %.o $(ULIB)
-#_%: %.o $(ULIB)		# not working??
+# to prevent makefile from its implicit rule which is shorter & preferred
+# https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html
+% : %.c
+
+#%.elf: %.o $(ULIB)
+%: %.o $(ULIB)		
 	$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
 	$(ARMGNU)-objdump -S $@ > $*.asm
 	$(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym

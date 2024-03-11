@@ -5,6 +5,19 @@
 //
 // in general, the programming environment is very limited, b/c everything needs to be re-implemented (e.g. printf())
 
+
+// the tricky part is that 
+// 1. the symbols referenced must be compiled into this unit, between user_begin/user_end
+//          e.g. cannot call a kernel func defined outside. 
+//          cannot ref to a const string (?) which may also be linked outside
+// 2. all references to the symbols must be PC-relative. cannot be absolute 
+//      address. this is even harder as we often dont have such a fine control
+//      of C compiler. Thus, -O0 works often but -O2 will break things. 
+//      if we write ASM, we seem to lack control of where linker put things. 
+//      therefore, linker often complains that the offsets cannot be encoded.
+//      cf stawged/testuser_launch.S and user-test.c
+
+
 #include "user_sys.h"
 #include "user.h"
 #include "fcntl.h"
@@ -55,16 +68,13 @@ void ls(char *path);
 
 #if 0       // wont work 
 char usertests[][] = {
-    {"/usertests.elf"}, // path
-    {"/usertests.elf"}, 
+    {"/usertests"}, // path
+    {"/usertests"}, 
     {"sbrkbasic"},
     0
 };
 #endif 
 
-// make sure they are linked in user va
-// are there better ways?? 
-// args must be in user va. not static (kernel va)
 
 #define USER_PROGRAM1(name, arg0, arg1)  \
     char path[] = {name};            \
@@ -100,25 +110,27 @@ void user_process() {
     // variables defined on stack... forced to load based on PC relative 
 
     
-    // USER_PROGRAM1("/echo.elf", "/echo.elf", "aaa");    
-    // USER_PROGRAM1("/ls.elf", "/ls.elf", "/");    
-    // USER_PROGRAM1("/mkdir.elf", "/mkdir.elf", "ccc");    
-    // USER_PROGRAM1("/forktest.elf", "/forktest.elf", "/");    
+    // USER_PROGRAM1("/echo", "/echo", "aaa");    
+    // USER_PROGRAM1("/ls", "/ls", "/");    
+    // USER_PROGRAM1("/mkdir", "/mkdir", "ccc");    
+    // USER_PROGRAM1("/forktest", "/forktest", "/");    
 
-    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkbasic");    
-    // USER_PROGRAM1("usertests.elf", "/usertests.elf", "sbrkmuch");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "rwsbrk");    
-    //  USER_PROGRAM1("/usertests.elf", "/usertests.elf", "sbrkarg");    
+    // USER_PROGRAM1("usertests", "/usertests", "sbrkbasic");    
+    // USER_PROGRAM1("usertests", "/usertests", "sbrkmuch");    
+    // USER_PROGRAM1("/usertests", "/usertests", "rwsbrk");    
+    //  USER_PROGRAM1("/usertests", "/usertests", "sbrkarg");    
 
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "killstatus");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "kernmem");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyin");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyout");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr1");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr2");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "copyinstr3");    
-    USER_PROGRAM1("/usertests.elf", "/usertests.elf", "forkfork");    
-    // USER_PROGRAM1("/usertests.elf", "/usertests.elf", "forktest");    
+    // USER_PROGRAM1("/usertests", "/usertests", "killstatus");    
+    // USER_PROGRAM1("/usertests", "/usertests", "kernmem");    
+    // USER_PROGRAM1("/usertests", "/usertests", "copyin");    
+    // USER_PROGRAM1("/usertests", "/usertests", "copyout");    
+    // USER_PROGRAM1("/usertests", "/usertests", "copyinstr1");    
+    // USER_PROGRAM1("/usertests", "/usertests", "copyinstr2");    
+    // USER_PROGRAM1("/usertests", "/usertests", "copyinstr3");    
+    // USER_PROGRAM1("/usertests", "/usertests", "forkfork");    
+    // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
+
+    USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 
     char console[] = {"console"}; 
 
@@ -158,7 +170,7 @@ void user_process1() {
 
     if (pid == 0) {
         // loop1("abcde");
-        call_sys_exec("/echo.elf", argv);
+        call_sys_exec("/echo", argv);
     } else {
         loop1("12345");
     }
