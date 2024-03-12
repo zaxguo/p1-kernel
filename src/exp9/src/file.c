@@ -1,6 +1,5 @@
-//
 // Support functions for system calls that involve file descriptors.
-// xzl: feels like vfs; derived from xv6-riscv
+//  Like vfs; derived from xv6-riscv
 //  tightly coupled with fs.c (fs code...)
 
 #include "utils.h"
@@ -11,10 +10,10 @@
 #include "file.h"
 #include "stat.h"
 
-struct devsw devsw[NDEV];       // xzl: devices and their direct read/write funcs
+struct devsw devsw[NDEV];       // devices and their direct read/write funcs
 struct {
   struct spinlock lock;
-  struct file file[NFILE];      // xzl: opened files 
+  struct file file[NFILE];      // opened files 
 } ftable;
 
 void
@@ -92,7 +91,7 @@ filestat(struct file *f, uint64 addr)
     ilock(f->ip);
     stati(f->ip, &st);
     iunlock(f->ip);
-    if(copyout(&p->mm, addr, (char *)&st, sizeof(st)) < 0) // xzl: copy to user
+    if(copyout(&p->mm, addr, (char *)&st, sizeof(st)) < 0) // copy to user
       return -1;
     return 0;
   }
@@ -114,10 +113,10 @@ fileread(struct file *f, uint64 addr, int n)
   } else if(f->type == FD_DEVICE){
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
       return -1;
-    r = devsw[f->major].read(1, addr, n);   //xzl: device read
+    r = devsw[f->major].read(1, addr, n);   // device read
   } else if(f->type == FD_INODE){
     ilock(f->ip);
-    if((r = readi(f->ip, 1, addr, f->off, n)) > 0)  // xzl: fs read
+    if((r = readi(f->ip, 1, addr, f->off, n)) > 0)  // fs read
       f->off += r;
     iunlock(f->ip);
   } else {
@@ -154,7 +153,7 @@ filewrite(struct file *f, uint64 addr, int n)
     int i = 0;
     while(i < n){
       int n1 = n - i;
-      if(n1 > max)      // xzl: write n1 (<=max) blocks at a time...
+      if(n1 > max)      // write n1 (<=max) blocks at a time...
         n1 = max;
 
       begin_op();

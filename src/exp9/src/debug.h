@@ -1,40 +1,23 @@
 /*
- * k2: print to tracebuffer support.
- *
- * before include this header:
- * #define
- *
- * The guideline of using k2_print family:
- *
- * - in repeated funcs
- *      E   k2_PRINT: only for error msgs
- *      W k2_PRINt: key execution point for high-level sketch
- *      I k2_Print: important info for easy eye-balling
- *      V k2_print: normal info that may reveal bugs
- *      D k2_print_v: verbose info, just kept there for future use
- *
- * - in one-shot funcs (like procfs execution)
- *    E can be used for info, so that in measurement mode
- *    we can still see them.
- *
- * xzl: 07/01/2015 -- change the func names (easier to use)
+   print to tracebuffer support.
+ 
+  Usage
+  
+   In compiler option or makefile: 
+   
+   set CONFIG_KAGE_GLOBAL_DEBUG_LEVEL=XX, where XX can be 10--50
+   
+	To supress a C file's debug messages, do: 
+   // as the 1st line of a C file
+   #define K2_DEBUG_INFO   // or K2_NO_DEBUG, K2_DEBUG_VERBOSE see below for other options
+   // ..  later
+   #include "debug.h"
+ 
+    07/01/2015 -- change the func names (easier to use)
  */
 
 #ifndef  __K2_TRACEBUFFER__
 #define __K2_TRACEBUFFER__
-
-/* 
- * set CONFIG_KAGE_GLOBAL_DEBUG_LEVEL in makefile or compiler option
- 
- * The intersection of global level and per-file K2_NO_DEBUG decides
- * the final outpout.
- *
- * lower level == more verbose
- *
- * e.g., global level is 30 (>=info), and a file defines K2_NO_DEBUG,
- * thus for that file only E/k2_PRINT() are effective.
- *
- */
 
 
 #ifndef CONFIG_KAGE_GLOBAL_DEBUG_LEVEL
@@ -65,13 +48,6 @@
 #else
 #define K2_PRINT_TAG ""
 #endif
-
-/* Usage: At the start of each .c file:
- * #define K2_NO_DEBUG to suppress everything but k2_PRINt (meant for error).
- * #define K2_DEBUG_VERBOSE to additionally enable k2_print_v().
- */
-
-/* multi defined? let higher override the lower. XXX should warn */
 
 #ifdef K2_DEBUG_VERBOSE
 #define K2_LOCAL_DEBUG_LEVEL 10

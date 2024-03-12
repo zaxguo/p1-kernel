@@ -18,7 +18,7 @@
 #include "printf.h"
 
 #define ARM_GIC_MAX_NR 8    // xzl
-#define RT_ASSERT(x)     // xzl, TODO
+#define RT_ASSERT(x)     assert(x) 
 //xzl: maximum irq sources by plat. seems at least 32. gic supports ~1000
 // just randomly picked one
 #define ARM_GIC_NR_IRQS     128 

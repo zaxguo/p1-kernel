@@ -3,6 +3,8 @@
 #include "mmu.h"
 #include "entry.h"
 
+// one major limitation: need to recycle pids.
+
 extern struct spinlock wait_lock;  // sched.c
 
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
@@ -10,7 +12,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	struct task_struct *p;
 	push_off();	// stil need this for entire task array. may remove later
 	
-	int pid = nr_tasks++;  // xzl: TODO need to recycle pid.
+	int pid = nr_tasks++;  // 
 	if (pid >= NR_TASKS)  // TODO add dynamic pid recycling 
 		return -1; 
 
@@ -78,16 +80,16 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	return pid;
 }
 
-/* 
-	Create 1st user task by elevating a kernel task to EL1
+/*
+   	Create 1st user task by elevating a kernel task to EL1
 
-   Populate pt_regs for returning to user space (via kernel_exit) for the 1st time. 
-   Note that the actual switch will not happen until kernel_exit. 
+	Populate pt_regs for returning to user space (via kernel_exit) for the 1st time.
+	Note that the actual switch will not happen until kernel_exit.
 
-   @start: beginning of the user code (to be copied to the new task). kernel va
-   @size: size of the area 
-   @pc: offset of the startup function inside the area
-*/   
+	@start: beginning of the user code (to be copied to the new task). kernel va
+	@size: size of the area
+	@pc: offset of the startup function inside the area
+*/
 
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
@@ -130,4 +132,3 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk)
 	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
-

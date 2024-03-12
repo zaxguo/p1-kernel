@@ -6,6 +6,13 @@
 #include "printf.h"
 #include "spinlock.h"
 
+
+//  locking protocol 
+//  task[] is protected via push_off/pop_off
+//  pinning current task via preempt_disable/enable, which however allows irq
+//  each task_struct is protected by task_struct::lock
+
+
 // the initial values for task_struct that belongs to the init task. see sched.c 
 // NB: init task is in kernel, only has kernel mapping (ttbr1) 
 // 		no user mapping (ttbr0, mm->pgd=0)
@@ -46,16 +53,8 @@ struct spinlock wait_lock = {.locked=0, .cpu=0, .name="wait_lock"};
 
 // this only prevents timer_tick() from calling schedule(). 
 // they don't prevent voluntary switch; or irq context
-void preempt_disable(void)
-{
-	current->preempt_count++;
-}
-
-void preempt_enable(void)
-{
-	current->preempt_count--;
-}
-
+void preempt_disable(void) { current->preempt_count++; }
+void preempt_enable(void) { current->preempt_count--; }
 
 void _schedule(void)
 {
@@ -67,12 +66,13 @@ void _schedule(void)
 	struct task_struct * p;
     int has_runnable; 
 
+    // our scheduler lock, as irq context may touch @tasks 
+    push_off();  
+
 	while (1) {
 		c = -1; // the maximum counter of all tasks 
 		next = 0;
         has_runnable = 0; 
-
-        push_off();  // our scheduler lock, as irq context may touch @tasks 
 
 		/* Iterates over all tasks and tries to find a task in 
 		TASK_RUNNING state with the maximum counter. If such 
@@ -87,8 +87,7 @@ void _schedule(void)
 				    next = i;
                 }
 			}
-		}
-		pop_off(); 
+		}		
         // pick such a task as next
 		if (c > 0) { 
 			break;
@@ -104,29 +103,38 @@ void _schedule(void)
                     p->counter = (p->counter >> 1) + p->priority;
                 }
             }
-        } else { /* nothing to run */
+        } else { /* nothing to run. */
             // W("nothing to run"); 
             // for (int i = 0; i < NR_TASKS; i++) {
             //         p= task[i];
             //     if (p)
             //         W("pid %d state %d chan %lx", p->pid, p->state, (unsigned long) p->chan);
             // }
+            pop_off(); 
             asm volatile("wfi");
+            push_off(); 
         }
 	}
     V("picked pid %d state %d", next, task[next]->state);
+    pop_off(); 
 	switch_to(task[next]);
 	preempt_enable();
 }
 
-void schedule(void)
-{
-	current->counter = 0;
-	_schedule();
+// this function exists b/c when a task is first time switch_to()'d (see above), 
+// its pc points to ret_from_fork instead of the instruction right after 
+// switch_to(). to make the preempt_disable/enable balance, ret_from_fork calls
+// schedule_tail() below
+void schedule_tail(void) {
+	preempt_enable();
 }
 
-void switch_to(struct task_struct * next) 
-{
+void schedule(void) {
+    current->counter = 0;
+    _schedule();
+}
+
+void switch_to(struct task_struct * next) {
 	struct task_struct * prev; 
 
 	if (current == next) 
@@ -154,16 +162,11 @@ void switch_to(struct task_struct * next)
 			80d58:       9400083b        bl      82e44 <cpu_switch_to>
 		==> 80d5c:       14000002        b       80d64 <switch_to+0x58>
 	*/
-	cpu_switch_to(prev, next);  /* will branch to @next->cpu_context.pc ...*/
+	cpu_switch_to(prev, next);  // sched.S will branch to @next->cpu_context.pc
 }
 
-void schedule_tail(void) {
-	preempt_enable();
-}
-
-void timer_tick()
-{
-	// printf("%s counter %d preempt_count %d \n", __func__, current->counter, current->preempt_count);
+void timer_tick() {
+	V("%s counter %d preempt_count %d \n", __func__, current->counter, current->preempt_count);
 
 	--current->counter;
 	if (current->counter > 0 || current->preempt_count > 0) 
@@ -174,7 +177,8 @@ void timer_tick()
 		Now call scheduler with interrupts enabled */
 	enable_irq();
 	_schedule();
-	/* disable irq until kernel_exit, in which eret will resort the interrupt flag from spsr, which sets it on. */
+	/* disable irq until kernel_exit, in which eret will resort the interrupt 
+        flag from spsr, which sets it on. */
 	disable_irq(); 
 }
 
@@ -190,7 +194,7 @@ void wakeup(void *chan) {
     // would prematurely release that spinlock -- bad.
     push_off();
 
-    // W("chan=%lx", (unsigned long)chan);
+    V("chan=%lx", (unsigned long)chan);
 
 	for (int i = 0; i < NR_TASKS; i ++) {
 		p = task[i]; 
@@ -198,7 +202,7 @@ void wakeup(void *chan) {
         //      an io event. it shall wake up
         // if (p && p != current) { 
         if (p) { 
-            //   acquire(&p->lock);
+            //   acquire(&p->lock);     // wont need as we turned off irq
             if (p->state == TASK_SLEEPING && p->chan == chan) {
                 p->state = TASK_RUNNABLE;
                 V("wakeup chan=%lx pid %d", (unsigned long)p->chan, p->pid);
@@ -223,7 +227,7 @@ void sleep(void *chan, struct spinlock *lk) {
     // so it's okay to release lk.
 
     //   acquire(&p->lock);  //DOC: sleeplock1
-    push_off(); // xzl	this is our scheduler lock
+    push_off(); // xzl	our scheduler lock
     release(lk);
 
     // Go to sleep.

@@ -140,7 +140,7 @@ exec(char *path, char **argv)   // called from sys_exec
   sp = USER_VA_END; 
   argbase = USER_VA_END - PAGE_SIZE; // args at most 1 PAGE
   // Push argument strings, prepare rest of stack in ustack.
-  // xzl: populate arg strings on stack. save arg pointers to ustack (a scratch buf)
+  // Populate arg strings on stack. save arg pointers to ustack (a scratch buf)
   //    then populate "ustack" on the stack
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
@@ -216,7 +216,7 @@ loadseg(struct mm_struct* mm, uint64 va, struct inode *ip, uint offset, uint sz)
   assert(va % PAGE_SIZE == 0); 
   assert(mm);
 
-  // xzl: verify mapping page by page, then load from file
+  // Verify mapping page by page, then load from file
   for(i = 0; i < sz; i += PAGE_SIZE){
     pa = walkaddr(mm, va + i);
     if(pa == 0)

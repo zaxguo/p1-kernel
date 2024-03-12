@@ -5,6 +5,7 @@
 // qemu ... -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 // xzl: adapted for arm virt
 // qemu source: /u/xl6yq/qemu/hw/block/virtio-blk.c
+// cf: https://wiki.osdev.org/Virtio
 
 #include "utils.h"
 #include "spinlock.h"

@@ -54,7 +54,7 @@ void kernel_main()
 	int wpid; 
 	while (1) {
 		// schedule();
-		wpid = wait(0 /* does not care status*/); 
+		wpid = wait(0 /* does not care about status */); 
 		if (wpid < 0) {
 			W("init: wait failed with %d", wpid);
 			panic("init: maybe no child. has nothing to do. bye"); 
