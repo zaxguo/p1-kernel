@@ -259,7 +259,7 @@ virtio_disk_rw(struct buf *b, int write)
   disk.desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk.desc[idx[0]].next = idx[1];
 
-  // xzl: desc1 points to buf data
+  // xzl: desc1 points to buf data. fixed size (BSIZE)
   disk.desc[idx[1]].addr = VA2PA(b->data); 
   disk.desc[idx[1]].len = BSIZE;
   if(write)

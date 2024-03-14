@@ -16,6 +16,7 @@
 #define PHYS_BASE       0x40000000              // start of sys mem
 #define KERNEL_START    0x40080000              // qemu will load ker to this addr and boot
 #define PHYS_SIZE       (1 *128*1024*1024U)    // size of phys mem, "qemu ... -m 128M ..."
+#define RAMDISK_SIZE     (4*1024*1024U)   // region reserved for ramdisk. the actual ramdisk can be smaller
 
 // TODO: move below to mmu.h
 #define PAGE_MASK			    0xfffffffffffff000
@@ -32,7 +33,7 @@
 #define PGROUNDDOWN(a) (((a)) & ~(PAGE_SIZE-1))
 
 #define LOW_MEMORY      (PHYS_BASE + 2 * SECTION_SIZE)  
-#define HIGH_MEMORY     (PHYS_BASE + PHYS_SIZE)
+#define HIGH_MEMORY     (PHYS_BASE + PHYS_SIZE - RAMDISK_SIZE)
 
 #define PAGING_MEMORY           (HIGH_MEMORY - LOW_MEMORY)
 #define PAGING_PAGES            (PAGING_MEMORY/PAGE_SIZE)

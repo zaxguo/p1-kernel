@@ -113,9 +113,14 @@ exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
 [x] bring up (most) standalone user programs. shell 
 
 ----> now can automate tests (important to code refactoring)
+
+[.] refactor code, clean up, esp locking (w/ repeat tests)
+    SOME IS DONE. MORE NEEDED FOR SCHED.C (locking)
+
 -------------
 
-[ ] refactor code, clean up, esp locking (w/ repeat tests)
+[ ] add ramdisk support
+
 
 [ ] add suport for emualted rpi3 
     [ ]  refactor display driver

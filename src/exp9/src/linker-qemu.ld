@@ -9,6 +9,11 @@ SECTIONS
 	.data.user : { build/user* (.data) }
 	.bss.user : { build/user* (.bss) }
 	user_end = .;
+	. = ALIGN(512);		/*sector aligned*/
+	ramdisk_start = .;
+	.ramdisk : {build/sd* (.data)}		/* must come before generic *(.data) */
+	. = ALIGN(512);		/*sector aligned*/
+	ramdisk_end = .;	
 	.text :  { *(.text) }
 	.rodata : { *(.rodata) }
 	.data : { *(.data) }

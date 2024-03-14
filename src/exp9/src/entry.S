@@ -207,7 +207,7 @@ stbl	.req	x27					// syscall table pointer
 // the syscall path (cont'd)
 el0_svc:
 	// FL: so far, x0--x8 seems untouched by the kernel (still from EL0)
-	adr	stbl, sys_call_table			// load syscall table pointer
+	ldr	stbl, =sys_call_table			// load syscall table pointer
 	uxtw	scno, w8					// syscall number in w8
 	mov	sc_nr, #__NR_syscalls
 	bl	enable_irq
