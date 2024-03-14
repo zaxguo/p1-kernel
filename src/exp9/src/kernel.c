@@ -34,8 +34,8 @@ void kernel_main()
 	binit();         // buffer cache
     iinit();         // inode table
     fileinit();      // file table
-    // virtio_disk_init(); // emulated hard disk
-	ramdisk_init(); 
+	ramdisk_init(); 	// ramdisk - blk dev1
+    virtio_disk_init(); // emulated hard disk - blk dev2
 
 	irq_vector_init();
 	generic_timer_init();

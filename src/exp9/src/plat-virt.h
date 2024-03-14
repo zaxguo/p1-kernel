@@ -16,7 +16,13 @@
 #define PHYS_BASE       0x40000000              // start of sys mem
 #define KERNEL_START    0x40080000              // qemu will load ker to this addr and boot
 #define PHYS_SIZE       (1 *128*1024*1024U)    // size of phys mem, "qemu ... -m 128M ..."
-#define RAMDISK_SIZE     (4*1024*1024U)   // region reserved for ramdisk. the actual ramdisk can be smaller
+
+// region reserved for ramdisk. the actual ramdisk can be smaller.
+// at this time, uncompressed ramdisk is linked into kernel image and used in place. 
+// we therefore don't need additional space
+// in the future, compressed ramdisk can be linked, and decompressed into the region below.
+// then we can reserve, e.g. 4MB for it
+#define RAMDISK_SIZE     0 // (4*1024*1024U)   
 
 // TODO: move below to mmu.h
 #define PAGE_MASK			    0xfffffffffffff000

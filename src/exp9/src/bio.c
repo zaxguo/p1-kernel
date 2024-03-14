@@ -95,8 +95,12 @@ bread(uint dev, uint blockno)
 
   b = bget(dev, blockno);
   if(!b->valid) {
-    // virtio_disk_rw(b, 0);
-    ramdisk_rw(b, 0);
+    if (dev == DEV_RAMDISK)
+      ramdisk_rw(b, 0);
+    else if (dev == DEV_VIRTDISK)
+      virtio_disk_rw(b, 0);
+    else 
+      BUG(); 
     b->valid = 1;
   }
   return b;
@@ -108,8 +112,12 @@ bwrite(struct buf *b)
 {
   if(!holdingsleep(&b->lock))
     panic("bwrite");
-  //virtio_disk_rw(b, 1);
-  ramdisk_rw(b, 1);
+  if (b->dev == DEV_RAMDISK)
+    ramdisk_rw(b, 1);
+  else if (b->dev == DEV_VIRTDISK)
+    virtio_disk_rw(b, 1);
+  else
+    BUG(); 
 }
 
 // Release a locked buffer.

@@ -12,7 +12,12 @@
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define NR_TASKS				128     // 32 should be fine. usertests.c seems to expect > 100
-#define ROOTDEV       1  // device number of file system root disk xzl: just disk id, not major/minor
+
+// 1-ramdisk, 2-virt_disk
+#define DEV_RAMDISK     1
+#define DEV_VIRTDISK    2
+#define ROOTDEV       DEV_RAMDISK  // device number of file system root disk xzl: block disk id, not major/minor
+    
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define FSSIZE       2000  // size of file system in blocks
 
