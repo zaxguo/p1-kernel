@@ -12,14 +12,19 @@
 	orr x27, x27, SCTLR_MMU_ENABLED
 	cmp x27, #0		
 	b.eq 99f
-	mov x27, #LOW_MEMORY	// MMU on, use VA 	
-	mov x28, #VA_START	
+	//mov x27, #LOW_MEMORY	// MMU on, use VA 	
+	//mov x28, #VA_START	
+	ldr x27, =kernel_stack_end
+	mov x28, #0 
 	b 100f 
 99: 	// MMU off, use PA 
-	mov x27, #LOW_MEMORY	
-	mov x28, #0			
+	//mov x27, #LOW_MEMORY	
+	//mov x28, #0			
+	ldr x27, =kernel_stack_end
+	mov x28, #VA_START	
 100: 
-	add sp, x27, x28	
+	//add sp, x27, x28	
+	sub sp, x27, x28
 	kernel_entry \el		
 	mov	x0, #\type
 	mrs	x1, esr_el1

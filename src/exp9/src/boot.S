@@ -101,9 +101,11 @@ el1_entry:
 
 	// set virt sp (assuming linear mapping, phys 0 --> virt VA_START)
 	// NB: we won't use sp until mmu is on
-	mov	x0, #VA_START			
-	ldr x1, =LOW_MEMORY
-	add	sp, x0, x1		
+	//mov	x0, #VA_START			
+	//ldr x1, =LOW_MEMORY
+	//add	sp, x0, x1		
+	ldr x0, =kernel_stack_end
+	mov sp, x0 
 
 	// load kernel's pgtable
 	adrp	x0, pg_dir			// @pg_dir: the virtual base address of the pgtables. cf utils.h

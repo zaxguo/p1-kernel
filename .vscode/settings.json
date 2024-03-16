@@ -26,7 +26,8 @@
         "user_sys.h": "c",
         "sleeplock.h": "c",
         "random": "c",
-        "limits": "c"
+        "limits": "c",
+        "plat-rpi3qemu.h": "c"
     },
     "files.exclude": {
         "src/exp1/**": true,
@@ -40,6 +41,16 @@
         "src/experimental/**": true,
     }, 
     "search.exclude": {
+        "docs/**": true,
+        "src/exp1/**": true,
+        "src/exp2/**": true,
+        "src/exp3/**": true,
+        "src/exp4?/**": true,
+        "src/exp5/**": true,
+        "src/exp6/**": true,
+        "src/exp7/**": true,
+        "src/exp8/**": true,
+        "src/experimental/**": true,        
         "*.asm": true,
         ".*": true,
         "*.sym": true,

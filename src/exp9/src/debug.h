@@ -151,7 +151,7 @@
 /*convert int number to G/M/K... */
 #define xzl_int_val(x) \
 ({ \
-	long v; 								\
+	unsigned long v; 								\
 	if (x < 1024)					\
 		v = x;							\
 	else if (x < 1024 * 1024)	\

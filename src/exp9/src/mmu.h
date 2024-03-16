@@ -1,19 +1,7 @@
 #ifndef _MMU_H
 #define _MMU_H
 
-// ------------------ phys mem layout ----------------------------------------//
-// region reserved for ramdisk. the actual ramdisk can be smaller.
-// at this time, uncompressed ramdisk is linked into kernel image and used in place. 
-// we therefore don't need additional space
-// in the future, compressed ramdisk can be linked, and decompressed into the region below.
-// then we can reserve, e.g. 4MB for it
-#define RAMDISK_SIZE     0 // (4*1024*1024U)   
-#define LOW_MEMORY      (PHYS_BASE + 2 * SECTION_SIZE)  // used by kernel image
-#define HIGH_MEMORY     (PHYS_BASE + PHYS_SIZE - RAMDISK_SIZE)
-#define PAGING_MEMORY           (HIGH_MEMORY - LOW_MEMORY)
-#define PAGING_PAGES            (PAGING_MEMORY/PAGE_SIZE)
-
-// -------------------------- page related  ------------------------------ //
+// -------------------------- page size constants  ------------------------------ //
 #define PAGE_MASK			    0xfffffffffffff000
 #define PAGE_SHIFT	 	        12
 #define TABLE_SHIFT 		    9
@@ -26,6 +14,25 @@
 
 #define PGROUNDUP(sz)  (((sz)+PAGE_SIZE-1) & ~(PAGE_SIZE-1))
 #define PGROUNDDOWN(a) (((a)) & ~(PAGE_SIZE-1))
+
+// ------------------ phys mem layout ----------------------------------------//
+// region reserved for ramdisk. the actual ramdisk can be smaller.
+// at this time, uncompressed ramdisk is linked into kernel image and used in place. 
+// we therefore don't need additional space
+// in the future, compressed ramdisk can be linked, and decompressed into the region below.
+// then we can reserve, e.g. 4MB for it
+#define RAMDISK_SIZE     0 // (4*1024*1024U)   
+// #define LOW_MEMORY      (PHYS_BASE + 2 * SECTION_SIZE)  // used by kernel image
+#define HIGH_MEMORY     (PHYS_BASE + PHYS_SIZE - RAMDISK_SIZE)
+// #define PAGING_MEMORY           (HIGH_MEMORY - LOW_MEMORY)
+//#define PAGING_PAGES            (PAGING_MEMORY/PAGE_SIZE)
+#define MAX_PAGING_PAGES        ((PHYS_SIZE-RAMDISK_SIZE)/PAGE_SIZE)
+
+#ifndef __ASSEMBLER__
+// must be page aligned
+_Static_assert(!(RAMDISK_SIZE & (PAGE_SIZE-1)));
+_Static_assert(!(PHYS_SIZE & (PAGE_SIZE-1)));
+#endif 
 
 // -------------- page table related ------------------------ // 
 #define PTRS_PER_TABLE			(1 << TABLE_SHIFT)

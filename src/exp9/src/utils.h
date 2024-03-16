@@ -72,6 +72,7 @@ int is_irq_masked(void);
 static inline int intr_get(void) {return 1-is_irq_masked();}; 
 
 // ----------------  mm.c ---------------------- //
+unsigned int paging_init();
 unsigned long get_free_page();
 void free_page(unsigned long p);
 void memzero(void *src, unsigned long n);   // util.S

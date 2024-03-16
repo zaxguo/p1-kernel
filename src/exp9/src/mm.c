@@ -1,4 +1,4 @@
-#define K2_DEBUG_WARN
+#define K2_DEBUG_INFO
 
 #include "plat.h"
 #include "utils.h"
@@ -12,8 +12,27 @@
 
 	all alloc/free funcs below are locked
 */
-static unsigned short mem_map [ PAGING_PAGES ] = {0,};
+static unsigned short mem_map [ MAX_PAGING_PAGES ] = {0,};
 static struct spinlock alloc_lock = {.locked=0, .cpu=0, .name="alloc_lock"}; 
+static unsigned long LOW_MEMORY = 0; 	// pa
+static unsigned long PAGING_PAGES = 0; 
+extern char kernel_end; // linker.ld
+
+// return: # of paging pages
+unsigned int paging_init() {
+	LOW_MEMORY = VA2PA(PGROUNDUP((unsigned long)&kernel_end));	
+	PAGING_PAGES = (HIGH_MEMORY - LOW_MEMORY) / PAGE_SIZE; 
+	
+	I("phys mem: %08lx -- %08lx", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
+	I("		kernel: %08lx -- %08lx", KERNEL_START, VA2PA(&kernel_end));
+	I("		paging mem: %08lx -- %08lx", LOW_MEMORY, HIGH_MEMORY);
+	I(" 				%lu%s %ld pages", 
+		xzl_int_val((HIGH_MEMORY - LOW_MEMORY)),
+		xzl_int_postfix((HIGH_MEMORY - LOW_MEMORY)),
+		PAGING_PAGES); 
+
+	return PAGING_PAGES; 
+}
 
 /* allocate a page (zero filled). return kernel va. */
 void *kalloc() {
@@ -402,7 +421,8 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 			(*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
 		return 0; 
 	}
-	BUG_ON(PTE_TO_PA(*pte) < PHYS_SIZE);
+	BUG_ON(PTE_TO_PA(*pte) < PHYS_BASE ||
+		PTE_TO_PA(*pte) >= PHYS_BASE + PHYS_SIZE);
 	return PTE_TO_PA(*pte);
 }
 
