@@ -1,6 +1,7 @@
 #include "sysregs.h"
 #include "entry.h"
 #include "syscall.h"
+#include "mmu.h"
 #include "sched.h"
 #ifdef PLAT_VIRT
 #include "plat-virt.h"

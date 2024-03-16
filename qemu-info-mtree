@@ -1,3 +1,45 @@
+//////////////////////////// rpi3 qemu
+
+address-space: cpu-memory-1
+  0000000000000000-ffffffffffffffff (prio 0, i/o): system
+    0000000000000000-000000003fffffff (prio 0, ram): ram
+    000000003f000000-000000003fffffff (prio 1, i/o): bcm2835-peripherals
+      000000003f003000-000000003f00301f (prio 0, i/o): bcm2835-sys-timer
+      000000003f006000-000000003f006fff (prio 0, i/o): mphi
+      000000003f007000-000000003f007fff (prio 0, i/o): bcm2835-dma
+      000000003f00b200-000000003f00b3ff (prio 0, i/o): bcm2835-ic
+      000000003f00b400-000000003f00b43f (prio -1000, i/o): bcm2835-sp804
+      000000003f00b800-000000003f00bbff (prio 0, i/o): bcm2835-mbox
+      000000003f100000-000000003f100fff (prio -1000, i/o): bcm2835-cprman
+      000000003f102000-000000003f102fff (prio -1000, i/o): bcm2835-a2w
+      000000003f104000-000000003f10400f (prio 0, i/o): bcm2835-rng
+      000000003f200000-000000003f200fff (prio 0, i/o): bcm2835_gpio
+      000000003f201000-000000003f201fff (prio 0, i/o): pl011
+      000000003f202000-000000003f202fff (prio 0, i/o): bcm2835-sdhost
+      000000003f203000-000000003f2030ff (prio -1000, i/o): bcm2835-i2s
+      000000003f204000-000000003f20401f (prio -1000, i/o): bcm2835-spi0
+      000000003f205000-000000003f20501f (prio -1000, i/o): bcm2835-i2c0
+      000000003f20f000-000000003f20f07f (prio -1000, i/o): bcm2835-otp
+      000000003f212000-000000003f212007 (prio 0, i/o): bcm2835-thermal
+      000000003f214000-000000003f2140ff (prio -1000, i/o): bcm2835-spis
+      000000003f215000-000000003f2150ff (prio 0, i/o): bcm2835-aux
+      000000003f300000-000000003f3000ff (prio 0, i/o): sdhci
+      000000003f600000-000000003f6000ff (prio -1000, i/o): bcm2835-smi
+      000000003f804000-000000003f80401f (prio -1000, i/o): bcm2835-i2c1
+      000000003f805000-000000003f80501f (prio -1000, i/o): bcm2835-i2c2
+      000000003f900000-000000003f907fff (prio -1000, i/o): bcm2835-dbus
+      000000003f910000-000000003f917fff (prio -1000, i/o): bcm2835-ave0
+      000000003f980000-000000003f990fff (prio 0, i/o): dwc2
+        000000003f980000-000000003f980fff (prio 0, i/o): dwc2-io
+        000000003f981000-000000003f990fff (prio 0, i/o): dwc2-fifo
+      000000003fe00000-000000003fe000ff (prio -1000, i/o): bcm2835-sdramc
+      000000003fe05000-000000003fe050ff (prio 0, i/o): bcm2835-dma-chan15
+    0000000040000000-00000000400000ff (prio 0, i/o): bcm2836-control
+
+
+
+/////////////////////// virt 
+
 (qemu) info mtree
 address-space: memory
   0000000000000000-ffffffffffffffff (prio 0, i/o): system

@@ -10,51 +10,12 @@
 //              in which [0x0,0x1000:0000) for various on-chip devices
 //                       [0x1000:0000, ) for pcie mmio
 // [0x4000:0000, ) DRAM, size is specified by qemu cmd line. 
-#define DEVICE_BASE     0x00000000
+#define DEVICE_BASE     0x00000000          // iomem base
 #define DEVICE_SIZE     0x40000000
 
 #define PHYS_BASE       0x40000000              // start of sys mem
 #define KERNEL_START    0x40080000              // qemu will load ker to this addr and boot
 #define PHYS_SIZE       (1 *128*1024*1024U)    // size of phys mem, "qemu ... -m 128M ..."
-
-// region reserved for ramdisk. the actual ramdisk can be smaller.
-// at this time, uncompressed ramdisk is linked into kernel image and used in place. 
-// we therefore don't need additional space
-// in the future, compressed ramdisk can be linked, and decompressed into the region below.
-// then we can reserve, e.g. 4MB for it
-#define RAMDISK_SIZE     0 // (4*1024*1024U)   
-
-// TODO: move below to mmu.h
-#define PAGE_MASK			    0xfffffffffffff000
-#define PAGE_SHIFT	 	12
-#define TABLE_SHIFT 		9
-#define SECTION_SHIFT		(PAGE_SHIFT + TABLE_SHIFT)
-#define SUPERSECTION_SHIFT      (PAGE_SHIFT + 2*TABLE_SHIFT)      //30, 2^30 = 1GB
-
-#define PAGE_SIZE   		(1 << PAGE_SHIFT)	
-#define SECTION_SIZE		(1 << SECTION_SHIFT)	
-#define SUPERSECTION_SIZE       (1 << SUPERSECTION_SHIFT)
-
-#define PGROUNDUP(sz)  (((sz)+PAGE_SIZE-1) & ~(PAGE_SIZE-1))
-#define PGROUNDDOWN(a) (((a)) & ~(PAGE_SIZE-1))
-
-#define LOW_MEMORY      (PHYS_BASE + 2 * SECTION_SIZE)  
-#define HIGH_MEMORY     (PHYS_BASE + PHYS_SIZE - RAMDISK_SIZE)
-
-#define PAGING_MEMORY           (HIGH_MEMORY - LOW_MEMORY)
-#define PAGING_PAGES            (PAGING_MEMORY/PAGE_SIZE)
-
-#define PTRS_PER_TABLE			(1 << TABLE_SHIFT)
-
-#define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
-#define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
-#define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
-
-#define VA_START 			0xffff000000000000
-
-/* The kernel uses section mapping. The whole pgtable tree only needs three pgtables (each PAGE_SIZE). 
-That is, one pgtable at each of PGD/PUD/PMD. See our project document */
-#define PG_DIR_SIZE			(3 * PAGE_SIZE)     // TODO: change to 2 pgs
 
 // ---------------- gic irq controller --------------------------- //
 // from qemu mon "info mtree"
@@ -69,7 +30,6 @@ That is, one pgtable at each of PGD/PUD/PMD. See our project document */
 // "This means that each core sees its EL1 physical timer as INTID 30..."
 #define IRQ_ARM_GENERIC_TIMER       30
 
-
 // ---------------- virtio disk --------------------------- //
 // about aarch64 virtio devices, cf: 
 // https://github.com/RT-Thread/rt-thread/blob/master/components/drivers/virtio/virtio.h#L66
@@ -80,6 +40,6 @@ That is, one pgtable at each of PGD/PUD/PMD. See our project document */
 // however I can only got things to work  with "qemu -global virtio-mmio.force-legacy=false" which 
 // enforces mmio ver=2 (as xv6 risc), in which virt-blk irq=48 (by trying out)
 #define VIRTIO0_PHYS    0x0a000000
-#define VIRTIO0_IRQ     (32+16)      
+#define IRQ_VIRTIO0     (32+16)      
 
 #endif

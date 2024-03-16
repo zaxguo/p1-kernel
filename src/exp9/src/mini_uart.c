@@ -1,41 +1,28 @@
-/* 
-    A driver for Arm PL011 (UART), v2    
-    by xzl, 2024
-
-    supports output buffer, rx/tx irqs, sleep/wake, thread safe
-    
-    cf: 
-    xv6 uart. c
-    https://github.com/RT-Thread/rt-thread/blob/master/bsp/qemu-virt64-aarch64/drivers/drv_uart.c
-
-*/
-
 #include <stdint.h>
 #include "utils.h"
 #include "spinlock.h"
 
-// https://developer.arm.com/documentation/ddi0183/f/programmer-s-model/register-descriptions
-// enable fifo via the line control reg
-// https://developer.arm.com/documentation/ddi0183/f/programmer-s-model/register-descriptions/line-control-register--uartlcr-h
-// fifo level: 
-// https://developer.arm.com/documentation/ddi0183/f/programmer-s-model/register-descriptions/interrupt-fifo-level-select-register--uartifls
-// tx irq desc:
-// https://developer.arm.com/documentation/ddi0183/f/programmer-s-model/interrupts/uarttxintr
+#define PBASE   hw_base
+// ---------------- gpio ------------------------------------ //
+#define GPFSEL1         (PBASE+0x00200004)
+#define GPSET0          (PBASE+0x0020001C)
+#define GPCLR0          (PBASE+0x00200028)
+#define GPPUD           (PBASE+0x00200094)
+#define GPPUDCLK0       (PBASE+0x00200098)
 
-#define UART_DR(base)   __REG32(base + 0x00)
-#define UART_FR(base)   __REG32(base + 0x18)        // Flag 
-#define UART_LCR(base)   __REG32(base + 0x2c)        // Line control
-#define UART_CR(base)   __REG32(base + 0x30)        // Control
-#define UART_IMSC(base) __REG32(base + 0x38)        // Interrupt mask set/clear register
-#define UART_ICR(base)  __REG32(base + 0x44)        // Interrupt clear register 
-
-#define UARTFR_RXFE     0x10        // rx fifo empty
-#define UARTFR_TXFF     0x20        // tx fifo full
-#define UARTIMSC_RXIM   0x10        // rx irq mask
-#define UARTIMSC_TXIM   0x20        // tx irq mask
-#define UARTICR_RXIC    0x10        // irq clear: rx
-#define UARTICR_TXIC    0x20        // irq clear: tx
-#define UARTLCR_FEN     (1<<4)      // FIFO enable. 
+// ---------------- mini uart ------------------------------------ //
+#define AUX_ENABLES     (PBASE+0x00215004)
+#define AUX_MU_IO_REG   (PBASE+0x00215040)
+#define AUX_MU_IER_REG  (PBASE+0x00215044)    // enable tx/rx irqs
+#define AUX_MU_IIR_REG  (PBASE+0x00215048)    // check irq cause
+#define AUX_MU_LCR_REG  (PBASE+0x0021504C)
+#define AUX_MU_MCR_REG  (PBASE+0x00215050)
+#define AUX_MU_LSR_REG  (PBASE+0x00215054)
+#define AUX_MU_MSR_REG  (PBASE+0x00215058)
+#define AUX_MU_SCRATCH  (PBASE+0x0021505C)
+#define AUX_MU_CNTL_REG (PBASE+0x00215060)
+#define AUX_MU_STAT_REG (PBASE+0x00215064)
+#define AUX_MU_BAUD_REG (PBASE+0x00215068)
 
 // the transmit output buffer.
 struct spinlock uart_tx_lock;
@@ -46,47 +33,61 @@ uint64 uart_tx_r; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
 static unsigned long hw_base = 0;  // we are on virt addr space
 
-void uart_send (char c) {
-    while (UART_FR(hw_base) & UARTFR_TXFF)
-        ;
-    UART_DR(hw_base) = (uint32_t)c;
+void uart_send (char c)
+{
+	while(1) {
+		if(get32(AUX_MU_LSR_REG) & 0x20) 
+			break;
+	}
+	put32(AUX_MU_IO_REG, c);
 }
 
-char uart_recv(void) {    
-    while (1) {
-        if (!(UART_FR(hw_base) & UARTFR_RXFE)) 
-            break;      
-    }
-    return (char)(UART_DR(hw_base) & 0xff);
+char uart_recv (void)
+{
+	while(1) {
+		if(get32(AUX_MU_LSR_REG) & 0x01) 
+			break;
+	}
+	return(get32(AUX_MU_IO_REG) & 0xFF);
 }
 
-void uart_send_string(char* str) {
+void uart_send_string(char* str)
+{
 	for (int i = 0; str[i] != '\0'; i ++) {
 		uart_send((char)str[i]);
 	}
 }
 
 /* ------------------------ new apis ---------------------- */
-
 void uartstart();
 
 void uart_init (unsigned long base) {
     hw_base = base; 
 
-    /* disable rx irq */
-    // UART_IMSC(hw_base) &= ~UARTIMSC_RXIM;
+	unsigned int selector;
 
-    /* enable fifo (so we have fewer tx irqs?)*/
-    UART_LCR(hw_base) |= UARTLCR_FEN; 
+	selector = get32(GPFSEL1);
+	selector &= ~(7<<12);                   // clean gpio14
+	selector |= 2<<12;                      // set alt5 for gpio14
+	selector &= ~(7<<15);                   // clean gpio15
+	selector |= 2<<15;                      // set alt5 for gpio15
+	put32(GPFSEL1,selector);
 
-    /* enable Rx and Tx of UART */
-    UART_CR(hw_base) = (1 << 0) | (1 << 8) | (1 << 9);  // uart_enable | tx_enable | rx_enable 
+	put32(GPPUD,0);
+	delay(150);
+	put32(GPPUDCLK0,(1<<14)|(1<<15));
+	delay(150);
+	put32(GPPUDCLK0,0);
 
-    /* enable rx irq */
-    UART_IMSC(hw_base) |= UARTIMSC_RXIM;
+	put32(AUX_ENABLES,1);                   //Enable mini uart (this also enables access to it registers)
+	put32(AUX_MU_CNTL_REG,0);               //Disable auto flow control and disable receiver and transmitter (for now)
+	// put32(AUX_MU_IER_REG,0);                //Disable receive and transmit interrupts
+    put32(AUX_MU_IER_REG,3 | (3<<2) | (0xf<<4));    // enable rx(bit0) and tx(bit1) irqs. bit 7:4 3:2 must be 1
+	put32(AUX_MU_LCR_REG,3);                //Enable 8 bit mode
+	put32(AUX_MU_MCR_REG,0);                //Set RTS line to be always high
+	put32(AUX_MU_BAUD_REG,270);             //Set baud rate to 115200
 
-    /* enable tx irq */
-    UART_IMSC(hw_base) |= UARTIMSC_TXIM;
+	put32(AUX_MU_CNTL_REG,3);               //Finally, enable transmitter and receiver
 
     initlock(&uart_tx_lock, "uart");
 }
@@ -129,10 +130,11 @@ uartputc_sync(int c)
 //       ;
 //   }
 
-  // wait for Transmit Holding Empty to be set in LSR.
-  while (UART_FR(hw_base) & UARTFR_TXFF)
-        ;
-  UART_DR(hw_base) = (uint32_t)c;
+    while(1) {    
+		if(get32(AUX_MU_LSR_REG) & 0x20) 
+			break;
+	}
+	put32(AUX_MU_IO_REG, c);
 
   pop_off();
 }
@@ -150,7 +152,7 @@ uartstart()
       return;
     }
     
-    if(UART_FR(hw_base) & UARTFR_TXFF){
+    if(!get32(AUX_MU_LSR_REG) & 0x20){
       // the UART transmit holding register is full,
       // so we cannot give it another byte.
       // it will interrupt when it's ready for a new byte.
@@ -172,9 +174,9 @@ uartstart()
 int
 uartgetc(void)
 {
-  if(!(UART_FR(hw_base) & UARTFR_RXFE)) {
+  if(!(get32(AUX_MU_LSR_REG) & 0x01)) {
     // input data is ready.
-    return (int)(UART_DR(hw_base) & 0xff);
+    return (int)(get32(AUX_MU_IO_REG) & 0xFF);
   } else {
     return -1;
   }
@@ -190,8 +192,8 @@ uartintr(void)
   // printf("%s:%d called\n", __func__, __LINE__);
 
   // clear rx irq, must be done before we read 
-  UART_ICR(hw_base) |= UARTICR_RXIC;
-
+  // XXX no need for mini uart?
+  
   // read and process incoming characters.
   while(1){
     int c = uartgetc();
@@ -200,7 +202,7 @@ uartintr(void)
     consoleintr(c);
   }
 
-  UART_ICR(hw_base) |= UARTICR_TXIC; // clear tx irq
+  // clear tx irq XXX no need for mini uart?
 
   // send buffered characters.
   acquire(&uart_tx_lock);
@@ -208,7 +210,9 @@ uartintr(void)
   release(&uart_tx_lock);
 }
 
-// This function is required by printf()
-void putc(void* p, char c) {
-	consputc(c);
+
+// This function is required by printf function
+void putc ( void* p, char c)
+{
+	uart_send(c);
 }

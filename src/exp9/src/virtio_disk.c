@@ -7,6 +7,8 @@
 // qemu source: /u/xl6yq/qemu/hw/block/virtio-blk.c
 // cf: https://wiki.osdev.org/Virtio
 
+#include "plat.h"
+#include "mmu.h"
 #include "utils.h"
 #include "spinlock.h"
 #include "sleeplock.h"

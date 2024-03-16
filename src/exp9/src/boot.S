@@ -1,7 +1,5 @@
 #include "sysregs.h"
-#ifdef PLAT_VIRT
-#include "plat-virt.h"
-#endif
+#include "plat.h"
 #include "mmu.h"
 
 /* boot code for qemu virt, see plat-virt.h */
@@ -66,7 +64,7 @@ el1_entry:
 	sub	x1, x1, x0
 	bl 	memzero
 
-#ifdef USE_QEMU
+#if defined(PLAT_VIRT) || defined(PLAT_RPI3QEMU)
 // A workaround for QEMU's quirks on MMU emulation, which also showcases how __create_page_tables
 // can be used. 
 // 
@@ -93,10 +91,16 @@ el1_entry:
 #endif
 
 	// create kernel's pgtable (for memory and IO)
-	bl 	__create_page_tables
+#if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)	
+	bl 	__create_page_tables_rpi3
+#elif defined(PLAT_VIRT)	
+	bl 	__create_page_tables_virt
+#else
+	#error "not implemented"
+#endif	
 
 	// set virt sp (assuming linear mapping, phys 0 --> virt VA_START)
-	// NB: we won't the sp until mmu is on
+	// NB: we won't use sp until mmu is on
 	mov	x0, #VA_START			
 	ldr x1, =LOW_MEMORY
 	add	sp, x0, x1		
@@ -158,6 +162,16 @@ el1_entry:
 	add	\tbl, \tbl, #PAGE_SIZE					// point @tbl to the newly create next level pgtable. for programming ease
 	.endm
 
+	// same as above, but points to next-lv pgtable 2 PAGES away
+	.macro	create_table_entry2, tbl, virt, shift, tmp1, tmp2
+	lsr	\tmp1, \virt, #\shift
+	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1		// tmp1: extracted table index in the current lv. 
+	add	\tmp2, \tbl, #(PAGE_SIZE<<1)					// tmp2: addr of a next level pgtable (PUD or PMD). 
+	orr	\tmp2, \tmp2, #MM_TYPE_PAGE_TABLE		// tmp2: make a table descriptor. set bits[0:1] to 1. 
+	str	\tmp2, [\tbl, \tmp1, lsl #3]			// store descriptor (tmp2) to the current pgtable at index (tmp1)
+	add	\tbl, \tbl, #(PAGE_SIZE<<1)					// point @tbl to the newly create next level pgtable. for programming ease
+	.endm
+
 	// Populating entries in a PUD or PMD table for a given virt addr range 
 	// "block map": mappings larger than 4KB, e.g. 1GB or 2MB
 	// 
@@ -194,7 +208,7 @@ el1_entry:
 	_create_block_map \tbl, \phys, \start, \end, \flags, SECTION_SHIFT, \tmp1
 	.endm
 
-#ifdef USE_QEMU
+#if defined(PLAT_VIRT) || defined(PLAT_RPI3QEMU)
 __create_idmap:
 	mov	x29, x30
 	
@@ -216,7 +230,8 @@ __create_idmap:
 	ret
 #endif
 
-__create_page_tables:
+#ifdef PLAT_VIRT
+__create_page_tables_virt: // for qemu's virt plat
 	mov		x29, x30						// save return address
 
 	// clear the mem region backing pgtables
@@ -224,7 +239,7 @@ __create_page_tables:
 	mov		x1, #PG_DIR_SIZE
 	bl 		memzero
 
-	// allocate one PUD & one PMD; link PGD (pg_dir)->PUD
+	// allocate one PUD; link PGD (pg_dir)->PUD
 	adrp	x0, pg_dir
 	mov		x1, #VA_START 
 	create_table_entry x0, x1, PGD_SHIFT, x2, x3
@@ -245,3 +260,48 @@ __create_page_tables:
 
 	mov	x30, x29						// restore return address
 	ret
+#endif
+
+#if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)	
+__create_page_tables_rpi3: // for rpi3	
+	mov		x29, x30						// save return address
+
+	// our pgtable dir layout: PGD|PUD|PMD1|PMD2	each one page. total 4 pages
+
+	// clear the mem region backing pgtables
+	adrp 	x0, pg_dir
+	mov		x1, #PG_DIR_SIZE
+	bl 		memzero
+
+	// allocate PUD & PMD1; link PGD (pg_dir)->PUD, and PUD->PMD1
+	adrp	x0, pg_dir
+	mov		x1, #VA_START 
+	create_pgd_entry x0, x1, x2, x3
+	// after this, x0 points to the new PMD table
+
+	/* Mapping kernel and init stack. Phys addr range: 0--DEVICE_BASE */
+	mov 	x1, xzr				// x1 = starting phys addr. set x1 to 0. 
+	mov 	x2, #VA_START		// x2 = the virtual base of the first section
+	ldr		x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)  // x3 = the virtual base of the last section
+	create_block_map_section x0, x1, x2, x3, MMU_FLAGS, x4
+
+	/* Mapping device memory. Phys addr range: DEVICE_BASE--PHYS_MEMORY_SIZE(0x40000000) */
+	mov 	x1, #DEVICE_BASE					// x1 = start mapping from device base address 
+	ldr 	x2, =(VA_START + DEVICE_BASE)				// x2 = first virtual address
+	ldr		x3, =(VA_START + DEVICE_LOW - SECTION_SIZE)	// x3 = the virtual base of the last section
+	create_block_map_section x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
+	
+	// Now link PUD->PMD2
+	adrp 	x0, pg_dir 
+	add		x0, x0, #PAGE_SIZE 	// rewind x0 to PUD
+	ldr		x1, =(VA_START + DEVICE_LOW)
+	create_table_entry2 x0, x1, PUD_SHIFT, x2, x3 
+	// now x0 points to PMD2
+	mov		x1, #DEVICE_LOW	
+	ldr		x2, =(VA_START + DEVICE_LOW)
+	ldr		x3, =(VA_START + DEVICE_LOW)		// mapping one section is enough
+	create_block_map_section x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
+
+	mov	x30, x29						// restore return address
+	ret
+#endif

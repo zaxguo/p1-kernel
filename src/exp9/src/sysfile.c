@@ -8,6 +8,7 @@
 // xzl: removed arg checks
 
 #include "utils.h"
+#include "mmu.h"
 #include "stat.h"
 #include "spinlock.h"
 #include "fs.h"
@@ -15,7 +16,6 @@
 #include "fcntl.h"
 #include "sleeplock.h"
 #include "file.h"
-#include "fcntl.h"
 
 // given fd, return the corresponding struct file.
 // return 0 on success

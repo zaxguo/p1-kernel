@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "utils.h"
+#include "mmu.h"
 #include "sched.h"
 #include "sys.h"
 #include "user.h"

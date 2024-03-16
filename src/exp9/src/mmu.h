@@ -1,6 +1,46 @@
 #ifndef _MMU_H
 #define _MMU_H
 
+// ------------------ phys mem layout ----------------------------------------//
+// region reserved for ramdisk. the actual ramdisk can be smaller.
+// at this time, uncompressed ramdisk is linked into kernel image and used in place. 
+// we therefore don't need additional space
+// in the future, compressed ramdisk can be linked, and decompressed into the region below.
+// then we can reserve, e.g. 4MB for it
+#define RAMDISK_SIZE     0 // (4*1024*1024U)   
+#define LOW_MEMORY      (PHYS_BASE + 2 * SECTION_SIZE)  // used by kernel image
+#define HIGH_MEMORY     (PHYS_BASE + PHYS_SIZE - RAMDISK_SIZE)
+#define PAGING_MEMORY           (HIGH_MEMORY - LOW_MEMORY)
+#define PAGING_PAGES            (PAGING_MEMORY/PAGE_SIZE)
+
+// -------------------------- page related  ------------------------------ //
+#define PAGE_MASK			    0xfffffffffffff000
+#define PAGE_SHIFT	 	        12
+#define TABLE_SHIFT 		    9
+#define SECTION_SHIFT		(PAGE_SHIFT + TABLE_SHIFT)
+#define SUPERSECTION_SHIFT      (PAGE_SHIFT + 2*TABLE_SHIFT)      //30, 2^30 = 1GB
+
+#define PAGE_SIZE   		(1 << PAGE_SHIFT)	
+#define SECTION_SIZE		(1 << SECTION_SHIFT)	
+#define SUPERSECTION_SIZE       (1 << SUPERSECTION_SHIFT)
+
+#define PGROUNDUP(sz)  (((sz)+PAGE_SIZE-1) & ~(PAGE_SIZE-1))
+#define PGROUNDDOWN(a) (((a)) & ~(PAGE_SIZE-1))
+
+// -------------- page table related ------------------------ // 
+#define PTRS_PER_TABLE			(1 << TABLE_SHIFT)
+
+#define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
+#define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
+#define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
+
+#define VA_START 			0xffff000000000000
+
+/* The kernel uses section mapping. The whole pgtable tree only needs three pgtables (each PAGE_SIZE). 
+That is, one pgtable at each of PGD/PUD/PMD. See our project document */
+#define PG_DIR_SIZE			(3 * PAGE_SIZE)     // TODO: change to 2 pgs
+
+// -------------- page table formats, defs ------------------------ // 
 /* reference: 
 For quick overview, cf: "ARM 100940_0100_en" armv8-a address translation.
 

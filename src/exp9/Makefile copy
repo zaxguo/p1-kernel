@@ -1,0 +1,94 @@
+ARMGNU ?= aarch64-linux-gnu
+
+COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc -mgeneral-regs-only \
+-g 
+COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
+# COPS += -DUSE_LFB		# uncomment this to enable GUI console. 
+
+ASMOPS = -Isrc  -g 
+
+##### platform specific
+virt: COPS += -DPLAT_VIRT
+virt: ASMOPS += -DPLAT_VIRT
+virt: LINKSCR = $(SRC_DIR)/linker-virt.ld
+
+rpi3qemu: COPS += -DPLAT_RPI3QEMU
+rpi3qemu: ASMOPS += -DPLAT_RPI3QEMU
+rpi3qemu: LINKSCR = $(SRC_DIR)/linker-rpi3qemu.ld
+
+
+##### the flags for certain .c files that must use -O0
+COPS1 = $(COPS)
+COPS1 += -O0
+COPS += -O2
+# COPS += -O0
+COPS1 += -O0
+
+BUILD_DIR = build
+SRC_DIR = src
+
+virt : kernel8.img
+.PHONY: virt
+
+rpi3qemu : kernel8.img
+.PHONY: rpi3qemu
+
+clean :
+	rm -rf $(BUILD_DIR) *.img 
+
+# use -O0 only for user.c (launcher), for which -O2 emits references to kernel va and crashes things
+$(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
+	mkdir -p $(@D)
+	$(ARMGNU)-gcc $(COPS1) -MMD -c $< -o $@
+
+$(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
+	mkdir -p $(@D)
+	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+
+# $(BUILD_DIR)/virt/%_c.o: $(SRC_DIR)/virt/%.c
+# 	mkdir -p $(@D)
+# 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+
+# $(BUILD_DIR)/rpi3/%_c.o: $(SRC_DIR)/rpi3/%.c
+# 	mkdir -p $(@D)
+# 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+
+# font build rules. 
+# NB: the symbols in the binary will have prefix "_binary". 
+$(BUILD_DIR)/%_psf.o: %.psf
+	mkdir -p $(@D)
+	$(ARMGNU)-ld -r -b binary -o $@ $<
+
+# ramdisk build rules
+$(BUILD_DIR)/%_bin.o: %.bin
+	mkdir -p $(@D)
+	$(ARMGNU)-ld -r -b binary -o $@ $<
+
+$(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
+	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
+
+C_FILES = $(wildcard $(SRC_DIR)/*.c)
+OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
+
+virt: C_FILES += $(SRC_DIR)/pl011.c 
+rpi3: C_FILES += 
+#virt: OBJ_FILES += $(C_FILES:$(SRC_DIR)/virt/%.c=$(BUILD_DIR)/virt/%_c.o)
+#virt: OBJ_FILES += build/virt/pl011_c.o build/virt/virt_disk_c.o
+#rpi3: OBJ_FILES += $(C_FILES:$(SRC_DIR)/rpi3/%.c=$(BUILD_DIR)/rpi3/%_c.o)
+
+ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
+OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
+OBJ_FILES += $(ASM_FILES:$(SRC_DIR)/%.S=$(BUILD_DIR)/%_s.o)
+# ramdisk image
+OBJ_FILES += $(BUILD_DIR)/sd_bin.o
+OBJ_FILES += $(BUILD_DIR)/font_psf.o
+
+
+DEP_FILES = $(OBJ_FILES:%.o=%.d)
+-include $(DEP_FILES)
+
+kernel8.img: $(LINKSCR) $(OBJ_FILES) 
+	$(ARMGNU)-ld -T $(LINKSCR) -o $(BUILD_DIR)/kernel8.elf $(OBJ_FILES)
+	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
+	$(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
+	nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym
