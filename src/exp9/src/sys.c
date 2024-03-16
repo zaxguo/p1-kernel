@@ -1,5 +1,6 @@
 #define K2_DEBUG_INFO
 
+#include "plat.h"
 #include "utils.h"
 #include "sched.h"
 #include "syscall.h"

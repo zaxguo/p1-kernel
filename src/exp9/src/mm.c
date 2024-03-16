@@ -1,5 +1,6 @@
 #define K2_DEBUG_WARN
 
+#include "plat.h"
 #include "utils.h"
 #include "mmu.h"
 #include "spinlock.h"

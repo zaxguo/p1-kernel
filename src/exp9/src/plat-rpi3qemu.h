@@ -15,6 +15,7 @@
 
 // ---------------- irq ------------------------------------ //
 // "BCM2837 ARM Peripherals Revised V2-1. pp.112 Sec 7.5 registers"
+#define PBASE           0x3F000000      // start of peripheral addr
 #define IRQ_BASIC_PENDING	(PBASE+0x0000B200)
 #define IRQ_PENDING_1		(PBASE+0x0000B204)
 #define IRQ_PENDING_2		(PBASE+0x0000B208)
@@ -35,9 +36,9 @@
 
 // See BCM2836 ARM-local peripherals at
 // https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2836/QA7_rev3.4.pdf
-
+#define LPBASE          0x40000000      
 #define TIMER_INT_CTRL_0    (0x40000040)
-#define INT_SOURCE_0        (LPBASE+0x60)
+#define INT_SOURCE_0        (LPBASE+0x60)   // "CORE0_IRQ_SOURCE" in the manual above
 
 #define TIMER_INT_CTRL_0_VALUE  (1 << 1)
 #define GENERIC_TIMER_INTERRUPT (1 << 1)
@@ -83,4 +84,6 @@ int mbox_call(unsigned char ch);
 #define TIMER_CS_M2	(1 << 2)
 #define TIMER_CS_M3	(1 << 3)
 
+// --------------- mini uart ------------------------------- //
+#define UART_PHYS 0x3F000000    // cf mini_uart.c
 #endif

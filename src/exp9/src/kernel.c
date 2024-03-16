@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "plat.h"
 #include "utils.h"
 #include "mmu.h"
 #include "sched.h"
@@ -36,8 +37,9 @@ void kernel_main()
     iinit();         // inode table
     fileinit();      // file table
 	ramdisk_init(); 	// ramdisk - blk dev1
+#ifdef PLAT_VIRT	
     virtio_disk_init(); // emulated hard disk - blk dev2
-
+#endif
 	irq_vector_init();
 	generic_timer_init();
 	enable_interrupt_controller();

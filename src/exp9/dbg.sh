@@ -1,1 +1,1 @@
-../exp3/dbg.sh
+../../dbg-rpi3qemu.sh

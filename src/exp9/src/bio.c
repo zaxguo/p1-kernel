@@ -47,6 +47,11 @@ binit(void)
     bcache.head.next->prev = b;
     bcache.head.next = b;
   }
+  W("bcache.head.next %lx NBUF %d", (unsigned long)bcache.head.next, NBUF);
+  // walk it 
+  for(b = bcache.head.next; b != &bcache.head; b = b->next){
+    W("b %lx", (unsigned long)b); 
+  }
 }
 
 // Look through buffer cache for block on device dev.
@@ -59,8 +64,14 @@ bget(uint dev, uint blockno)
 
   acquire(&bcache.lock);
 
+  W("called bcache.head.next %lx", (unsigned long)bcache.head.next);
+
   // Is the block already cached?
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
+    W("b %lx", (unsigned long)b);  
+    if (!b->next) 
+      W("nullptr at %lx", &(b->next));
+    BUG_ON(!b); 
     if(b->dev == dev && b->blockno == blockno){
       b->refcnt++;
       release(&bcache.lock);
@@ -97,8 +108,10 @@ bread(uint dev, uint blockno)
   if(!b->valid) {
     if (dev == DEV_RAMDISK)
       ramdisk_rw(b, 0);
+#ifdef PLAT_VIRT      
     else if (dev == DEV_VIRTDISK)
       virtio_disk_rw(b, 0);
+#endif      
     else 
       BUG(); 
     b->valid = 1;
@@ -114,8 +127,10 @@ bwrite(struct buf *b)
     panic("bwrite");
   if (b->dev == DEV_RAMDISK)
     ramdisk_rw(b, 1);
+#ifdef PLAT_VIRT          
   else if (b->dev == DEV_VIRTDISK)
     virtio_disk_rw(b, 1);
+#endif    
   else
     BUG(); 
 }

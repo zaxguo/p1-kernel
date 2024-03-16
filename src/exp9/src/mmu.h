@@ -38,9 +38,10 @@
 
 /* The kernel uses section mapping. The whole pgtable tree only needs three pgtables (each PAGE_SIZE). 
 That is, one pgtable at each of PGD/PUD/PMD. See our project document */
-#define PG_DIR_SIZE			(3 * PAGE_SIZE)     // TODO: change to 2 pgs
+// virt: 2pgs enough (supersection); rpi3: 4 pages PGD|PUD|PMD1|PMD2
+#define PG_DIR_SIZE			(4 * PAGE_SIZE)
 
-// -------------- page table formats, defs ------------------------ // 
+// -------------- page table formats, defs ------------------------ //  
 /* reference: 
 For quick overview, cf: "ARM 100940_0100_en" armv8-a address translation.
 

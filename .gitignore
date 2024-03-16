@@ -20,10 +20,6 @@ src/*/build-rpi
 **/*.list
 **/*.cmd
 
-/.vscode/*
-
-*.json
-
 *.pdf
 
 .project

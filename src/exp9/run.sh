@@ -1,1 +1,1 @@
-../exp3/run.sh
+../../run-rpi3qemu.sh

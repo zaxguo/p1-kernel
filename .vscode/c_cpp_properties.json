@@ -1,0 +1,19 @@
+// xzl: cf: https://code.visualstudio.com/docs/cpp/c-cpp-properties-schema-reference
+
+{
+    "configurations": [
+        {
+            "name": "cs4414",
+            "includePath": [
+                "${workspaceFolder}/src/exp9"
+            ],
+            "defines": ["PLAT_RPI3QEMU"],
+            "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
+            "cStandard": "c99",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.makefile-tools",
+        }
+    ],
+    "version": 4
+}

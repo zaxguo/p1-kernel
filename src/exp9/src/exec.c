@@ -1,3 +1,4 @@
+#include "plat.h"
 #include "utils.h"
 #include "sched.h"
 #include "mmu.h"

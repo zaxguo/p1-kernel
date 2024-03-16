@@ -1,11 +1,9 @@
 #include "sysregs.h"
 #include "entry.h"
 #include "syscall.h"
+#include "plat.h"
 #include "mmu.h"
 #include "sched.h"
-#ifdef PLAT_VIRT
-#include "plat-virt.h"
-#endif
 
 	.macro handle_invalid_entry el, type
 	// make sure we have a good sp. as the kernel will hang anyway, so 

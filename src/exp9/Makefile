@@ -1,6 +1,7 @@
-ARMGNU ?= aarch64-linux-gnu
-PLAT ?= virt
+#PLAT ?= virt
+PLAT ?= rpi3qemu
 
+ARMGNU ?= aarch64-linux-gnu
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc \
 -mgeneral-regs-only \
 -g 
@@ -27,9 +28,8 @@ endif
 ##### the flags for certain .c files that must use -O0
 COPS1 = $(COPS)
 COPS1 += -O0
-COPS += -O2
-# COPS += -O0
-COPS1 += -O0
+#COPS += -O2
+COPS += -O0
 
 BUILD_DIR = build
 SRC_DIR = src

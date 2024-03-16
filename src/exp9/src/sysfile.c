@@ -7,6 +7,7 @@
 // user code, and calls into file.c and fs.c.
 // xzl: removed arg checks
 
+#include "plat.h"
 #include "utils.h"
 #include "mmu.h"
 #include "stat.h"
