@@ -1,3 +1,5 @@
+/* linker script for "virt" emulated by qemu */
+
 SECTIONS
 {
 	. = 0xffff000040080000;
@@ -26,6 +28,10 @@ SECTIONS
 	.data.idmapd : {. += (3* (1 << 12));}
 	. = ALIGN(0x00001000);
 	pg_dir = .;
-	.data.pgd : { . += (3 * (1 << 12)); }
+	.data.pgd : { . += (4 * (1 << 12)); }	/* PG_DIR_SIZE */
+	kernel_stack_start = .;
+	.data.pgd : { . += (4 * (1 << 12)); }	/* kernel stack, 4 pgs*/
+	kernel_stack_end = .;
+	kernel_end = .; 
 }
 
