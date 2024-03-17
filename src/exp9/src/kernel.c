@@ -33,19 +33,27 @@ void kernel_main()
 	printf("kernel boots ...\n\r");
 
 	paging_init(); 
+	W("here");
 	consoleinit(); 	
+	W("here");
 	binit();         // buffer cache
+	W("here");
     iinit();         // inode table
+	W("here");
     fileinit();      // file table
+	W("here");
 	ramdisk_init(); 	// ramdisk - blk dev1
 #ifdef PLAT_VIRT	
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
 	irq_vector_init();
+	W("here");
 	generic_timer_init();
+	W("here");
 	enable_interrupt_controller();
+	W("here");
 	enable_irq();
-
+	W("here");
 	
 
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);

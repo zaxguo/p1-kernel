@@ -115,7 +115,7 @@ void user_process() {
     // USER_PROGRAM1("/mkdir", "/mkdir", "ccc");    
     // USER_PROGRAM1("/forktest", "/forktest", "/");    
 
-    USER_PROGRAM1("usertests", "/usertests", "sbrkbasic");    
+    // USER_PROGRAM1("usertests", "/usertests", "sbrkbasic");    
     // USER_PROGRAM1("usertests", "/usertests", "sbrkmuch");    
     // USER_PROGRAM1("/usertests", "/usertests", "rwsbrk");    
     //  USER_PROGRAM1("/usertests", "/usertests", "sbrkarg");    
@@ -127,7 +127,7 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr1");    
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr2");    
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr3");    
-    // USER_PROGRAM1("/usertests", "/usertests", "forkfork");    
+    USER_PROGRAM1("/usertests", "/usertests", "forkfork");    
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
 
     // USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    

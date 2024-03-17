@@ -23,6 +23,12 @@ COPS += -DPLAT_RPI3QEMU
 ASMOPS += -DPLAT_RPI3QEMU
 LINKSCR = $(SRC_DIR)/linker-rpi3qemu.ld
 endif
+
+ifeq (${PLAT}, rpi3)
+COPS += -DPLAT_RPI3
+ASMOPS += -DPLAT_RPI3
+LINKSCR = $(SRC_DIR)/linker-rpi3.ld
+endif
 #################################
 
 ##### the flags for certain .c files that must use -O0
@@ -101,6 +107,10 @@ BIN_OBJS += $(BUILD_DIR)/font_psf.o
 
 # plat specific source 
 ifeq (${PLAT}, rpi3qemu)
+C_OBJS += $(BUILD_DIR)/mini_uart_c.o
+endif
+
+ifeq (${PLAT}, rpi3)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
 endif
 

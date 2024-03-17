@@ -1,10 +1,9 @@
-/* linker script for rpi3 emulated by qemu */
+/* linker script for rpi3 hardware */
 
-	/* . = 0xffff000000000000; */
-	
 SECTIONS
 {
-	. = 0xffff000000080000;  
+	/* cannot figure out how to change to 0? tried config.txt old_kernel kernel_address options...*/
+	. = 0xffff000000000000;			
 	.text.boot : { *(.text.boot) }
 	. = ALIGN(0x00001000);
 	user_begin = .;
