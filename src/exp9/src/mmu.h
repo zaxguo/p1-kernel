@@ -96,18 +96,29 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
  *   n = AttrIndx[2:0]
  *			        n	MAIR
  *   DEVICE_nGnRnE	000	00000000
- *   NORMAL_NC		001	01000100
- *  cf Google "den0024 MT_DEVICE_nGnRnE_FLAGS (or memory ordering)"
+ *   NORMAL_NC		001	01000100        Normal Memory, Outer Non-Cacheable; Inner Non-Cacheable (exception on ldrx/strx)
+ *   NORMAL 		002	11111111        Normal Memory, inner/outer shareable, writeback, r/w allocation
+ *                                      https://forums.raspberrypi.com/viewtopic.php?t=207173
+ *   https://developer.arm.com/documentation/ddi0500/d/system-control/aarch64-register-descriptions/memory-attribute-indirection-register--el1
+ *   cf Google "armv8 MAIR_EL1" or "den0024"
+ * 
+ *   NORMAL_NC is only good for single core; exclusive ldr/str (e.g. for spinlocks) on it 
+ *   will throw memory exception
  */
 #define MT_DEVICE_nGnRnE 		0x0
 #define MT_NORMAL_NC			0x1
+#define MT_NORMAL   			0x2
 #define MT_DEVICE_nGnRnE_FLAGS		0x00  // "equivalent to Strongly Ordered memory in the ARMv7 architecture".
-#define MT_NORMAL_NC_FLAGS  		0x44   
-#define MAIR_VALUE			(MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE)) | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))
+#define MT_NORMAL_NC_FLAGS  		0x44
+#define MT_NORMAL_FLAGS  		    0xff    // https://patchwork.kernel.org/project/linux-arm-kernel/patch/20191211184027.20130-5-catalin.marinas@arm.com/
 
-#define MMU_FLAGS	 		(MM_TYPE_BLOCK | (MT_NORMAL_NC << 2) | MM_ACCESS)	    /* block (section) granuarlity, memory */
+#define MAIR_VALUE			((MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE))     \
+                                    | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))    \
+                                    | (MT_NORMAL_FLAGS << (8 * MT_NORMAL)))
+
+#define MMU_FLAGS	 		(MM_TYPE_BLOCK | (MT_NORMAL << 2) | MM_ACCESS)	    /* block (section) granuarlity, memory */
 #define MMU_DEVICE_FLAGS	(MM_TYPE_BLOCK | (MT_DEVICE_nGnRnE << 2) | MM_ACCESS)	/* block (section) granuarlity, devices */
-#define MMU_PTE_FLAGS		(MM_TYPE_PAGE | (MT_NORMAL_NC << 2) | MM_ACCESS)	    /* need to be used with MP_AP_xxx, MM_XN */
+#define MMU_PTE_FLAGS		(MM_TYPE_PAGE | (MT_NORMAL << 2) | MM_ACCESS)	    /* need to be used with MP_AP_xxx, MM_XN */
 
 // https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TCR-EL1--Translation-Control-Register--EL1-?lang=en#fieldset_0-31_30
 #define TCR_T0SZ			(64 - 48)       // The size offset of the memory region addressed by TTBR0_EL1.

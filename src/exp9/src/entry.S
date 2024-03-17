@@ -9,7 +9,7 @@
 	// make sure we have a good sp. as the kernel will hang anyway, so 
 	// we use the kernel stack
 	mrs x27, sctlr_el1		// assume nothing valuable in x27/x28...
-	orr x27, x27, SCTLR_MMU_ENABLED
+	orr x27, x27, #1		// sctlr_el1 bit0: MMU on or not. cf sysregs.h
 	cmp x27, #0		
 	b.eq 99f
 	//mov x27, #LOW_MEMORY	// MMU on, use VA 	

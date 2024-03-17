@@ -5,6 +5,10 @@
 // I left most spinning code here just in case. 
 // besides, the push_off/pop_off code also coudl be useful. 
 
+// cpu cache and memory attributes must be configured (cacheable, shareable)
+// otherwise exclusive load/str instructions (e.g. ldxr) will throw memory 
+// exception. cf: https://forums.raspberrypi.com/viewtopic.php?t=207173
+
 #include "utils.h"
 #include "spinlock.h"
 #include "sched.h"

@@ -3,17 +3,29 @@
 
 // ***************************************
 // SCTLR_EL1, System Control Register (EL1), Page 2654 of AArch64-Reference-Manual.
+// or Google "SCTLR_EL1"
 // ***************************************
 
-#define SCTLR_RESERVED                  (3 << 28) | (3 << 22) | (1 << 20) | (1 << 11)
+#define SCTLR_RESERVED                  (3 << 28) | (3 << 22) | (1 << 20) | (1 << 11)   // mandatory reserved bits, cf the manual
 #define SCTLR_EE_LITTLE_ENDIAN          (0 << 25)
 #define SCTLR_EOE_LITTLE_ENDIAN         (0 << 24)
 #define SCTLR_I_CACHE_DISABLED          (0 << 12)
 #define SCTLR_D_CACHE_DISABLED          (0 << 2)
 #define SCTLR_MMU_DISABLED              (0 << 0)
-#define SCTLR_MMU_ENABLED               (1 << 0)
 
-#define SCTLR_VALUE_MMU_DISABLED	(SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN | SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED | SCTLR_MMU_DISABLED)
+#define SCTLR_VALUE_MMU_DISABLED	(SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN |\
+                                     SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED |\
+                                      SCTLR_MMU_DISABLED)
+
+// cf: https://raw.githubusercontent.com/LdB-ECM/Raspberry-Pi/master/10_virtualmemory/SmartStart64.S
+// also checked against the manual above 
+#define SCTLR_VALUE     (SCTLR_RESERVED | \
+					  (1 << 12)  |      /* I, Instruction cache enable. This is an enable bit for instruction caches at EL0 and EL1 */\
+					  (1 << 4)   |		/* SA0, Stack Alignment Check Enable for EL0 */\
+					  (1 << 3)   |		/* SA, Stack Alignment Check Enable */\
+					  (1 << 2)   |		/* C, Data cache enable. This is an enable bit for data caches at EL0 and EL1 */\
+					  (1 << 1)   |		/* A, Alignment check enable bit */\
+					  (1 << 0) )		/* set M, enable MMU */
 
 // ***************************************
 // HCR_EL2, Hypervisor Configuration Register (EL2), Page 2487 of AArch64-Reference-Manual.

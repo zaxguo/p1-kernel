@@ -2,8 +2,10 @@
 #include "plat.h"
 #include "mmu.h"
 
-/* boot code for qemu virt, see plat-virt.h */
-
+/* 
+	unified code for virt and rpi3 
+	for register details, cf sysregs.h
+*/
 .section ".text.boot"
 
 .globl _start
@@ -110,11 +112,13 @@ el1_entry:
 	// load kernel's pgtable
 	adrp	x0, pg_dir			// @pg_dir: the virtual base address of the pgtables. cf utils.h
 	msr		ttbr1_el1, x0
+	isb 		// memory barrier 
 
 	// configuring mm translation (granule, user/kernel split, etc)
 	// tcr_el1: Translation Control Register. cf mmu.h
 	ldr	x0, =(TCR_VALUE)		
 	msr	tcr_el1, x0 
+	isb 		// memory barrier 
 
 	// memory attributes. we only set two: for mem and for io. cf mmu.h
 	ldr	x0, =(MAIR_VALUE)
@@ -123,7 +127,7 @@ el1_entry:
 	// load the linking (virt) addr of kernel_main
 	ldr	x2, =kernel_main
 
-	mov	x0, #SCTLR_MMU_ENABLED				
+	ldr x0, =SCTLR_VALUE				
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.
 
 	// go to the virt addr of kernel_main
