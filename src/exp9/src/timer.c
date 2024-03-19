@@ -20,17 +20,19 @@ unsigned int ticks; 	// sleep() tasks sleep on this var
 void generic_timer_init ( void )
 {
 	gen_timer_init();
+	gen_timer_reset(interval);	// kickoff 1st time firing
 }
 
 void handle_generic_timer_irq( void ) 
 {
 	// TODO: In order to implement sleep(t), you should calculate @interval based on t, 
 	// instead of having a fixed @interval which triggers periodic interrupts
+	
 	acquire(&tickslock); 
 	ticks++; 
 	wakeup(&ticks); 
 	release(&tickslock);
 
-	gen_timer_reset(interval);	
+	gen_timer_reset(interval);
 	timer_tick();
 }
