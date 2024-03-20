@@ -1,4 +1,4 @@
-#define K2_DEBUG_INFO
+#define K2_DEBUG_VERBOSE
 
 #include <stddef.h>
 #include <stdint.h>
@@ -61,8 +61,6 @@ void kernel_main()
 		printf("error while starting kernel process");
 		return;
 	}
-
-	printf("%s:%d called\n", __func__, __LINE__);
 
 	int wpid; 
 	while (1) {

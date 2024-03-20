@@ -127,10 +127,10 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr1");    
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr2");    
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr3");    
-    USER_PROGRAM1("/usertests", "/usertests", "forkfork");    
+    // USER_PROGRAM1("/usertests", "/usertests", "forkfork");    
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
 
-    // USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
+    USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 
     char console[] = {"console"}; 
 

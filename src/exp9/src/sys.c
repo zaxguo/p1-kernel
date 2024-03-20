@@ -1,4 +1,4 @@
-#define K2_DEBUG_INFO
+#define K2_DEBUG_VERBOSE
 
 #include "plat.h"
 #include "utils.h"

@@ -98,7 +98,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
 	struct pt_regs *regs = task_pt_regs(current);
-	printf("%s: pc %lx\n", __func__, pc);
+	I("pc %lx\n", pc);
 
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;

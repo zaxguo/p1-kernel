@@ -251,6 +251,7 @@ el0_da:
 	bl	enable_irq
 	mrs	x0, far_el1
 	mrs	x1, esr_el1			
+	mrs x2, elr_el1
 	bl	do_mem_abort
 	cmp x0, 0
 	b.eq 1f

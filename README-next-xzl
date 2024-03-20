@@ -57,7 +57,7 @@ TODO: test exec() ... with standalone user app   v
 call_sys_write(1 /*stdout*/, msg, strlen(msg));     // WILL FAIL. can be used for debugging 
 ----> use this as a test case ... to improve expcetion handling... userspace unwinding, etc. 
 
-[ ] ramdisk ... 
+[x] ramdisk ... 
 convert to c header; 
 or use linker to include binary image (just like how we link font   and pic)
     shall we include a zip fuction?
@@ -118,8 +118,16 @@ exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
     SOME IS DONE. MORE NEEDED FOR SCHED.C (locking)
 
 -------------
+[] rpi3 hardware bring up 
+    memory attribute. ldxr stxr will fail if cache not on, mem not mapped as shareable
+    also., more mmu options (in sys controller) must be set otherwise el0 will have mem error
+    enforce compiler to use aligned acecss -- to be consistent with mmu setup
 
-[ ] add ramdisk support
+
+
+-------------
+
+[x] add ramdisk support
 
 
 [ ] add suport for emualted rpi3 

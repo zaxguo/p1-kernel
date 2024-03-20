@@ -1,5 +1,5 @@
 #define K2_DEBUG_WARN
-// #define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_INFO
 
 #include "utils.h"
 #include "sched.h"
@@ -166,7 +166,7 @@ void switch_to(struct task_struct * next) {
 }
 
 void timer_tick() {
-	V("%s counter %d preempt_count %d \n", __func__, current->counter, current->preempt_count);
+	I("%s counter %d preempt_count %d \n", __func__, current->counter, current->preempt_count);
 
 	--current->counter;
 	if (current->counter > 0 || current->preempt_count > 0) 
@@ -326,7 +326,7 @@ void exit_process(int status) {
 static void
 freeproc(struct task_struct *p) {
     BUG_ON(!p);
-    V("%s entered. target pid %d", __func__, p->pid);
+    I("%s entered. target pid %d", __func__, p->pid);
     free_task_pages(&p->mm, 0 /* free all user and kernel pages*/);
     // no need to zero task_struct, which is on the task's kernel page
     // FIX: since we cannot recycle task slot now, so we dont dec nr_tasks ...
@@ -340,7 +340,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
     int havekids, pid;
     struct task_struct *p = myproc();
 
-    V("%d entering wait()", p->pid);
+    I("%d entering wait()", p->pid);
 
     acquire(&wait_lock);
 
@@ -385,9 +385,9 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
         }
 
         // Wait for a child to exit.
-        V("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
+        I("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
         sleep(p, &wait_lock); // DOC: wait-sleep
-        V("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
+        I("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
             (unsigned long)p->chan, p->state);
     }
 }

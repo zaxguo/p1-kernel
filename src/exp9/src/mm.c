@@ -711,12 +711,13 @@ bad:
 }
 
 // called from el0_da, which was from data abort exception 
+// @addr: FAR from the exception 
 // @esr: value of error syndrome register, indicating the error reason
 // xzl: limitations -- didn't check whether @addr is a legal user va
 // 		@ind is global. at least, it should be per task or per addr (?)
 //	TODO
 static int ind = 1; // # of times we tried memory access
-int do_mem_abort(unsigned long addr, unsigned long esr) {
+int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(current);	 
 	unsigned long dfs = (esr & 0b111111);
 
@@ -743,7 +744,9 @@ int do_mem_abort(unsigned long addr, unsigned long esr) {
 		return 0;
 	} 
 	/* other causes, e.g. permission... */
-	E("do_mem_abort: cannot handle. faulty addr 0x%lx not translation fault", addr); 
+	E("do_mem_abort: cannot handle: not translation fault.\r\nFAR 0x%016lx\r\nESR 0x%08lx\r\nELR 0x%016lx", 
+		addr, esr, elr); 
+	debug_hexdump((void *)elr, 32); 
 exit: 	
 	exit_process(-1); 
 	return -1;

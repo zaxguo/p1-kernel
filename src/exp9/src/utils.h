@@ -35,7 +35,7 @@ extern int get_el ( void );
 // ------------------- uart ----------------------------- //
 void uart_init (unsigned long base);
 char uart_recv ( void );
-void uart_send ( char c );
+// void uart_send ( char c );
 void putc ( void* p, char c );
 // new apis, from xv6
 void            uartintr(void);
@@ -93,7 +93,7 @@ unsigned long growproc (struct mm_struct *mm, int incr);
 //  cf the linker script (e.g. linker-qemu.ld)
 extern unsigned long pg_dir;  
 
-extern void set_pgd(unsigned long pgd);
+extern void set_pgd(unsigned long pgd);     // util.S
 extern unsigned long get_pgd();
 
 #define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa

@@ -1,12 +1,14 @@
 #PLAT ?= virt
-PLAT ?= rpi3qemu
+#PLAT ?= rpi3qemu
+PLAT ?= rpi3
 
 ARMGNU ?= aarch64-linux-gnu
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc \
 -mgeneral-regs-only \
 -g 
 
-COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
+# COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
+COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
 # COPS += -DUSE_LFB		# uncomment this to enable GUI console. 
 
 ASMOPS = -Isrc  -g 
@@ -24,8 +26,10 @@ ASMOPS += -DPLAT_RPI3QEMU
 LINKSCR = $(SRC_DIR)/linker-rpi3qemu.ld
 endif
 
+# if SCTLR_EL1 specifies alginment check, we must specify -mstrict-align here,
+# otherwise compiler will issue unaligned access -- memory exception. 
 ifeq (${PLAT}, rpi3)
-COPS += -DPLAT_RPI3
+COPS += -DPLAT_RPI3 -mcpu=cortex-a53+fp+simd -mstrict-align
 ASMOPS += -DPLAT_RPI3
 LINKSCR = $(SRC_DIR)/linker-rpi3.ld
 endif

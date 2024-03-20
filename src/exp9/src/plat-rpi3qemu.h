@@ -16,9 +16,11 @@
 // ---------------- irq ------------------------------------ //
 // "BCM2837 ARM Peripherals Revised V2-1. pp.112 Sec 7.5 registers"
 #define PBASE           0x3F000000      // start of peripheral addr
-#define IRQ_BASIC_PENDING	(PBASE+0x0000B200)
-#define IRQ_PENDING_1		(PBASE+0x0000B204)
-#define IRQ_PENDING_2		(PBASE+0x0000B208)
+#define IRQ_BASIC_PENDING	(PBASE+0x0000B200)  // gpu's own irqs + common irqs
+#define IRQ_PENDING_1		(PBASE+0x0000B204)  // irq 0..31 from gpu side
+    // bit9: usb, bit29: aux(mini uart)
+    #define IRQ_PENDING_1_AUX (1<<29)
+#define IRQ_PENDING_2		(PBASE+0x0000B208)  // irq 32..63 from gpu side
 #define FIQ_CONTROL		    (PBASE+0x0000B20C)
 #define ENABLE_IRQS_1		(PBASE+0x0000B210)
     #define ENABLE_IRQS_1_USB (1<<9)
@@ -40,8 +42,9 @@
 #define TIMER_INT_CTRL_0    (0x40000040)
 #define INT_SOURCE_0        (LPBASE+0x60)   // "CORE0_IRQ_SOURCE" in the manual above
 
-#define TIMER_INT_CTRL_0_VALUE  (1 << 1)
-#define GENERIC_TIMER_INTERRUPT (1 << 1)
+#define TIMER_INT_CTRL_0_VALUE  (1 << 1) 
+#define GENERIC_TIMER_INTERRUPT (1U<<1) // CNTPNSIRQ
+#define GPU_SIDE_INTERRUPT (1U<<8)        // GPU side interrupt
 
 // ---------------- mbox  ------------------------------------ //
 // Copyright (C) 2018 bzt (bztsrc@github) (cf. CREDITS)

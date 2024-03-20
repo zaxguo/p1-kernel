@@ -177,4 +177,6 @@
 	v;	\
 })
 
+void debug_hexdump (const void *pStart, unsigned nBytes); // printf.c
+
 #endif // __K2_TRACEBUFFER__
