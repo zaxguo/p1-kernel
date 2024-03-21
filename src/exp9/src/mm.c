@@ -581,7 +581,7 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 
 	unsigned long sz = mm->sz; 
 
-	I("%s enter sz %lu", __func__, sz);
+	V("%s enter sz %lu", __func__, sz);
 
 	if (growproc(mm, -sz) == (unsigned long)(void *)-1) {
 		BUG(); 

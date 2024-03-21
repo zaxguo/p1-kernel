@@ -11,7 +11,6 @@ extern struct spinlock wait_lock;  // sched.c
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
 	struct task_struct *p;
-	W("here");
 	push_off();	// stil need this for entire task array. may remove later
 	
 	int pid = nr_tasks++;  // 
@@ -25,9 +24,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		return -1;
 	}
 	task[pid] = p;	// take the spot. scheduler cannot kick in
-	W("here");
 	initlock(&p->lock,"proc");
-	W("here");
 	pop_off();
 
 	acquire(&p->lock);	

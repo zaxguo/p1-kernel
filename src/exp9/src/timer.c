@@ -2,12 +2,13 @@
 #include "printf.h"
 #include "sched.h"
 
+// 10Hz (100ms per tick) is assumed by some user tests.
 #ifdef PLAT_VIRT
-int interval = ((1 << 26) / 10); // xzl: 100ms per tick, (1 << 26) around 1 sec
+int interval = ((1 << 26) / 10); // (1 << 26) around 1 sec
 #elif defined PLAT_RPI3QEMU
-int interval = ((1 << 26) / 10); // xzl: 100ms per tick, (1 << 26) around 1 sec
+int interval = ((1 << 26) / 10); // (1 << 26) around 1 sec
 #elif defined PLAT_RPI3
-int interval = (1 * 1000 * 1000 / 2); // xzl: around 1 sec/2
+int interval = (1 * 1000 * 1000 / 10);
 #endif
 
 struct spinlock tickslock = {.locked = 0, .cpu=0, .name="tickslock"};

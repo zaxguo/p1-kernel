@@ -542,7 +542,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
   // block to ip->addrs[].
   iupdate(ip);
 
-  W("writei succeeds");
+  V("writei succeeds");
   return tot;
 }
 
