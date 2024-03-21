@@ -27,7 +27,7 @@ void kernel_process() {
 
 void kernel_main()
 {
-	uart_init(VA_START + UART_PHYS);
+	uart_init();
 	init_printf(NULL, putc);
 
 	printf("kernel boots ...\n\r");
@@ -48,8 +48,8 @@ void kernel_main()
 #endif
 	irq_vector_init();
 	W("here");
-	generic_timer_init();
-	W("here");
+	generic_timer_init(); 	// for sched ticks
+	sys_timer_init(); 		// for kernel timer, we shouldn't miss its 1st irq...
 	enable_interrupt_controller();
 	W("here");
 	enable_irq();

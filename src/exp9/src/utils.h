@@ -28,12 +28,15 @@ struct task_struct;
 // ------------------- misc ----------------------------- //
 
 extern void delay ( unsigned long);
-extern void put32 ( unsigned long, unsigned int );
-extern unsigned int get32 ( unsigned long );
+// extern void put32 ( unsigned long, unsigned int );
+// extern unsigned int get32 ( unsigned long );
+extern void put32(unsigned int *addr, unsigned int v);
+extern unsigned int get32 (unsigned int *addr);
+
 extern int get_el ( void );
 
 // ------------------- uart ----------------------------- //
-void uart_init (unsigned long base);
+void uart_init (void);
 char uart_recv ( void );
 // void uart_send ( char c );
 void putc ( void* p, char c );
@@ -45,18 +48,13 @@ int             uartgetc(void);
 
 
 // ------------------- timer ----------------------------- //
-// TODO: clean up
 /* These are for "System Timer". See timer.c for details */
-void timer_init ( void );
-void handle_timer_irq ( void );
+void sys_timer_init ( void );
+void sys_timer_irq ( void );
 
 /* below are for Arm generic timers */
 void generic_timer_init ( void );
 void handle_generic_timer_irq ( void );
-
-extern void gen_timer_init();
-/* set timer to be fired after @interval System ticks */
-extern void gen_timer_reset(int interval); 
 
 extern struct spinlock tickslock;
 extern unsigned int ticks; 
@@ -98,6 +96,9 @@ extern unsigned long get_pgd();
 
 #define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
 #define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va
+
+#define put32va(x,v)    put32(PA2VA(x), v)
+#define get32va(x)      get32(PA2VA(x))
 
 int             copyout(struct mm_struct *, uint64, char *, uint64);
 int             copyin(struct mm_struct *, char *, uint64, uint64);

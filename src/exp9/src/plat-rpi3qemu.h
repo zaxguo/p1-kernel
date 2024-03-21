@@ -18,6 +18,10 @@
 #define PBASE           0x3F000000      // start of peripheral addr
 #define IRQ_BASIC_PENDING	(PBASE+0x0000B200)  // gpu's own irqs + common irqs
 #define IRQ_PENDING_1		(PBASE+0x0000B204)  // irq 0..31 from gpu side
+    #define SYSTEM_TIMER_IRQ_0	(1 << 0)
+    #define SYSTEM_TIMER_IRQ_1	(1 << 1)
+    #define SYSTEM_TIMER_IRQ_2	(1 << 2)
+    #define SYSTEM_TIMER_IRQ_3	(1 << 3)
     // bit9: usb, bit29: aux(mini uart)
     #define IRQ_PENDING_1_AUX (1<<29)
 #define IRQ_PENDING_2		(PBASE+0x0000B208)  // irq 32..63 from gpu side
@@ -31,10 +35,7 @@
 #define DISABLE_IRQS_2		(PBASE+0x0000B220)
 #define DISABLE_BASIC_IRQS	(PBASE+0x0000B224)
 
-#define SYSTEM_TIMER_IRQ_0	(1 << 0)
-#define SYSTEM_TIMER_IRQ_1	(1 << 1)
-#define SYSTEM_TIMER_IRQ_2	(1 << 2)
-#define SYSTEM_TIMER_IRQ_3	(1 << 3)
+
 
 // See BCM2836 ARM-local peripherals at
 // https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2836/QA7_rev3.4.pdf

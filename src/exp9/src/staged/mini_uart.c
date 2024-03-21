@@ -1,12 +1,13 @@
+// Mar 2024: messy mini uart code with lots of experimental code.
+
+
 #include <stdint.h>
-#include "plat.h"
-#include "mmu.h"
 #include "utils.h"
 #include "spinlock.h"
 
 // cf: https://github.com/futurehomeno/RPI_mini_UART/tree/master
 
-#define PBASE   0x3F000000
+#define PBASE   hw_base
 // ---------------- gpio ------------------------------------ //
 #define GPFSEL1         (PBASE+0x00200004)
 #define GPSET0          (PBASE+0x0020001C)
@@ -54,35 +55,37 @@ char uart_tx_buf[UART_TX_BUF_SIZE];
 uint64 uart_tx_w=0; // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
 uint64 uart_tx_r=0; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
+static unsigned long hw_base = 0;  // we are on virt addr space
+
 static long delay_cycles = 0; 
 long uart_send_profile (char c)
 {
   long cnt = 0; 
 	while(1) {
     cnt ++; 
-		if(get32va(AUX_MU_LSR_REG) & 0x20) 
+		if(get32(AUX_MU_LSR_REG) & 0x20) 
 			break;
 	}
-	put32va(AUX_MU_IO_REG, c);
+	put32(AUX_MU_IO_REG, c);
   return cnt; 
 }
 
 void uart_send (char c)
 {
 	while(1) {
-		if(get32va(AUX_MU_LSR_REG) & 0x20) 
+		if(get32(AUX_MU_LSR_REG) & 0x20) 
 			break;
 	}
-	put32va(AUX_MU_IO_REG, c);
+	put32(AUX_MU_IO_REG, c);
 }
  
 char uart_recv (void)
 {
 	while(1) {
-		if(get32va(AUX_MU_LSR_REG) & 0x01) 
+		if(get32(AUX_MU_LSR_REG) & 0x01) 
 			break;
 	}
-	return(get32va(AUX_MU_IO_REG) & 0xFF);
+	return(get32(AUX_MU_IO_REG) & 0xFF);
 }
 
 void uart_send_string(char* str)
@@ -96,65 +99,66 @@ void uart_send_string(char* str)
 void uartstart();
 
 __attribute__ ((unused)) static void uart_enable_rx_irq() {
-  unsigned int ier = get32va(AUX_MU_IER_REG); 
-  put32va(AUX_MU_IER_REG, ier | AUX_MU_IER_RXIRQ_ENABLE);
+  unsigned int ier = get32(AUX_MU_IER_REG); 
+  put32(AUX_MU_IER_REG, ier | AUX_MU_IER_RXIRQ_ENABLE);
 }
 
 __attribute__ ((unused)) static void uart_enable_tx_irq() {
-  unsigned int ier = get32va(AUX_MU_IER_REG); 
-  put32va(AUX_MU_IER_REG, ier | AUX_MU_IER_TXIRQ_ENABLE);
+  unsigned int ier = get32(AUX_MU_IER_REG); 
+  put32(AUX_MU_IER_REG, ier | AUX_MU_IER_TXIRQ_ENABLE);
   // E("enable tx irq");
 }
 
 __attribute__ ((unused)) static void uart_disable_tx_irq() {
-  // unsigned int ier = get32va(AUX_MU_IER_REG); 
-  // put32va(AUX_MU_IER_REG, ier & (~AUX_MU_IER_TXIRQ_ENABLE));
-  put32va(AUX_MU_IER_REG, 0);
+  // unsigned int ier = get32(AUX_MU_IER_REG); 
+  // put32(AUX_MU_IER_REG, ier & (~AUX_MU_IER_TXIRQ_ENABLE));
+  put32(AUX_MU_IER_REG, 0);
   // E("disable tx irq");
 }
 
 __attribute__ ((unused)) static unsigned int uart_tx_empty() {
-  unsigned int lsr = get32va(AUX_MU_LSR_REG);
+  unsigned int lsr = get32(AUX_MU_LSR_REG);
   return IS_TRANSMITTER_EMPTY(lsr);
 }
 
 __attribute__ ((unused)) static unsigned int uart_tx_idle() {
-  unsigned int lsr = get32va(AUX_MU_LSR_REG);
+  unsigned int lsr = get32(AUX_MU_LSR_REG);
   return IS_TRANSMITTER_IDLE(lsr);
 }
 
 
-void uart_init (void) {
+void uart_init (unsigned long base) {
+  hw_base = base; 
 
 	unsigned int selector;
 
-	selector = get32va(GPFSEL1);
+	selector = get32(GPFSEL1);
 	selector &= ~(7<<12);                   // clean gpio14
 	selector |= 2<<12;                      // set alt5 for gpio14
 	selector &= ~(7<<15);                   // clean gpio15
 	selector |= 2<<15;                      // set alt5 for gpio15
-	put32va(GPFSEL1,selector);
+	put32(GPFSEL1,selector);
 
-	put32va(GPPUD,0);
+	put32(GPPUD,0);
 	delay(150);
-	put32va(GPPUDCLK0,(1<<14)|(1<<15));
+	put32(GPPUDCLK0,(1<<14)|(1<<15));
 	delay(150);
-	put32va(GPPUDCLK0,0);
+	put32(GPPUDCLK0,0);
 
-  put32va(AUX_MU_IIR_REG, FLUSH_UART);    // flush FIFO
+  put32(AUX_MU_IIR_REG, FLUSH_UART);    // flush FIFO
 
-	put32va(AUX_ENABLES,1);                   //Enable mini uart (this also enables access to it registers)
-	put32va(AUX_MU_CNTL_REG,0);               //Disable auto flow control and disable receiver and transmitter (for now)
+	put32(AUX_ENABLES,1);                   //Enable mini uart (this also enables access to it registers)
+	put32(AUX_MU_CNTL_REG,0);               //Disable auto flow control and disable receiver and transmitter (for now)
 	
-  // put32va(AUX_MU_IER_REG, 0);                //Disable receive and transmit interrupts
-  put32va(AUX_MU_IER_REG,  (3<<2) | (0xf<<4));    // bit 7:4 3:2 must be 1
+  // put32(AUX_MU_IER_REG, 0);                //Disable receive and transmit interrupts
+  put32(AUX_MU_IER_REG,  (3<<2) | (0xf<<4));    // bit 7:4 3:2 must be 1
   uart_enable_rx_irq(); 
 	
-  put32va(AUX_MU_LCR_REG,3);                //Enable 8 bit mode
-	put32va(AUX_MU_MCR_REG,0);                //Set RTS line to be always high
-	put32va(AUX_MU_BAUD_REG,270);             //Set baud rate to 115200
+  put32(AUX_MU_LCR_REG,3);                //Enable 8 bit mode
+	put32(AUX_MU_MCR_REG,0);                //Set RTS line to be always high
+	put32(AUX_MU_BAUD_REG,270);             //Set baud rate to 115200
 
-	put32va(AUX_MU_CNTL_REG,3);               //Finally, enable transmitter and receiver
+	put32(AUX_MU_CNTL_REG,3);               //Finally, enable transmitter and receiver
 
   initlock(&uart_tx_lock, "uart");
 
@@ -165,7 +169,7 @@ void uart_init (void) {
   // long cnt = 0; 
   // while(1) {
   //   cnt ++; 
-  //   if(get32va(AUX_MU_LSR_REG) & 0x20) 
+  //   if(get32(AUX_MU_LSR_REG) & 0x20) 
   //     break;
   // }
   // printf("cnt = %ld", cnt); 
@@ -207,10 +211,10 @@ void uartputc_sync(int c) {
 //   if(panicked){while(1);}         // cf above
 
   while(1) {    
-		if(get32va(AUX_MU_LSR_REG) & 0x20) 
+		if(get32(AUX_MU_LSR_REG) & 0x20) 
 			break;
 	}
-	put32va(AUX_MU_IO_REG, c);
+	put32(AUX_MU_IO_REG, c);
 
   pop_off();
 }
@@ -235,8 +239,8 @@ void uartstart() {
       //    may never get a chance to write to uart ....
 
     while (1) {
-        // if (get32va(AUX_MU_LSR_REG) & 0x20)
-            // if(get32va(AUX_MU_LSR_REG) & 0x10) // not working
+        // if (get32(AUX_MU_LSR_REG) & 0x20)
+            // if(get32(AUX_MU_LSR_REG) & 0x10) // not working
             // if (uart_tx_empty())
         if (uart_tx_idle())   // works??
             break;
@@ -263,7 +267,7 @@ void uartstart() {
     // maybe uartputc() is waiting for space in the buffer.
     wakeup(&uart_tx_r);
     
-    put32va(AUX_MU_IO_REG, c); 
+    put32(AUX_MU_IO_REG, c); 
     // need_tx_irq = 1; 
     V("send a byte...");
   }
@@ -275,9 +279,9 @@ void uartstart() {
 // int
 // uartgetc(void)
 // {
-//   if(!(get32va(AUX_MU_LSR_REG) & 0x01)) {
+//   if(!(get32(AUX_MU_LSR_REG) & 0x01)) {
 //     // input data is ready.
-//     return (int)(get32va(AUX_MU_IO_REG) & 0xFF);
+//     return (int)(get32(AUX_MU_IO_REG) & 0xFF);
 //   } else {
 //     return -1;
 //   }
@@ -285,11 +289,11 @@ void uartstart() {
 
 int uartgetc(void)
 {
-  if(!(get32va(AUX_MU_STAT_REG) & 0xF0000)) {
+  if(!(get32(AUX_MU_STAT_REG) & 0xF0000)) {
     return -1;
   } else {
     // rx fifo has bytes
-    return (int)(get32va(AUX_MU_IO_REG) & 0xFF);
+    return (int)(get32(AUX_MU_IO_REG) & 0xFF);
   }
 }
 
@@ -300,7 +304,7 @@ int uartgetc(void)
 void uartintr(void) {
   // TODO: check AUX_MU_IIR_REG bit0 for pending irq
   //    and 2:1 for irq causes
-  uint iir = get32va(AUX_MU_IIR_REG); 
+  uint iir = get32(AUX_MU_IIR_REG); 
   if (iir & 1) 
     return; 
 

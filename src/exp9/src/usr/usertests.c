@@ -1015,7 +1015,9 @@ forkforkfork(char *s)
       if(fd >= 0){   // if the file exists, we're done
         exit(0);
       }   // otherwise keep forking... if fork fails, create the file
-      if(fork() < 0){
+      pid = fork(); 
+      if(pid < 0 || pid > 40){  // xzl: Mar 2024: this works
+      // if(pid < 0 ){    // xzl: this failed. maybe b/c we cannot recycle pids. to be fixed
         close(open("stopforking", O_CREATE|O_RDWR));
       }
     }
@@ -1026,7 +1028,7 @@ forkforkfork(char *s)
   // parent 
   printf("parent going to sleep...\n");
   sleep(20); // two seconds
-  close(open("stopforking", O_CREATE|O_RDWR));
+  close(open("stopforking", O_CREATE|O_RDWR)); // parent creates the file, forcing forking to stop
   wait(0);
   sleep(10); // one second
   printf("parent: bye!\n");

@@ -128,7 +128,9 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr2");    
     // USER_PROGRAM1("/usertests", "/usertests", "copyinstr3");    
     // USER_PROGRAM1("/usertests", "/usertests", "forkfork");    
+    // USER_PROGRAM1("/usertests", "/usertests", "forkforkfork");      // nested forking, also test sleep. partially works. cf its source
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
+    // USER_PROGRAM1("/usertests", "/usertests", "simplesleep");     // sleep & scheduling. ok
 
     USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 
