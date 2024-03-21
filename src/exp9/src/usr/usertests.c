@@ -1009,12 +1009,12 @@ forkforkfork(char *s)
     printf("%s: fork failed", s);
     exit(1);
   }
-  if(pid == 0){
+  if(pid == 0){  // child
     while(1){
       int fd = open("stopforking", 0);
-      if(fd >= 0){
+      if(fd >= 0){   // if the file exists, we're done
         exit(0);
-      }
+      }   // otherwise keep forking... if fork fails, create the file
       if(fork() < 0){
         close(open("stopforking", O_CREATE|O_RDWR));
       }
@@ -1023,10 +1023,13 @@ forkforkfork(char *s)
     exit(0);
   }
 
+  // parent 
+  printf("parent going to sleep...\n");
   sleep(20); // two seconds
   close(open("stopforking", O_CREATE|O_RDWR));
   wait(0);
   sleep(10); // one second
+  printf("parent: bye!\n");
 }
 
 // regression test. does reparent() violate the parent-then-child
@@ -2127,8 +2130,7 @@ sbrkmuch(char *s)
 }
 
 // can we read the kernel's memory?
-#include "../plat-virt.h"
-#define KERNBASE VA_START
+#define KERNBASE 0xffff000000000000   // for testing purpose only
 
 // xzl: fork a bunch of tasks to sweep kernel va ...
 void
@@ -2592,6 +2594,24 @@ badarg(char *s)
   exit(0);
 }
 
+// xzladd
+void simplesleep(char *s)
+{
+  int pid = fork(); 
+  if (pid == 0) {
+    pid = getpid(); 
+  
+    for (int i = 0; i < 5; i++) {
+      printf("pid:%d going to sleep...\n", pid); 
+      sleep(10); // 1sec
+    }
+    printf("child: bye!");
+  } else {
+    wait(0); 
+    printf("parent: bye!");
+  }
+}
+
 // xzl: list of quicktests...
 struct test {
   void (*f)(char *);
@@ -2657,7 +2677,8 @@ struct test {
   {sbrklast, "sbrklast"},
   {sbrk8000, "sbrk8000"},
   {badarg, "badarg" },
-
+  /* xzladd */
+  {simplesleep, "simplesleep"},
   { 0, 0},
 };
 
