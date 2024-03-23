@@ -27,8 +27,6 @@ typedef void (*putcf) (void*,char);
 static putcf stdout_putf;
 static void* stdout_putp;
 
-// xzl: buggy?
-// printf("%lx\n", 0xffff000040084bf4);  ---> nothing
 #define PRINTF_LONG_SUPPORT 1           
 
 #ifdef PRINTF_LONG_SUPPORT

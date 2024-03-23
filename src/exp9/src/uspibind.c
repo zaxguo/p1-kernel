@@ -30,6 +30,7 @@ void usDelay (unsigned nMicroSeconds)
 	TimerusDelay (TimerGet (), nMicroSeconds);
 }
 
+// xzl: delay is in ticks (100Hz)
 unsigned StartKernelTimer (unsigned nDelay, TKernelTimerHandler *pHandler, 
 	void *pParam, void *pContext)
 {
@@ -41,9 +42,15 @@ void CancelKernelTimer (unsigned hTimer)
 	TimerCancelKernelTimer (TimerGet (), hTimer);
 }
 
+// irq.c
+extern TInterruptHandler *usb_irq; 
+extern void *usb_irq_param; 
+
 void ConnectInterrupt (unsigned nIRQ, TInterruptHandler *pHandler, void *pParam)
 {
-	InterruptSystemConnectIRQ (InterruptSystemGet (), nIRQ, pHandler, pParam);
+	BUG_ON(nIRQ != 9); // only for USB
+	usb_irq = pHandler; 
+	usb_irq_param = pParam; 
 }
 
 int SetPowerStateOn (unsigned nDeviceId)

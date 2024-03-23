@@ -22,8 +22,8 @@
     #define SYSTEM_TIMER_IRQ_1	(1 << 1)
     #define SYSTEM_TIMER_IRQ_2	(1 << 2)
     #define SYSTEM_TIMER_IRQ_3	(1 << 3)
-    // bit9: usb, bit29: aux(mini uart)
-    #define IRQ_PENDING_1_AUX (1<<29)
+    #define IRQ_PENDING_1_USB (1<<9)
+    #define IRQ_PENDING_1_AUX (1<<29)       // aux(mini uart)
 #define IRQ_PENDING_2		(PBASE+0x0000B208)  // irq 32..63 from gpu side
 #define FIQ_CONTROL		    (PBASE+0x0000B20C)
 #define ENABLE_IRQS_1		(PBASE+0x0000B210)
@@ -76,8 +76,8 @@ int mbox_call(unsigned char ch);
 
 // ---------------- timer ------------------------------------ //
 #define TIMER_CS        (PBASE+0x00003000)
-#define TIMER_CLO       (PBASE+0x00003004)
-#define TIMER_CHI       (PBASE+0x00003008)
+#define TIMER_CLO       (PBASE+0x00003004)      // counter low 32bit, ro
+#define TIMER_CHI       (PBASE+0x00003008)      // counter high 32bit, ro 
 #define TIMER_C0        (PBASE+0x0000300C)
 #define TIMER_C1        (PBASE+0x00003010)
 #define TIMER_C2        (PBASE+0x00003014)

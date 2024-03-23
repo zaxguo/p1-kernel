@@ -52,6 +52,19 @@ int             uartgetc(void);
 void sys_timer_init ( void );
 void sys_timer_irq ( void );
 
+void ms_delay(unsigned ms); 
+void us_delay(unsigned us);
+
+void current_time(unsigned *sec, unsigned *msec);
+
+// kernel timers w/ callbacks, atop sys timer
+typedef unsigned TKernelTimerHandle;	
+typedef void TKernelTimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pContext);
+
+unsigned sys_timer_start(unsigned delayms, TKernelTimerHandler *handler, 
+		void *para, void *context); 
+int sys_timer_cancel(unsigned timerid);
+
 /* below are for Arm generic timers */
 void generic_timer_init ( void );
 void handle_generic_timer_irq ( void );
