@@ -1,52 +1,12 @@
 #define K2_DEBUG_INFO
 
+// virtual memory
+
 #include "plat.h"
 #include "utils.h"
 #include "mmu.h"
 #include "spinlock.h"
 #include "sched.h"
-
-
-/* 
-	Minimalist page allocation 
-
-	all alloc/free funcs below are locked
-*/
-static unsigned short mem_map [ MAX_PAGING_PAGES ] = {0,};
-static struct spinlock alloc_lock = {.locked=0, .cpu=0, .name="alloc_lock"}; 
-static unsigned long LOW_MEMORY = 0; 	// pa
-static unsigned long PAGING_PAGES = 0; 
-extern char kernel_end; // linker.ld
-
-// return: # of paging pages
-unsigned int paging_init() {
-	LOW_MEMORY = VA2PA(PGROUNDUP((unsigned long)&kernel_end));	
-	PAGING_PAGES = (HIGH_MEMORY - LOW_MEMORY) / PAGE_SIZE; 
-	
-	I("phys mem: %08lx -- %08lx", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
-	I("		kernel: %08lx -- %08lx", KERNEL_START, VA2PA(&kernel_end));
-	I("		paging mem: %08lx -- %08lx", LOW_MEMORY, HIGH_MEMORY);
-	I(" 				%lu%s %ld pages", 
-		xzl_int_val((HIGH_MEMORY - LOW_MEMORY)),
-		xzl_int_postfix((HIGH_MEMORY - LOW_MEMORY)),
-		PAGING_PAGES); 
-
-	return PAGING_PAGES; 
-}
-
-/* allocate a page (zero filled). return kernel va. */
-void *kalloc() {
-	unsigned long page = get_free_page();
-	if (page == 0) {
-		return 0;
-	}
-	return PA2VA(page);
-}
-
-/* free p which is kernel va */
-void kfree(void *p) {
-	free_page(VA2PA(p));
-}
 
 /* allocate & map a page to user. return kernel va of the page, 0 if failed.
 	@mm: the user's task->mm
@@ -73,30 +33,6 @@ void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned lon
 
 void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm) {
 	return allocate_user_page_mm(&task->mm, va, perm);
-}
-
-/* allocate a page (zero filled). return pa of the page. 0 if failed */
-unsigned long get_free_page()
-{
-	acquire(&alloc_lock);
-	for (int i = 0; i < PAGING_PAGES; i++){
-		if (mem_map[i] == 0){
-			mem_map[i] = 1;
-			release(&alloc_lock);
-			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
-			memzero(PA2VA(page), PAGE_SIZE);
-			return page;
-		}
-	}
-	release(&alloc_lock);
-	return 0;
-}
-
-/* free a page. @p is pa of the page. */
-void free_page(unsigned long p){
-	acquire(&alloc_lock);
-	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
-	release(&alloc_lock);
 }
 
 /*

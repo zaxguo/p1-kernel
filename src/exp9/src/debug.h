@@ -149,7 +149,7 @@
 #define xzl_show_undefine(x) printf("%s %40s %10s %s\r\n", _k2clr_gray, #x, "undefined", _k2clr_none);
 
 /*convert int number to G/M/K... */
-#define xzl_int_val(x) \
+#define int_val(x) \
 ({ \
 	unsigned long v; 								\
 	if (x < 1024)					\
@@ -163,7 +163,7 @@
 	v;	\
 })
 
-#define xzl_int_postfix(x) \
+#define int_postfix(x) \
 ({ \
 	const char *v; 								\
 	if (x < 1024)					\

@@ -61,9 +61,9 @@ void current_time(unsigned *sec, unsigned *msec);
 typedef unsigned TKernelTimerHandle;	
 typedef void TKernelTimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pContext);
 
-unsigned sys_timer_start(unsigned delayms, TKernelTimerHandler *handler, 
+int ktimer_start(unsigned delayms, TKernelTimerHandler *handler, 
 		void *para, void *context); 
-int sys_timer_cancel(unsigned timerid);
+int ktimer_cancel(int timerid);
 
 /* below are for Arm generic timers */
 void generic_timer_init ( void );
@@ -82,18 +82,23 @@ int is_irq_masked(void);
 /*return 1 if irq enabled, 0 otherwise*/
 static inline int intr_get(void) {return 1-is_irq_masked();}; 
 
-// ----------------  mm.c ---------------------- //
+// alloc.c 
 unsigned int paging_init();
-unsigned long get_free_page();
-void free_page(unsigned long p);
+void *kalloc(); // kernel va
+void kfree(void *p);    // give kernel va
+unsigned long get_free_page();      // pa
+void free_page(unsigned long p);    // pa 
+
+void *malloc (unsigned long s); 
+void free (void *p); 
+void dump_mem_info (void);
+
+// ----------------  mm.c ---------------------- //
 void memzero(void *src, unsigned long n);   // util.S
 void memcpy(void* dst, const void* src, unsigned long n);
-
 unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page, int alloc, 
     unsigned long perm);
 int copy_virt_memory(struct task_struct *dst); 
-void *kalloc(); // get kernel va
-void kfree(void *p);    // give kernel va
 void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm); 
 void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned long perm);
 void free_task_pages(struct mm_struct *mm, int useronly); 
@@ -253,11 +258,15 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
     printf("warning: %s at %s:%u\n", pExpr, pFile, nLine); 
 }
 
-#define assert(expr)    (  likely (expr)        \
+#define assert(expr)    (likely (expr)        \
                             ? ((void) 0)           \
                             : assertion_failed (#expr, __FILE__, __LINE__))
 #define BUG_ON(exp)	assert (!(exp))
 #define BUG()		assert (0)
+
+#define WARN_ON(expr)    (likely (!expr)        \
+                            ? ((void) 0)           \
+                            : warn_failed (#expr, __FILE__, __LINE__))
 
 // debug.h
 #include "debug.h"

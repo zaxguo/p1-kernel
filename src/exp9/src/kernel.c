@@ -10,38 +10,9 @@
 #include "sys.h"
 #include "user.h"
 
-static void handler(TKernelTimerHandle hTimer, void *param, void *context) {
-	I("called. htimer %d, param %lx, contex %lx", hTimer, (unsigned long)param, 
-		(unsigned long)context); 
-}
-
-// to be called in a kernel process
-static void ktimer_test() {
-	unsigned sec, msec; 
-
-	current_time(&sec, &msec); 
-	I("%u.%03u start delaying 500ms...", sec, msec); 
-	ms_delay(500); 
-	current_time(&sec, &msec);
-	I("%u.%03u ended delaying 500ms", sec, msec); 
-
-	int t = sys_timer_start(500, handler, (void *)0xdeadbeef, (void*)0xdeaddeed);
-	I("timer start. timer id %d", t); 
-	ms_delay(1000);
-	I("timer %d should have fired", t); 
-
-	t = sys_timer_start(500, handler, (void *)0xdeadbeef, (void*)0xdeaddeed);
-	I("timer start. timer id %d", t);
-	ms_delay(100); 
-	int c = sys_timer_cancel(t); 
-	I("timer cancel return val = %d", c);
-	BUG_ON(c != 0);
-
-	I("there shouldn't be more callback"); 
-
-	while (1)	
-		; 	// spin forever 
-}
+// unittests.c
+extern void test_ktimer(); 
+extern void test_malloc(); 
 
 // main body of kernel thread
 void kernel_process() {
@@ -49,7 +20,8 @@ void kernel_process() {
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
 
-	ktimer_test(); 
+	// test_ktimer(); 
+	// test_malloc(); while (1); 
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);

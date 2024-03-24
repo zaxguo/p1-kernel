@@ -168,9 +168,9 @@ static int adjust_sys_timer(void)
 	return 0; 
 }
 
-// return: timer id (>=1) found. 0 on error
+// return: timer id (>=0, <N_TIMERS) found. -1 on error
 // the clock counter has 64bit, so we assume it won't wrap around
-unsigned sys_timer_start(unsigned delayms, TKernelTimerHandler *handler, 
+int ktimer_start(unsigned delayms, TKernelTimerHandler *handler, 
 		void *para, void *context) {
 	unsigned t; 
 	unsigned long cur; 
@@ -183,8 +183,8 @@ unsigned sys_timer_start(unsigned delayms, TKernelTimerHandler *handler,
 	}
 	if (t == N_TIMERS) {
 		release(&timerlock); 
-		E("sys_timer_start failed. # max timer reached"); 
-		return 0; 
+		E("ktimer_start failed. # max timer reached"); 
+		return -1; 
 	}
 
 	cur = current_counter(); 
@@ -199,16 +199,15 @@ unsigned sys_timer_start(unsigned delayms, TKernelTimerHandler *handler,
 
 	release(&timerlock); 
 
-	return t+1; 
+	return t; 
 }
 
 // return 0 on okay, -1 if no such timer/handler, 
 //	-2 if already fired (will clean anyway)
-int sys_timer_cancel(unsigned timerid) {
-	unsigned t = timerid - 1; 
+int ktimer_cancel(int t) {
 	unsigned long cur; 
 
-	if (t >= N_TIMERS)
+	if (t < 0 || t >= N_TIMERS)
 		return -1; 
 
 	cur = current_counter();
@@ -255,7 +254,7 @@ void sys_timer_irq(void)
 		if (timers[t].elapseat <= cur) { // should fire  
 			timers[t].handler = 0; 
 			// TODO: do callback w/o holding timerlock...
-			(*h)(t+1, timers[t].param, timers[t].context); 
+			(*h)(t, timers[t].param, timers[t].context); 
 		}		
 	}
 	adjust_sys_timer(); 

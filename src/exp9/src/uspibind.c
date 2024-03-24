@@ -20,26 +20,28 @@
 // xzl: the glue layer... which we should implement one ourselves...
 #include <uspios.h>
 
-void MsDelay (unsigned nMilliSeconds)
-{
-	TimerMsDelay (TimerGet (), nMilliSeconds);
+void MsDelay (unsigned nMilliSeconds) {
+	ms_delay(nMilliSeconds);
 }
 
-void usDelay (unsigned nMicroSeconds)
-{
-	TimerusDelay (TimerGet (), nMicroSeconds);
+void usDelay (unsigned nMicroSeconds) {
+	us_delay(nMicroSeconds);
 }
 
-// xzl: delay is in ticks (100Hz)
+// xzl: delay is in ticks (100Hz), as expected by usb driver 
 unsigned StartKernelTimer (unsigned nDelay, TKernelTimerHandler *pHandler, 
-	void *pParam, void *pContext)
-{
-	return TimerStartKernelTimer (TimerGet (), nDelay, pHandler, pParam, pContext);
+	void *pParam, void *pContext) {
+	int t = ktimer_start(nDelay * 10 /*ms*/, pHandler, pParam, pContext); 
+	if (t < 0)
+		return 0; 
+	else 
+		return (unsigned)(t+1); // usb driver expects >0 timer handle
 }
 
-void CancelKernelTimer (unsigned hTimer)
-{
-	TimerCancelKernelTimer (TimerGet (), hTimer);
+void CancelKernelTimer (unsigned hTimer) {
+	BUG_ON(hTimer == 0); 
+	int ret = ktimer_cancel(hTimer-1); 
+	WARN_ON(ret < 0);
 }
 
 // irq.c
@@ -104,7 +106,6 @@ void LogWrite (const char *pSource, unsigned Severity, const char *pMessage, ...
 }
 
 #ifndef NDEBUG
-
 void uspi_assertion_failed (const char *pExpr, const char *pFile, unsigned nLine)
 {
 	assertion_failed (pExpr, pFile, nLine);
@@ -114,5 +115,4 @@ void DebugHexdump (const void *pBuffer, unsigned nBufLen, const char *pSource)
 {
 	debug_hexdump (pBuffer, nBufLen, pSource);
 }
-
 #endif
