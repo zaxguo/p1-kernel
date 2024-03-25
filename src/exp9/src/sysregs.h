@@ -20,11 +20,18 @@
 // cf: https://raw.githubusercontent.com/LdB-ECM/Raspberry-Pi/master/10_virtualmemory/SmartStart64.S
 // also checked against the manual above 
 // xzl: if bit A is enabled, user program will trigger exception (misaligned access??)
-#define SCTLR_VALUE     (SCTLR_RESERVED | \
+#define SCTLR_VALUE     (SCTLR_RESERVED |  /* mandatory reserved bits, cf the manual */\
 					  (1 << 12)  |      /* I, Instruction cache enable. This is an enable bit for instruction caches at EL0 and EL1 */\
 					  (1 << 4)   |		/* SA0, Stack Alignment Check Enable for EL0 */\
 					  (1 << 3)   |		/* SA, Stack Alignment Check Enable */\
 					  (1 << 2)   |		/* C, Data cache enable. This is an enable bit for data caches at EL0 and EL1 */\
+					  (1 << 1)   |		/* A, Alignment check enable bit */\
+					  (1 << 0) )		/* set M, enable MMU */
+
+// MMU on but no caching (for testing)
+#define SCTLR_VALUE_UNCACHED     (SCTLR_RESERVED |  /* mandatory reserved bits, cf the manual */\
+					  (1 << 4)   |		/* SA0, Stack Alignment Check Enable for EL0 */\
+					  (1 << 3)   |		/* SA, Stack Alignment Check Enable */\
 					  (1 << 1)   |		/* A, Alignment check enable bit */\
 					  (1 << 0) )		/* set M, enable MMU */
 

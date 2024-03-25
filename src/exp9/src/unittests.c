@@ -42,9 +42,6 @@ void test_ktimer() {
 	BUG_ON(c < 0);
 
 	I("there shouldn't be more callback"); 
-
-	while (1)	
-		; 	// spin forever 
 }
 
 void test_malloc() {
@@ -116,4 +113,17 @@ void test_malloc() {
     I("------------------------------");
 
     free(allocs);
+}
+
+void test_mbox() {
+    unsigned char buf[MAC_SIZE] = {0}; 
+    int ret = get_mac_addr(buf);
+    printf("return %d. mac is: ", ret);
+    for (int i = 0; i < MAC_SIZE; i++)
+        printf("%02x ", buf[i]);
+    printf("\n"); 
+
+    unsigned long s = 0; 
+    get_board_serial(&s); 
+    printf("serial 0x%lx\n", s); 
 }

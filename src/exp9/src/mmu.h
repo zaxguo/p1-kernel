@@ -96,8 +96,9 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
  *   n = AttrIndx[2:0]
  *			        n	MAIR
  *   DEVICE_nGnRnE	000	00000000
- *   NORMAL_NC		001	01000100        Normal Memory, Outer Non-Cacheable; Inner Non-Cacheable (exception on ldrx/strx)
+ *   NORMAL_NC		001	01000100        Normal Memory, Outer Non-Cacheable; Inner Non-Cacheable (ldrx/strx will trigger mem exception)
  *   NORMAL 		002	11111111        Normal Memory, inner/outer shareable, writeback, r/w allocation
+ *   NORMAL_WT			10111011
  *                                      https://forums.raspberrypi.com/viewtopic.php?t=207173
  *   https://developer.arm.com/documentation/ddi0500/d/system-control/aarch64-register-descriptions/memory-attribute-indirection-register--el1
  *   cf Google "armv8 MAIR_EL1" or "den0024"
@@ -108,9 +109,12 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 #define MT_DEVICE_nGnRnE 		0x0
 #define MT_NORMAL_NC			0x1
 #define MT_NORMAL   			0x2
+
+// https://patchwork.kernel.org/project/linux-arm-kernel/patch/20191211184027.20130-5-catalin.marinas@arm.com/
 #define MT_DEVICE_nGnRnE_FLAGS		0x00  // "equivalent to Strongly Ordered memory in the ARMv7 architecture".
 #define MT_NORMAL_NC_FLAGS  		0x44
-#define MT_NORMAL_FLAGS  		    0xff    // https://patchwork.kernel.org/project/linux-arm-kernel/patch/20191211184027.20130-5-catalin.marinas@arm.com/
+#define MT_NORMAL_WT_FLAGS  		0xbb
+#define MT_NORMAL_FLAGS  		    0xff    
 
 #define MAIR_VALUE			((MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE))     \
                                     | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))    \

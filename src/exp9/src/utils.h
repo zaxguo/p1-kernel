@@ -244,6 +244,12 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc);
 struct pt_regs * task_pt_regs(struct task_struct *tsk);
 
+// mbox.c
+#define MAC_SIZE        6   // in bytes
+int get_mac_addr(unsigned char buf[MAC_SIZE]);
+int set_powerstate_on(unsigned deviceid); 
+int get_board_serial(unsigned long *s);
+
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)
 #define unlikely(exp)   __builtin_expect (!!(exp), 0)
@@ -270,5 +276,9 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
 
 // debug.h
 #include "debug.h"
+
+// cache ops, util.S
+void __asm_invalidate_dcache_range(void* start_addr, void* end_addr);
+void __asm_flush_dcache_range(void* start_addr, void* end_addr);
 
 #endif  /*_UTILS_H */

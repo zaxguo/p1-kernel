@@ -54,7 +54,6 @@ char uart_tx_buf[UART_TX_BUF_SIZE];
 uint64 uart_tx_w=0; // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
 uint64 uart_tx_r=0; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
-static long delay_cycles = 0; 
 long uart_send_profile (char c)
 {
   long cnt = 0; 
@@ -160,8 +159,8 @@ void uart_init (void) {
 
 
   // profile 
-  uart_send_string("a very long string that exceeds the size of the fifo buffer");
-  delay_cycles = uart_send_profile('T'); 
+  // uart_send_string("a very long string that exceeds the size of the fifo buffer");
+  // delay_cycles = uart_send_profile('T'); 
   // long cnt = 0; 
   // while(1) {
   //   cnt ++; 

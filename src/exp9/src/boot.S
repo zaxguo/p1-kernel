@@ -127,7 +127,7 @@ el1_entry:
 	// load the linking (virt) addr of kernel_main
 	ldr	x2, =kernel_main
 
-	ldr x0, =SCTLR_VALUE				
+	ldr x0, =SCTLR_VALUE
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.
 
 	// go to the virt addr of kernel_main
