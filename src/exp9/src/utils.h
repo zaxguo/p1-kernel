@@ -58,7 +58,7 @@ void us_delay(unsigned us);
 void current_time(unsigned *sec, unsigned *msec);
 
 // kernel timers w/ callbacks, atop sys timer
-typedef unsigned TKernelTimerHandle;	
+typedef unsigned long TKernelTimerHandle;	
 typedef void TKernelTimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pContext);
 
 int ktimer_start(unsigned delayms, TKernelTimerHandler *handler, 
@@ -89,7 +89,7 @@ void kfree(void *p);    // give kernel va
 unsigned long get_free_page();      // pa
 void free_page(unsigned long p);    // pa 
 
-void *malloc (unsigned long s); 
+void *malloc (unsigned s); 
 void free (void *p); 
 void dump_mem_info (void);
 
@@ -111,9 +111,6 @@ extern unsigned long pg_dir;
 
 extern void set_pgd(unsigned long pgd);     // util.S
 extern unsigned long get_pgd();
-
-#define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
-#define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va
 
 #define put32va(x,v)    put32(PA2VA(x), v)
 #define get32va(x)      get32(PA2VA(x))
@@ -254,12 +251,6 @@ int get_board_serial(unsigned long *s);
 #define likely(exp)     __builtin_expect (!!(exp), 1)
 #define unlikely(exp)   __builtin_expect (!!(exp), 0)
 
-// circle assert.cpp        
-static inline void assertion_failed (const char *pExpr, const char *pFile, unsigned nLine) {
-    printf("assertion failed: %s at %s:%u\n", pExpr, pFile, nLine); 
-    panic("kernel hangs"); 
-}
-
 static inline void warn_failed (const char *pExpr, const char *pFile, unsigned nLine) {
     printf("warning: %s at %s:%u\n", pExpr, pFile, nLine); 
 }
@@ -270,7 +261,7 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
 #define BUG_ON(exp)	assert (!(exp))
 #define BUG()		assert (0)
 
-#define WARN_ON(expr)    (likely (!expr)        \
+#define WARN_ON(expr)    (likely (!(expr))        \
                             ? ((void) 0)           \
                             : warn_failed (#expr, __FILE__, __LINE__))
 

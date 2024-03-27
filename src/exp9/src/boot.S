@@ -22,6 +22,14 @@ master:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
 	msr	sctlr_el1, x0		
 	
+	# don't trap EL0/EL1 access to advanced simd, fp registers.
+	# cf: https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CPACR-EL1--Architectural-Feature-Access-Control-Register
+	# 	some code may contain them (e.g. usblib StringFormat uses q0/q1...)
+	MRS     x1, CPACR_EL1
+	ORR     x1, x1, #(0x3 << 20)    // Write CPACR_EL1.FPEN bits
+	MSR     CPACR_EL1, x1
+	ISB
+
 	# check the current exception level: EL3 (rpi3 hardware) or EL2 (qemu)?
 	# both eret to EL1 
 	mrs x0, CurrentEL
@@ -29,11 +37,12 @@ master:
 	cmp x0, #3
 	beq el3		
 
-	# set EL1 as AArch64
+	# set EL1 to be running in AArch64
 	mrs	x0, hcr_el2
 	orr	x0, x0, #HCR_RW  
 	msr	hcr_el2, x0
 
+	# prepare to switch to EL1
 	mov x0, #SPSR_VALUE
 	msr	spsr_el2, x0
 
@@ -48,6 +57,7 @@ el3:
 	ldr	x0, =SCR_VALUE
 	msr	scr_el3, x0
 
+	# prepare to switch to EL1
 	ldr	x0, =SPSR_VALUE
 	msr	spsr_el3, x0
 

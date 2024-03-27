@@ -192,7 +192,7 @@ unsigned long mem_get_size (void) {
 #endif
 }
 
-void *malloc (unsigned long ulSize) {
+void *malloc (unsigned ulSize) {
 	assert (s_pNextBlock != 0);
 	if (ulSize > MAX_ALLOC_SIZE) 
 		return 0; 

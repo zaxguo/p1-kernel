@@ -177,6 +177,8 @@
 	v;	\
 })
 
-void debug_hexdump (const void *pStart, unsigned nBytes); // printf.c
+// printf.c
+void debug_hexdump (const void *pStart, unsigned nBytes); 
+void assertion_failed (const char *pExpr, const char *pFile, unsigned nLine);
 
 #endif // __K2_TRACEBUFFER__

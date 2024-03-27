@@ -29,6 +29,9 @@
 #include "plat.h"
 #include "mmu.h"
 #include "utils.h"
+#include "spinlock.h"
+
+static struct spinlock mboxlock = {.locked=0, .cpu=0, .name="mbox_lock"};
 
 /* mailbox message buffer */
 // xzl: dont have to be "coherent" mem?
@@ -54,6 +57,8 @@ volatile unsigned int  __attribute__((aligned(16))) mbox[36];
  * response overwrites request
  * Spin wait for mailbox hw.  
  * Returns 0 on failure, non-zero on success
+ * 
+ * caller must hold mboxlock
  */
 int mbox_call(unsigned char ch)
 {
@@ -65,7 +70,7 @@ int mbox_call(unsigned char ch)
     do{asm volatile("nop");}while(*MBOX_STATUS & MBOX_FULL);
     __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
     __asm_flush_dcache_range((void *)mbox, (char *)mbox + sizeof(mbox)); 
-    
+
     /* write the address of our message to the mailbox with channel identifier */
     *MBOX_WRITE = r; 
     /* now wait for the response */
@@ -74,7 +79,7 @@ int mbox_call(unsigned char ch)
         do{asm volatile("nop");}while(*MBOX_STATUS & MBOX_EMPTY);
         /* is it a response to our message? */
         if(r == *MBOX_READ) {
-            W("r is 0x%x", r); 
+            V("r is 0x%x", r); 
             __asm_invalidate_dcache_range((void *)mbox, (char *)mbox + sizeof(mbox)); 
             /* is it a valid successful response? */
             return mbox[1]==MBOX_RESPONSE;
@@ -192,6 +197,8 @@ extern volatile unsigned char _binary_font_sfn_start; // linker script
 
 void lfb_init()
 {    
+    acquire(&mboxlock); 
+
     mbox[0] = 35*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
 
@@ -254,6 +261,8 @@ void lfb_init()
     } else {
         printf("Unable to set screen resolution to 1024x768x32\n");
     }
+
+    release(&mboxlock); 
 }
 
 /**
@@ -443,6 +452,8 @@ int set_powerstate_on(unsigned deviceid) {
     int ret = 0; 
     unsigned power = (POWER_STATE_ON | POWER_STATE_WAIT); 
 
+    acquire(&mboxlock); 
+
     mbox[0] = 8*4;
     mbox[1] = MBOX_REQUEST;
 
@@ -471,8 +482,10 @@ int set_powerstate_on(unsigned deviceid) {
     if (!(power & POWER_STATE_ON))
         {ret = -6; goto fail;}
 
+    release(&mboxlock); 
     return 0; 
 fail:
+    release(&mboxlock); 
     W("%s failed. %d", __func__, ret); 
     return ret; 
 }
@@ -481,6 +494,7 @@ fail:
 int get_mac_addr(unsigned char buf[MAC_SIZE]) {
     int ret = 0; 
 
+    acquire(&mboxlock); 
     mbox[0] = 8*4;
     mbox[1] = MBOX_REQUEST;
 
@@ -507,8 +521,10 @@ int get_mac_addr(unsigned char buf[MAC_SIZE]) {
         {ret = -5; goto fail;}
     memmove(buf, (void *)&mbox[5], MAC_SIZE); 
 
+    release(&mboxlock); 
     return 0; 
 fail:
+    release(&mboxlock); 
     W("%s failed. %d", __func__, ret); 
     return ret; 
 }
@@ -516,6 +532,8 @@ fail:
 // return 0 on success
 int get_board_serial(unsigned long *s) {
     if (!s) return -1;
+
+    acquire(&mboxlock); 
 
     // get the board's unique serial number with a mailbox call
     mbox[0] = 8*4;                  // length of the message
@@ -530,10 +548,12 @@ int get_board_serial(unsigned long *s) {
     mbox[7] = MBOX_TAG_LAST;
 
     // send the message to the GPU and receive answer
-    if (mbox_call(MBOX_CH_PROP)) {        
+    if (mbox_call(MBOX_CH_PROP)) {      
+        release(&mboxlock);   
         memmove(s, (void*)&mbox[5], 8); 
         return 0; 
     } else {
+        release(&mboxlock); 
         return -2; 
     }
 }

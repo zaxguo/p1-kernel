@@ -14,6 +14,7 @@
 extern void test_ktimer(); 
 extern void test_malloc(); 
 extern void test_mbox(); 
+extern void test_usb(); 
 
 // main body of kernel thread
 void kernel_process() {
@@ -24,6 +25,7 @@ void kernel_process() {
 	// test_ktimer(); while (1); 
 	// test_malloc(); while (1); 
 	// test_mbox(); while (1); 
+	test_usb(); while (1); 
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);

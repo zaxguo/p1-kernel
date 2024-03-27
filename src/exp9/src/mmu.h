@@ -29,9 +29,9 @@
 #define MAX_PAGING_PAGES        ((PHYS_SIZE-RAMDISK_SIZE)/PAGE_SIZE)
 
 #ifndef __ASSEMBLER__
-// must be page aligned
-_Static_assert(!(RAMDISK_SIZE & (PAGE_SIZE-1)));
-_Static_assert(!(PHYS_SIZE & (PAGE_SIZE-1)));
+	// must be page aligned
+	_Static_assert(!(RAMDISK_SIZE & (PAGE_SIZE-1)));
+	_Static_assert(!(PHYS_SIZE & (PAGE_SIZE-1)));
 #endif 
 
 // -------------- page table related ------------------------ // 
@@ -42,6 +42,8 @@ _Static_assert(!(PHYS_SIZE & (PAGE_SIZE-1)));
 #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
 
 #define VA_START 			0xffff000000000000
+#define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
+#define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va
 
 /* The kernel uses section mapping. The whole pgtable tree only needs three pgtables (each PAGE_SIZE). 
 That is, one pgtable at each of PGD/PUD/PMD. See our project document */
@@ -85,11 +87,12 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 
 // extract perm bits from pte
 #define PTE_TO_PERM(x)      (x & (unsigned long)(MM_AP_MASK | MM_XN_MASK))
-#ifndef __ASSEMBLER__
-    // extract pa from pte. assuming pa within 32bits TODO: fix this for larger phys mem system...
-    _Static_assert(PHYS_SIZE < 0xffffffff); 
-#endif
+// extract pa from pte. assuming pa within 32bits TODO: fix this for larger phys mem system...
 #define PTE_TO_PA(x)        (x & (0xffffffff) & PAGE_MASK)
+#ifndef __ASSEMBLER__    
+    _Static_assert(PHYS_SIZE < 0xffffffff); 		
+#endif
+
 /*
  * Memory region attributes:
  *

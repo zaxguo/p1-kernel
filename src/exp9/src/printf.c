@@ -272,3 +272,9 @@ void debug_hexdump (const void *pStart, unsigned nBytes)
 		}
 	}
 }
+
+// circle assert.cpp        
+void assertion_failed (const char *pExpr, const char *pFile, unsigned nLine) {
+    printf("assertion failed: %s at %s:%u\n", pExpr, pFile, nLine); 
+    panic("kernel hangs"); 
+}

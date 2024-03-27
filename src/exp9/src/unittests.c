@@ -127,3 +127,19 @@ void test_mbox() {
     get_board_serial(&s); 
     printf("serial 0x%lx\n", s); 
 }
+
+#include "uspios.h"
+#include "uspi.h"
+
+void test_usb() {
+	if (!USPiInitialize ()) {
+		E("cannot init"); 
+        return; 
+	}
+	if (!USPiKeyboardAvailable ())
+	{
+        E("kb not found");
+        return; 
+	}
+    E("kb found");
+}
