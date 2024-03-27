@@ -1,9 +1,11 @@
-#PLAT ?= virt
-#PLAT ?= rpi3qemu
+# PLAT ?= virt
+# PLAT ?= rpi3qemu
 PLAT ?= rpi3
 
 ARMGNU ?= aarch64-linux-gnu
-COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding -Isrc \
+COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
+-Isrc \
+-Iaddon/usb/include\
 -mgeneral-regs-only \
 -g 
 
@@ -83,9 +85,9 @@ C_OBJS += $(BUILD_DIR)/fs_c.o
 C_OBJS += $(BUILD_DIR)/gic_c.o
 C_OBJS += $(BUILD_DIR)/irq_c.o
 C_OBJS += $(BUILD_DIR)/kernel_c.o
-C_OBJS += $(BUILD_DIR)/lfb_c.o
 C_OBJS += $(BUILD_DIR)/log_c.o
 C_OBJS += $(BUILD_DIR)/mm_c.o
+C_OBJS += $(BUILD_DIR)/alloc_c.o
 C_OBJS += $(BUILD_DIR)/pipe_c.o
 C_OBJS += $(BUILD_DIR)/printf_c.o
 C_OBJS += $(BUILD_DIR)/ramdisk_c.o
@@ -98,6 +100,7 @@ C_OBJS += $(BUILD_DIR)/sysfile_c.o
 C_OBJS += $(BUILD_DIR)/timer_c.o
 C_OBJS += $(BUILD_DIR)/user_c.o
 C_OBJS += $(BUILD_DIR)/mbox_c.o
+C_OBJS += $(BUILD_DIR)/unittests_c.o
 
 ASM_OBJS = $(BUILD_DIR)/boot_s.o
 ASM_OBJS += $(BUILD_DIR)/entry_s.o
@@ -116,6 +119,8 @@ endif
 
 ifeq (${PLAT}, rpi3)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
+C_OBJS += $(BUILD_DIR)/uspibind_c.o		# usb glue
+BIN_OBJS += addon/usb/lib/libuspi.a		# usb lib
 endif
 
 ifeq (${PLAT}, virt)
