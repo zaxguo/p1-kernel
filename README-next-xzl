@@ -118,21 +118,37 @@ exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
     SOME IS DONE. MORE NEEDED FOR SCHED.C (locking)
 
 -------------
-[] rpi3 hardware bring up 
+[x] rpi3 hardware bring up 
     memory attribute. ldxr stxr will fail if cache not on, mem not mapped as shareable
     also., more mmu options (in sys controller) must be set otherwise el0 will have mem error
     enforce compiler to use aligned acecss -- to be consistent with mmu setup
 
 
+[x] mini uart quirks
+    attempted but cannot get tx irq working in a clean fashion..
+        the unknown hardware features + print msgs themselves will interfere with 
+        tx == the problem becomes quite messy 
 
+        lesson is: need a simple, reliable way to debug (tx without causing new
+        irq), or at least the hw is known how to work. no surprises. 
+
+        solution: turnin goff uart tx irq. write (to console) to kernel --> 
+        wait until uart tx becomes idle, then start to tx
 -------------
 
 [x] add ramdisk support
 
+[ ] mbox suppoort (prerequiwsit for usb, display.. a bunch of things)
+    after l2 cache is on, cpu/gpu cache no longer coherent. hence either needs
+    cpuside's uncached mapping (slow, "dma pool"?) or explicit cache flush/invalidate
+    [ ] add cache flush/invalid
 
 [ ] add suport for emualted rpi3 
     [ ]  refactor display driver
     [ ]     add storage/input driver (usb seems more universal - both storage and input)
+    [ ]         usb storage r/w -- existing code no irq (otherwise FSM becomes messy)
+                    ref: the C  version of circle usb stack
+                input driver is irq driven 
     [ ]  port doom 
 
     [ ]     add fat32 support
@@ -142,9 +158,46 @@ exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
     [ ]     sound driver
 
 
+------------
+newlib nju os
+https://github.com/NJU-ProjectN/newlib-navy/tree/master
+
+-------------
+device interfacwes
+
+nju /dev/ ingtetfaces
+https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libos/src/native.cpp
+
+sdl2 kb event interfaces
+https://wiki.libsdl.org/SDL2/SDL_Keysym
 
 
+three major interfaces
+framebuffer, keyboard, sound
+https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libos/src/native.cpp#L167
 
+in NJU OS, kb events -- 
+    dev read/write return as textual strings. 
+    (ease of debugging
+    https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libos/src/native.cpp#L207
+    )
+
+also cf
+https://github.com/NJU-ProjectN/navy-apps/blob/master/README.md
+
+
+-------------
+procfs interfaces
+NJUOS
+https://github.com/NJU-ProjectN/navy-apps/blob/master/README.md
+
+-------------
+minimum sd card driver
+from nctuos
+https://github.com/GrassLab/osdi/blob/master/supplement/sdhost.c
+
+
+https://grasslab.github.io/osdi/zh_TW/labs/lab8.html
 
 -------------
 stack unwind ref:

@@ -27,7 +27,14 @@
         "sleeplock.h": "c",
         "random": "c",
         "limits": "c",
-        "plat-rpi3qemu.h": "c"
+        "plat-rpi3qemu.h": "c",
+        "typeinfo": "c",
+        "cmath": "c",
+        "debug.h": "c",
+        "bcmmailbox.h": "c",
+        "bcmpropertytags.h": "c",
+        "assert.h": "c",
+        "uspios.h": "c"
     },
     "files.exclude": {
         "src/exp1/**": true,
