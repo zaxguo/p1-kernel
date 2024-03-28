@@ -138,24 +138,32 @@ exp9 more efficient VM impl. overhaul tcb ds for userpages (va and pa)
 
 [x] add ramdisk support
 
-[ ] mbox suppoort (prerequiwsit for usb, display.. a bunch of things)
+[x] mbox suppoort (prerequiwsit for usb, display.. a bunch of things)
     after l2 cache is on, cpu/gpu cache no longer coherent. hence either needs
     cpuside's uncached mapping (slow, "dma pool"?) or explicit cache flush/invalidate
-    [ ] add cache flush/invalid
+    [x] add cache flush/invalid
 
-[ ] add suport for emualted rpi3 
-    [ ]  refactor display driver
-    [ ]     add storage/input driver (usb seems more universal - both storage and input)
+[ ] add hw suport for  rpi3 
+    [ ]  refactor display driver  -- clean up the code, make fb interface (w/ double buffering                
+    [x]     add kb driver (usb seems more universal - both storage and input)
+    [ ]     add storage driver
     [ ]         usb storage r/w -- existing code no irq (otherwise FSM becomes messy)
                     ref: the C  version of circle usb stack
                 input driver is irq driven 
+    [ ] sd card driver    
     [ ]  port doom 
 
     [ ]     add fat32 support
+        useful: https://cpl.li/posts/2019-03-12-mbrfat/
 
 [ ]  add support for rpi3 hardware
     [ ] 
     [ ]     sound driver
+
+
+------------
+rpi3 framebuffer animation idea (double buffer, vsync, etc
+https://www.valvers.com/open-software/raspberry-pi/bare-metal-programming-in-c-part-5/#part-5armc-016
 
 
 ------------

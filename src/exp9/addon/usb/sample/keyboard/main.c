@@ -38,14 +38,14 @@ int main (void)
 		return EXIT_HALT;
 	}
 
-	USPiKeyboardRegisterKeyPressedHandler (KeyPressedHandler);  // xzl: a callback?
+	USPiKeyboardRegisterKeyPressedHandler (KeyPressedHandler); 
 
 	LogWrite (FromSample, LOG_NOTICE, "Just type something!");
 
-	// just wait and turn the rotor
+	// just wait and turn the rotor		xzl: inf loop
 	for (unsigned nCount = 0; 1; nCount++)
 	{
-		USPiKeyboardUpdateLEDs ();
+		USPiKeyboardUpdateLEDs ();	// xzl: keep updating kb LED? 
 
 		ScreenDeviceRotor (USPiEnvGetScreen (), 0, nCount);
 	}

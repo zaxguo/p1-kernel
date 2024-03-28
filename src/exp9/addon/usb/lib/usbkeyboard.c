@@ -178,6 +178,7 @@ void USBKeyboardDeviceRegisterShutdownHandler (TUSBKeyboardDevice *pThis, TShutd
 	pThis->m_pShutdownHandler = pShutdownHandler;
 }
 
+// xzl: set kb LED based on buffered 'state'? (capslock, numlock, etc)
 void USBKeyboardDeviceUpdateLEDs (TUSBKeyboardDevice *pThis)
 {
 	assert (pThis != 0);

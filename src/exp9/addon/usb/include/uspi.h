@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
+// xzl: the APIs of usb lib...
 #ifndef _uspi_h
 #define _uspi_h
 
@@ -52,7 +53,15 @@ int USPiInitialize (void);
 // returns != 0 if available
 int USPiKeyboardAvailable (void);
 
-// "cooked mode"
+// "cooked mode"			
+// xzl: https://unix.stackexchange.com/questions/21752/what-s-the-difference-between-a-raw-and-a-cooked-device-driver#:~:text=%22Cooked%22%20is%20called%20canonical%20and,this%20is%20called%20%22cooked%22.
+// The terminal driver is, by default a line-based system: characters are 
+// buffered internally until a carriage return (Enter or Return) before 
+// it is passed to the program - this is called "cooked".
+// This allows certain characters to be processed (see stty(1)), such as CtrlD, 
+// CtrlS, CtrlU, Backspace); essentially rudimentary line-editing. The terminal 
+// driver "cooks" the characters before serving them up.
+// xzl: the following func still returns one keypress at a time??
 typedef void TUSPiKeyPressedHandler (const char *pString);
 void USPiKeyboardRegisterKeyPressedHandler (TUSPiKeyPressedHandler *pKeyPressedHandler);
 
@@ -61,6 +70,7 @@ typedef void TUSPiShutdownHandler (void);
 void USPiKeyboardRegisterShutdownHandler (TUSPiShutdownHandler *pShutdownHandler);
 
 // Call this frequently from your application main loop to allow updating the keyboard LEDs.
+// xzl: need SW to set LEDs? not the kb hw?
 void USPiKeyboardUpdateLEDs (void);
 
 // "raw mode" (if this handler is registered the others are ignored)
@@ -115,12 +125,15 @@ int USPiMassStorageDeviceAvailable (void);
 // ullOffset and nCount must be multiple of USPI_BLOCK_SIZE
 // returns number of read bytes or < 0 on failure
 // nDeviceIndex is 0-based
-int USPiMassStorageDeviceRead (unsigned long long ullOffset, void *pBuffer, unsigned nCount, unsigned nDeviceIndex);
+// xzl: byte-based. TODO -change the interface to be sector based. 
+int USPiMassStorageDeviceRead (unsigned long long ullOffset, void *pBuffer, 
+	unsigned nCount, unsigned nDeviceIndex);
 
 // ullOffset and nCount must be multiple of USPI_BLOCK_SIZE
 // returns number of written bytes or < 0 on failure
 // nDeviceIndex is 0-based
-int USPiMassStorageDeviceWrite (unsigned long long ullOffset, const void *pBuffer, unsigned nCount, unsigned nDeviceIndex);
+int USPiMassStorageDeviceWrite (unsigned long long ullOffset, 
+	const void *pBuffer, unsigned nCount, unsigned nDeviceIndex);
 
 // returns the number of available blocks of USPI_BLOCK_SIZE or 0 on failure
 unsigned USPiMassStorageDeviceGetCapacity (unsigned nDeviceIndex);

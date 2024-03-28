@@ -462,6 +462,7 @@ int USBBulkOnlyMassStorageDeviceWrite (TUSBBulkOnlyMassStorageDevice *pThis, con
 	return nResult;
 }
 
+// xzl why need this
 unsigned long long USBBulkOnlyMassStorageDeviceSeek (TUSBBulkOnlyMassStorageDevice *pThis, unsigned long long ullOffset)
 {
 	assert (pThis != 0);
@@ -478,6 +479,9 @@ unsigned USBBulkOnlyMassStorageDeviceGetCapacity (TUSBBulkOnlyMassStorageDevice 
 	return pThis->m_nBlockCount;
 }
 
+// xzl: will convert byte address to block address.. (why bother with byte addr
+//		in the first place), then send to device...
+//	the address comes from m_ullOffset, which is maintained by the lib (weird design
 int USBBulkOnlyMassStorageDeviceTryRead (TUSBBulkOnlyMassStorageDevice *pThis, void *pBuffer, unsigned nCount)
 {
 	assert (pThis != 0);

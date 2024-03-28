@@ -131,7 +131,11 @@ void test_mbox() {
 #include "uspios.h"
 #include "uspi.h"
 
-void test_usb() {
+static void KeyPressedHandler(const char *pString) {
+    I("received string: %s", pString);
+}
+
+void test_usb_kb() {
 	if (!USPiInitialize ()) {
 		E("cannot init"); 
         return; 
@@ -141,5 +145,89 @@ void test_usb() {
         E("kb not found");
         return; 
 	}
-    E("kb found");
+    I("kb found... Just type something!");
+    USPiKeyboardRegisterKeyPressedHandler (KeyPressedHandler); 
+	// just wait and turn the rotor		xzl: inf loop
+    for (unsigned nCount = 0; 1; nCount++) {
+        USPiKeyboardUpdateLEDs(); // xzl: keep updating kb LED
+    }
+}
+
+///////////////////////////// mass storage test ////////////////////////
+// cf: usb/sample/storage/main.c
+// for MBR, cf: https://wiki.osdev.org/MBR_(x86)
+//      illustration: https://cpl.li/posts/2019-03-12-mbrfat/
+//          ("MBR, LBA, FAT32" by Alexandru-Paul Copil)
+#define PACKED		__attribute__ ((packed))
+typedef struct TCHSAddress {
+    unsigned char Head;
+    unsigned char Sector : 6,
+        CylinderHigh : 2;
+    unsigned char CylinderLow;
+} PACKED TCHSAddress;    // CHS: cylinder-head-sector addressing. mandatory
+
+typedef struct TPartitionEntry {
+    unsigned char Status;
+    TCHSAddress FirstSector;
+    unsigned char Type;
+    TCHSAddress LastSector;
+    unsigned LBAFirstSector;  // LBA: Logical Block Allocation (linear, simple addressing)
+    unsigned NumberOfSectors;
+} PACKED TPartitionEntry;
+
+typedef struct TMasterBootRecord {
+    unsigned char BootCode[0x1BE];
+    TPartitionEntry Partition[4];
+    unsigned short BootSignature;
+#define BOOT_SIGNATURE 0xAA55
+} PACKED TMasterBootRecord;
+
+void test_usb_storage() {
+    if (!USPiInitialize()) {
+        E("cannot init");
+        return;
+    }
+
+    int nDevices = USPiMassStorageDeviceAvailable();
+    if (nDevices < 1) {
+        E("no mass torage dev");
+        return;
+    }
+
+    for (unsigned nDeviceIndex = 0; nDeviceIndex < (unsigned)nDevices; nDeviceIndex++) {
+        TMasterBootRecord MBR;
+        if (USPiMassStorageDeviceRead(0, &MBR, sizeof MBR, nDeviceIndex) != sizeof MBR) {
+            W("read error");
+            continue;
+        }
+
+        if (MBR.BootSignature != BOOT_SIGNATURE) {
+            W("Boot signature not found");
+            continue;
+        }
+
+        I("Dumping the partition table");
+        I("# Status Type  1stSector    Sectors");
+
+        // NB: partiion 1 could start from sector32. 
+        // cf: https://unix.stackexchange.com/questions/81556/area-on-disk-after-the-mbr-and-before-the-partition-start-point
+        // "The old 32KiB gap between MBR and first sector of file system is 
+        //  called DOS compatibility region or MBR gap, because DOS required 
+        //  that the partitions started at cylinder boundaries".
+        for (unsigned nPartition = 0; nPartition < 4; nPartition++) {
+            W("%u %02X     %02X   %10u %10u",
+              nPartition + 1,
+              (unsigned)MBR.Partition[nPartition].Status,
+              (unsigned)MBR.Partition[nPartition].Type,
+              MBR.Partition[nPartition].LBAFirstSector,
+              MBR.Partition[nPartition].NumberOfSectors);
+        }
+    }
+}
+
+///////////////////
+extern void fb_showpicture(void); 
+
+void test_fb() {
+    fb_showpicture();
 }

@@ -62,6 +62,29 @@ void free_page(unsigned long p){
 
 static void alloc_init (unsigned char *ulBase, unsigned long ulSize); 
 
+// reserve a phys region. all pages must be unused previously. 
+// caller must hold alloc_lock
+// return 0 if succeeds
+static int _reserve_phys_region(unsigned long pa_start, unsigned long size) {
+	if ((pa_start & ~PAGE_MASK) != 0 || (size & ~PAGE_MASK) != 0)
+		{BUG(); return -1;}
+	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++){
+		if (mem_map[i])	
+			{return -2;}      // page already taken?   
+	}	
+	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++)
+		mem_map[i] = 1; 
+	return 0; 
+}
+
+int reserve_phys_region(unsigned long pa_start, unsigned long size) {
+	int ret; 
+	acquire(&alloc_lock); 
+	ret = _reserve_phys_region(pa_start, size);
+	release(&alloc_lock); 
+	return ret; 
+}
+
 // return: # of paging pages
 unsigned int paging_init() {
 	LOW_MEMORY = VA2PA(PGROUNDUP((unsigned long)&kernel_end));	
@@ -80,11 +103,18 @@ unsigned int paging_init() {
     // reserve a virtually contig region for malloc(). 
     if (MALLOC_PAGES) {
         acquire(&alloc_lock); 
-        for (int i = 0; i < MALLOC_PAGES; i++) {
-            BUG_ON(mem_map[i]);      // page already taken?
-            mem_map[i] = 1;             
-        }
-        alloc_init(PA2VA(LOW_MEMORY), MALLOC_PAGES * PAGE_SIZE); 
+        // for (int i = 0; i < MALLOC_PAGES; i++) {
+        //     BUG_ON(mem_map[i]);      // page already taken?
+        //     mem_map[i] = 1;             
+        // }
+		// int ret = _reserve_phys_region(LOW_MEMORY, MALLOC_PAGES * PAGE_SIZE); 
+		// BUG_ON(ret); 
+        // alloc_init(PA2VA(LOW_MEMORY), MALLOC_PAGES * PAGE_SIZE); 
+		int ret = _reserve_phys_region(HIGH_MEMORY-MALLOC_PAGES*PAGE_SIZE, 
+			MALLOC_PAGES*PAGE_SIZE); 
+		BUG_ON(ret); 
+        alloc_init(PA2VA(HIGH_MEMORY-MALLOC_PAGES*PAGE_SIZE), 
+			MALLOC_PAGES*PAGE_SIZE); 		
         release(&alloc_lock);
     } 
     I("     malloc area: %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),

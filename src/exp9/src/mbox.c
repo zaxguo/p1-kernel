@@ -25,6 +25,7 @@
 
  // https://github.com/raspberrypi/firmware/wiki/Mailboxes
 // ref: https://github.com/RT-Thread/rt-thread/blob/master/bsp/raspberry-pi/raspi3-64/driver/mbox.c 
+// ref: https://www.valvers.com/open-software/raspberry-pi/bare-metal-programming-in-c-part-5/#part-5armc-016
 
 #include "plat.h"
 #include "mmu.h"
@@ -140,21 +141,6 @@ int mbox_call(unsigned char ch)
 //
 #include "rev_uva_logo_color3-resized.h"
 
-static unsigned char *lfb;  // framebuffer
-
-/* dimensions and channel order */
-static unsigned int width = 1024;
-static unsigned int height = 768;
-
-static unsigned int vwidth = 1024;
-static unsigned int vheight = 768;
-
-static unsigned int pitch; 
-static unsigned int isrgb; 
-
-static unsigned int offsetx = 0; 
-static unsigned int offsety = 0; 
-
 /* PC Screen Font as used by Linux Console */
 typedef struct {
     unsigned int magic;
@@ -188,15 +174,36 @@ typedef struct {
 
 extern volatile unsigned char _binary_font_sfn_start; // linker script
 
+struct fb_struct {
+    unsigned char *fb;  // framebuffer, kernel va
+    unsigned width, height, vwidth, vheight, pitch; 
+    unsigned depth; 
+    unsigned isrgb; 
+    unsigned offsetx, offsety; 
+    unsigned size; 
+}; 
+
+// 1024x768, phys WH = virt WH, offset (0,0)
+static struct fb_struct the_fb = {
+    .width = 1024,
+    .height = 768, 
+    .vwidth = 1024, 
+    .vheight = 768,
+    .depth = 32, 
+    .offsetx = 0,
+    .offsety = 0,
+}; 
+
 /**
- * Set screen resolution to 1024x768
- * 
  * For mailbox property interface,
  * cf: https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
+ * 
+ * return 0 if succeeds. 
  */
-
-void lfb_init()
+static int do_fb_init(struct fb_struct *fbs)
 {    
+    if (!fbs) return -1; 
+
     acquire(&mboxlock); 
 
     mbox[0] = 35*4;     // size of the whole buf that follows
@@ -207,25 +214,25 @@ void lfb_init()
     mbox[2] = 0x48003;  //set phy width & height
     mbox[3] = 8;        // total buf size of this tag
     mbox[4] = 8;        // req val size (needed?), to be overwritten as resp val size
-    mbox[5] = width;           //(val) FrameBufferInfo.width
-    mbox[6] = height;          //(val) FrameBufferInfo.height
+    mbox[5] = fbs->width;           //(val) FrameBufferInfo.width
+    mbox[6] = fbs->height;          //(val) FrameBufferInfo.height
 
     mbox[7] = 0x48004;  //set virt width & height
     mbox[8] = 8;
     mbox[9] = 8;
-    mbox[10] = vwidth;        //FrameBufferInfo.virtual_width
-    mbox[11] = vheight;         //FrameBufferInfo.virtual_height
+    mbox[10] = fbs->vwidth;        //FrameBufferInfo.virtual_width
+    mbox[11] = fbs->vheight;         //FrameBufferInfo.virtual_height
 
     mbox[12] = 0x48009; //set virt offset
     mbox[13] = 8;
     mbox[14] = 8;
-    mbox[15] = offsetx;           //FrameBufferInfo.x_offset
-    mbox[16] = offsety;           //FrameBufferInfo.y.offset
+    mbox[15] = fbs->offsetx;           
+    mbox[16] = fbs->offsety;           
 
     mbox[17] = 0x48005; //set depth
     mbox[18] = 4;
     mbox[19] = 4;
-    mbox[20] = 32;          //FrameBufferInfo.depth
+    mbox[20] = fbs->depth;       
 
     mbox[21] = 0x48006;     //set pixel order
     mbox[22] = 4;
@@ -234,11 +241,11 @@ void lfb_init()
 
     mbox[25] = 0x40001;     //get framebuffer, gets alignment on request
     mbox[26] = 8;
-    mbox[27] = 8;
-    mbox[28] = 4096;        //FrameBufferInfo.pointer
-    mbox[29] = 0;           //FrameBufferInfo.size
+    mbox[27] = 8;           // xzl: should be 4?? (req para size)
+    mbox[28] = 4096;        //req: alignment; resp: FrameBufferInfo.pointer
+    mbox[29] = 0;           //resp: FrameBufferInfo.size
 
-    mbox[30] = 0x40008; //get pitch
+    mbox[30] = 0x40008;     //get pitch
     mbox[31] = 4;
     mbox[32] = 4;
     mbox[33] = 0;           //FrameBufferInfo.pitch
@@ -247,73 +254,43 @@ void lfb_init()
 
     // make call, then check some response vals that may fail
     if(mbox_call(MBOX_CH_PROP) 
-        && mbox[20]==32 /*depth*/ 
+        && mbox[20]==fbs->depth /*depth*/ 
         && mbox[28]!=0 /*framebuf*/) {
         // extract framebuf info from resp...
         mbox[28]&=0x3FFFFFFF;  
-        width=mbox[5];
-        height=mbox[6];
-        pitch=mbox[33];
-        vwidth=mbox[10];
-        vheight=mbox[11];        
-        isrgb=mbox[24];         // channel order
-        lfb=(void*)((unsigned long)mbox[28]);   // save framebuf ptr
+        fbs->fb = PA2VA((unsigned long)mbox[28]);   // save framebuf ptr
+        fbs->width=mbox[5];
+        fbs->height=mbox[6];
+        fbs->pitch=mbox[33];
+        fbs->vwidth=mbox[10];
+        fbs->vheight=mbox[11];        
+        fbs->isrgb=mbox[24];         // channel order        
+        fbs->size = fbs->pitch * fbs->vheight; 
+        I("OK. fb pa: 0x%08x pitch %u", mbox[28], mbox[33]); 
     } else {
-        printf("Unable to set screen resolution to 1024x768x32\n");
+        E("Unable to set screen resolution to 1024x768x32\n");
+        return -2; 
     }
-
     release(&mboxlock); 
+    if (reserve_phys_region(mbox[28], fbs->size)) {
+        E("failed to reserve fb memory. already in use."); 
+        return -1; 
+    } else 
+        return 0; 
 }
 
-/**
- * Display a string using fixed size PSF
- */
-void lfb_print(int x, int y, char *s)
-{
-    // get our font
-    psf_t *font = (psf_t*)&_binary_font_psf_start;
-    // draw next character if it's not zero
-    while(*s) {
-        // get the offset of the glyph. Need to adjust this to support unicode table
-        unsigned char *glyph = (unsigned char*)&_binary_font_psf_start +
-         font->headersize + (*((unsigned char*)s)<font->numglyph?*s:0)*font->bytesperglyph;
-        // calculate the offset on screen
-        int offs = (y * pitch) + (x * 4);
-        // variables
-        int i,j, line,mask, bytesperline=(font->width+7)/8;
-        // handle carrige return
-        if(*s == '\r') {
-            x = 0;
-        } else
-        // new line
-        if(*s == '\n') {
-            x = 0; y += font->height;
-        } else {
-            // display a character
-            for(j=0;j<font->height;j++){
-                // display one row
-                line=offs;
-                mask=1<<(font->width-1);
-                for(i=0;i<font->width;i++){
-                    // if bit set, we use white color, otherwise black
-                    *((unsigned int*)(lfb + line))=((int)*glyph) & mask?0xFFFFFF:0;
-                    mask>>=1;
-                    line+=4;
-                }
-                // adjust to next line
-                glyph+=bytesperline;
-                offs+=pitch;
-            }
-            x += (font->width+1);
-        }
-        // next character
-        s++;
-    }
+int fb_init(void) {
+    return do_fb_init(&the_fb); 
 }
 
+// Display a string using fixed size PSF update x,y screen coordinates
 // x/y IN|OUT: the postion before/after the screen output
-void lfb_print_update(int *x, int *y, char *s)
+// void fb_print(struct fb_struct *fbs, int *x, int *y, char *s)
+void fb_print(int *x, int *y, char *s)
 {
+    unsigned pitch = the_fb.pitch; 
+    unsigned char *fb = the_fb.fb; 
+
     // get our font
     psf_t *font = (psf_t*)&_binary_font_psf_start;
     // draw next character if it's not zero
@@ -340,7 +317,7 @@ void lfb_print_update(int *x, int *y, char *s)
                 mask=1<<(font->width-1);
                 for(i=0;i<font->width;i++){
                     // if bit set, we use white color, otherwise black
-                    *((unsigned int*)(lfb + line))=((int)*glyph) & mask?0xFFFFFF:0;
+                    *((unsigned int*)(fb + line))=((int)*glyph) & mask?0xFFFFFF:0;
                     mask>>=1;
                     line+=4;
                 }
@@ -418,29 +395,30 @@ void lfb_proprint(int x, int y, char *s)
 #define IMG_HEIGHT img_height
 #define IMG_WIDTH img_width
 
-void lfb_showpicture()
+void fb_showpicture()
 {
     int x,y;
-    unsigned char *ptr=lfb;
+    unsigned char *ptr=the_fb.fb;
     char *data=IMG_DATA, pixel[4];
     // fill framebuf. crop img data per the framebuf size
-    unsigned int img_fb_height = vheight < IMG_HEIGHT ? vheight : IMG_HEIGHT; 
-    unsigned int img_fb_width = vwidth < IMG_WIDTH ? vwidth : IMG_WIDTH; 
+    unsigned int img_fb_height = the_fb.vheight < IMG_HEIGHT ? the_fb.vheight : IMG_HEIGHT; 
+    unsigned int img_fb_width = the_fb.vwidth < IMG_WIDTH ? the_fb.vwidth : IMG_WIDTH; 
 
     // xzl: copy the image pixels to the start (top) of framebuf    
     //ptr += (vheight-img_fb_height)/2*pitch + (vwidth-img_fb_width)*2;  
-    ptr += (vwidth-img_fb_width)*2;  
+    ptr += (the_fb.vwidth-img_fb_width)*2;  
     
     for(y=0;y<img_fb_height;y++) {
         for(x=0;x<img_fb_width;x++) {
             HEADER_PIXEL(data, pixel);
             // the image is in RGB. So if we have an RGB framebuffer, we can copy the pixels
             // directly, but for BGR we must swap R (pixel[0]) and B (pixel[2]) channels.
-            *((unsigned int*)ptr)=isrgb ? *((unsigned int *)&pixel) : (unsigned int)(pixel[0]<<16 | pixel[1]<<8 | pixel[2]);
+            *((unsigned int*)ptr)=the_fb.isrgb ? *((unsigned int *)&pixel) : (unsigned int)(pixel[0]<<16 | pixel[1]<<8 | pixel[2]);
             ptr+=4;
         }
-        ptr+=pitch-img_fb_width*4;
+        ptr+=the_fb.pitch-img_fb_width*4;
     }
+    __asm_flush_dcache_range(the_fb.fb, the_fb.fb + the_fb.size); 
 }
 
 /////////////////////////////

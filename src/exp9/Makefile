@@ -53,22 +53,22 @@ clean :
 
 # use -O0 only for user.c (launcher), for which -O2 emits references to kernel va and crashes things
 $(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(ARMGNU)-gcc $(COPS1) -MMD -c $< -o $@
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 # font build rules. 
 # NB: the symbols in the binary will have prefix "_binary". 
 $(BUILD_DIR)/%_psf.o: %.psf
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(ARMGNU)-ld -r -b binary -o $@ $<
 
 # ramdisk build rules
 $(BUILD_DIR)/%_bin.o: %.bin
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(ARMGNU)-ld -r -b binary -o $@ $<
 
 # asm rule 

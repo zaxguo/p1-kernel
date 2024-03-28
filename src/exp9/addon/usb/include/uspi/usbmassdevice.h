@@ -43,7 +43,7 @@ typedef struct TUSBBulkOnlyMassStorageDevice
 
 	unsigned m_nCWBTag;
 	unsigned m_nBlockCount;
-	unsigned long long m_ullOffset;
+	unsigned long long m_ullOffset;		// xzl: why need to track this? for seq read?
 }
 TUSBBulkOnlyMassStorageDevice;
 

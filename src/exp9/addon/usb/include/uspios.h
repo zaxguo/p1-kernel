@@ -45,8 +45,8 @@ extern "C" {
 //#define USPI_DEFAULT_KEYMAP_ES
 //#define USPI_DEFAULT_KEYMAP_FR
 //#define USPI_DEFAULT_KEYMAP_IT
-#define USPI_DEFAULT_KEYMAP_UK
-//#define USPI_DEFAULT_KEYMAP_US
+//#define USPI_DEFAULT_KEYMAP_UK
+#define USPI_DEFAULT_KEYMAP_US
 
 // Undefine this if you want to use your own implementation of the functions in uspi/util.h
 #define USPI_PROVIDE_MEM_FUNCTIONS	// mem*()
@@ -113,11 +113,11 @@ int GetMACAddress (unsigned char Buffer[6]);	// "get board MAC address"
 
 
 extern void tfp_printf(char *fmt, ...);		// printf.c
-#define LogWrite(src, se, fmt, arg...)  \
-		do { 							\
-		tfp_printf("%s:", src);			\
-		tfp_printf((char *)fmt, ##arg); 					\
-		tfp_printf("\n");					\
+#define LogWrite(src, se, fmt, arg...)  		\
+		do { 									\
+		tfp_printf("%s:", src);					\
+		tfp_printf((char *)fmt, ##arg); 		\
+		tfp_printf("\n");						\
 	} while (0)
 
 //

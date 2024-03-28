@@ -24,6 +24,7 @@ struct stat;
 struct pipe; 
 struct mm_struct; 
 struct task_struct; 
+struct fb_struct; 
 
 // ------------------- misc ----------------------------- //
 
@@ -88,6 +89,7 @@ void *kalloc(); // kernel va
 void kfree(void *p);    // give kernel va
 unsigned long get_free_page();      // pa
 void free_page(unsigned long p);    // pa 
+int reserve_phys_region(unsigned long pa_start, unsigned long size); 
 
 void *malloc (unsigned s); 
 void free (void *p); 
@@ -246,6 +248,8 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk);
 int get_mac_addr(unsigned char buf[MAC_SIZE]);
 int set_powerstate_on(unsigned deviceid); 
 int get_board_serial(unsigned long *s);
+
+int fb_init(void); 
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)
