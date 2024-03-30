@@ -42,4 +42,4 @@ extern struct devsw devsw[];
 // major num for devices
 #define CONSOLE       1     
 #define KEYBOARD      2    
-#define FRAMEBUFFER   3    
+#define FRAMEBUFFER   3

@@ -227,6 +227,9 @@ void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
 
+// kb.c
+int usbkb_init(void); 
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 

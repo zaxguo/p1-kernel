@@ -27,7 +27,7 @@ void kernel_process() {
 	// test_ktimer(); while (1); 
 	// test_malloc(); while (1); 
 	// test_mbox(); while (1); 
-	test_usb_kb(); while (1); 
+	// test_usb_kb(); while (1); 
 	// test_usb_storage(); while (1); 
 	// test_fb(); while (1); 
 
@@ -66,12 +66,12 @@ void kernel_main()
 	irq_vector_init();
 	W("here");
 	generic_timer_init(); 	// for sched ticks
-	sys_timer_init(); 		// for kernel timer, we shouldn't miss its 1st irq...
+	sys_timer_init(); 		// for kernel timer
 	enable_interrupt_controller();
-	W("here");
 	enable_irq();
-	W("here");
 	
+	if (usbkb_init() == 0) I("usb kb init done"); 
+
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
 	if (res < 0) {
 		printf("error while starting kernel process");

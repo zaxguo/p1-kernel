@@ -120,6 +120,7 @@ endif
 ifeq (${PLAT}, rpi3)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
 C_OBJS += $(BUILD_DIR)/uspibind_c.o		# usb glue
+C_OBJS += $(BUILD_DIR)/kb_c.o		# usb glue
 BIN_OBJS += addon/usb/lib/libuspi.a		# usb lib
 endif
 

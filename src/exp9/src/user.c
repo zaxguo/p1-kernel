@@ -63,7 +63,11 @@ void loop1(char *str) {
 		print_to_console(str);
 }
 
-#define CONSOLE 1     // major num for device console
+// major num for devices (must agree with kernel file.h)
+#define CONSOLE     1     
+#define KEYBOARD    2     
+#define FRAMEBUFFER   3    
+
 void ls(char *path);
 
 #if 0       // wont work 
@@ -114,6 +118,7 @@ void user_process() {
     // USER_PROGRAM1("/ls", "/ls", "/");    
     // USER_PROGRAM1("/mkdir", "/mkdir", "ccc");    
     // USER_PROGRAM1("/forktest", "/forktest", "/");    
+    USER_PROGRAM1("/cat", "/cat", "events");
 
     // USER_PROGRAM1("usertests", "/usertests", "sbrkbasic");    
     // USER_PROGRAM1("usertests", "/usertests", "sbrkmuch");    
@@ -132,16 +137,21 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
     // USER_PROGRAM1("/usertests", "/usertests", "simplesleep");     // sleep & scheduling. ok
 
-    USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
+    // USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 
-    char console[] = {"console"}; 
-
+    char console[] = {"console"};     
     if (call_sys_open(console, O_RDWR) < 0) {
         call_sys_mknod(console, CONSOLE, 0);
         call_sys_open(console, O_RDWR);
     }
     call_sys_dup(0); // stdout
     call_sys_dup(0); // stderr
+
+    char kb[] = {"events"};     // use SDL naming
+    if (call_sys_open(kb, O_RDONLY) < 0) {
+        call_sys_mknod(kb, KEYBOARD, 0);
+        call_sys_open(console, O_RDONLY);
+    }    
 
     char msg[] = {"User process entry\n\r"};
     print_to_console(msg);

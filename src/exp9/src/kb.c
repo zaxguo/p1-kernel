@@ -3,11 +3,12 @@
 
 #include <stdarg.h>
 
-#include "file.h"
-#include "fs.h"
-#include "sched.h"
-#include "sleeplock.h"
+#include "param.h"
 #include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "sched.h"
 #include "utils.h"
 
 // kb event, modeled after SDL keyboard event
@@ -31,8 +32,8 @@ struct {
     uint w; // Write index
 } kb;
 
-#define NUM_SCANCODES 64 // all the way to KEY_KPDOT
-#define KEY_RELEASED 0
+#define NUM_SCANCODES   0x64 // all the way to KEY_KPDOT, cf https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  
+#define KEY_RELEASED    0
 #define KEY_CONT_PRESSED 1
 #define KEY_JUST_PRESSED 2
 
@@ -51,6 +52,8 @@ int kb_read(int user_dst, uint64 dst, int n) {
     struct kbevent ev;
 #define TXTSIZE 20     
     char ev_txt[TXTSIZE]; 
+
+    V("called user_dst %d", user_dst);
 
     target = n;
     acquire(&kb.lock);
@@ -89,18 +92,20 @@ int kb_read(int user_dst, uint64 dst, int n) {
 // if buf full, drop event but still change key state
 void kb_intr(unsigned char mod, const unsigned char keys[6]) {
     unsigned char c;
-    if (!keys[0] || keys[1] == 1 /*KEY_ERR_OVF*/) // no scan code or too many keys
+
+    if (keys[0] == 1 /*KEY_ERR_OVF*/) // too many keys
         return;
+
+    V("mod %u key %02x %02x %02x %02x %02x %02x", mod, keys[0], keys[1], keys[2], keys[3], keys[4], keys[5]);
 
     acquire(&kb.lock);
 
     for (int i = 0; i < 6; i++) {
         c = keys[i];
-        BUG_ON(c > NUM_SCANCODES); // scan code we didn't include?
-        if (c == 0)
-            break; // no more scan code
+        if (c > NUM_SCANCODES) {E("unknown code?"); continue;}
+        if (c == 0) break; // no more scan code
         if (key_states[c] == KEY_RELEASED) {
-            if (kb.w - kb.r == INPUT_BUF_SIZE) {
+            if (kb.w-kb.r < INPUT_BUF_SIZE) {
                 struct kbevent ev = {
                     .type = KEYDOWN,
                     .mod = mod,
@@ -112,10 +117,10 @@ void kb_intr(unsigned char mod, const unsigned char keys[6]) {
             key_states[c] = KEY_JUST_PRESSED; // renew the state
     }
 
-    for (c = 0; c < NUM_SCANCODES; c++) {
+    for (c = 2; c < NUM_SCANCODES; c++) {       //0,1 are nocode,ovf
         switch (key_states[c]) {
         case KEY_CONT_PRESSED: // pressed before, but not pressed in current scan
-            if (kb.w - kb.r == INPUT_BUF_SIZE) {
+            if (kb.w-kb.r < INPUT_BUF_SIZE) {
                 struct kbevent ev = {
                     .type = KEYUP,
                     .mod = mod,
@@ -138,10 +143,25 @@ void kb_intr(unsigned char mod, const unsigned char keys[6]) {
     release(&kb.lock);
 }
 
-void kbinit(void) {
+#include "uspios.h"
+#include "uspi.h"
+
+// return 0 on success
+int usbkb_init(void) {
 
     initlock(&kb.lock, "kb");
 
+	if (!USPiInitialize ()) {
+		E("cannot init"); 
+        return -1; 
+	}
+	if (!USPiKeyboardAvailable ()) {
+        E("kb not found");
+        return -1; 
+	}
+    USPiKeyboardRegisterKeyStatusHandlerRaw(kb_intr); 
+
     devsw[KEYBOARD].read = kb_read;
-    devsw[CONSOLE].write = 0; // nothing
+    devsw[KEYBOARD].write = 0; // nothing
+    return 0; 
 }

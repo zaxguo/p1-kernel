@@ -155,7 +155,7 @@ void test_usb_kb() {
     USPiKeyboardRegisterKeyPressedHandler (KeyPressedHandler); 
     // USPiKeyboardRegisterKeyStatusHandlerRaw(KeyStatusHandlerRaw); 
 
-	// just wait and turn the rotor		xzl: inf loop
+	// inf loop
     for (unsigned nCount = 0; 1; nCount++) {
         USPiKeyboardUpdateLEDs(); // xzl: keep updating kb LED
     }

@@ -29,8 +29,12 @@ static const char FromUSPi[] = "uspi";
 
 static TUSPiLibrary *s_pLibrary = 0;
 
+static int usb_init = 0; // flag
+
 int USPiInitialize (void)
 {
+	if (usb_init) return 0; 
+
 	LogWrite (FromUSPi, LOG_DEBUG, "Initializing " USPI_NAME " " USPI_VERSION_STRING);
 
 	assert (s_pLibrary == 0);
@@ -90,6 +94,7 @@ int USPiInitialize (void)
 
 	LogWrite (FromUSPi, LOG_DEBUG, USPI_NAME " successfully initialized");
 
+	usb_init = 1; 
 	return 1;
 }
 

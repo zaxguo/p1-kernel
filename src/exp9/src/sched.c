@@ -166,7 +166,7 @@ void switch_to(struct task_struct * next) {
 }
 
 void timer_tick() {
-	I("%s counter %d preempt_count %d \n", __func__, current->counter, current->preempt_count);
+	V("%s counter %ld preempt_count %ld \n", __func__, current->counter, current->preempt_count);
 
 	--current->counter;
 	if (current->counter > 0 || current->preempt_count > 0) 
@@ -205,7 +205,7 @@ void wakeup(void *chan) {
             //   acquire(&p->lock);     // wont need as we turned off irq
             if (p->state == TASK_SLEEPING && p->chan == chan) {
                 p->state = TASK_RUNNABLE;
-                V("wakeup chan=%lx pid %d", (unsigned long)p->chan, p->pid);
+                I("wakeup chan=%lx pid %d", (unsigned long)p->chan, p->pid);
             }
             //   release(&p->lock);
         }
@@ -230,10 +230,11 @@ void sleep(void *chan, struct spinlock *lk) {
     push_off(); // xzl	our scheduler lock
     release(lk);
 
+    I("sleep chan=%lx pid %d", (unsigned long)chan, p->pid);
+
     // Go to sleep.
     p->chan = chan;
     p->state = TASK_SLEEPING;
-
     pop_off();
 
     _schedule();
@@ -387,7 +388,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
         // Wait for a child to exit.
         I("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
         sleep(p, &wait_lock); // DOC: wait-sleep
-        I("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
+        I("pid %d wake up from sleep. p->chan %lx state %ld", current->pid, 
             (unsigned long)p->chan, p->state);
     }
 }
