@@ -6,7 +6,7 @@
 #define NCPU	        1			
 #define MAXPATH         128   // maximum file path name
 #define NINODE          50  // maximum number of active i-nodes
-#define NDEV            10  // maximum major device number
+// #define NDEV            10  // maximum major device number
 #define MAXARG       32  // max exec arguments
 #define NFILE       100  // open files per system
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?

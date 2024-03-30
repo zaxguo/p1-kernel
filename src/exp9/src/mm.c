@@ -658,8 +658,9 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 	unsigned long dfs = (esr & 0b111111);
 
 	if (addr > USER_VA_END) {
-		E("do_mem_abort: bad user va. faulty addr 0x%lx > USER_VA_END %x", addr, 
+		E("do_mem_abort: bad user va? faulty addr 0x%lx > USER_VA_END %x", addr, 
 			USER_VA_END); 
+		E("esr 0x%lx, elr 0x%lx", esr, elr); 
 		goto exit; 
 	}
 

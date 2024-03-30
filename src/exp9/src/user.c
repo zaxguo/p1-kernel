@@ -19,7 +19,6 @@
 
 
 #include "user_sys.h"
-#include "user.h"
 #include "fcntl.h"
 // #include "utils.h"
 
@@ -62,11 +61,6 @@ void loop1(char *str) {
 	// for (int i = 0; i < 3; i++)
 		print_to_console(str);
 }
-
-// major num for devices (must agree with kernel file.h)
-#define CONSOLE     1     
-#define KEYBOARD    2     
-#define FRAMEBUFFER   3    
 
 void ls(char *path);
 
@@ -118,7 +112,7 @@ void user_process() {
     // USER_PROGRAM1("/ls", "/ls", "/");    
     // USER_PROGRAM1("/mkdir", "/mkdir", "ccc");    
     // USER_PROGRAM1("/forktest", "/forktest", "/");    
-    USER_PROGRAM1("/cat", "/cat", "events");
+    // USER_PROGRAM1("/cat", "/cat", "/proc/dispinfo");
 
     // USER_PROGRAM1("usertests", "/usertests", "sbrkbasic");    
     // USER_PROGRAM1("usertests", "/usertests", "sbrkmuch");    
@@ -137,7 +131,7 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
     // USER_PROGRAM1("/usertests", "/usertests", "simplesleep");     // sleep & scheduling. ok
 
-    // USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
+    USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 
     char console[] = {"console"};     
     if (call_sys_open(console, O_RDWR) < 0) {
@@ -147,15 +141,21 @@ void user_process() {
     call_sys_dup(0); // stdout
     call_sys_dup(0); // stderr
 
-    char kb[] = {"events"};     // use SDL naming
-    if (call_sys_open(kb, O_RDONLY) < 0) {
-        call_sys_mknod(kb, KEYBOARD, 0);
-        call_sys_open(console, O_RDONLY);
-    }    
-
     char msg[] = {"User process entry\n\r"};
     print_to_console(msg);
-    print_to_console(path);
+    // print_to_console(path);
+
+    // int ret; 
+    // ret = call_sys_mkdir("/dev"); if (ret) {print_to_console("Error\n"); goto exec;}
+    // ret = call_sys_mknod("/dev/null", DEVNULL, 0); if (ret) {print_to_console("Error\n"); goto exec;}
+    // ret = call_sys_mknod("/dev/zero", DEVZERO, 0); if (ret) {print_to_console("Error\n"); goto exec;}
+    // ret = call_sys_mknod("/dev/events", KEYBOARD, 0); if (ret) {print_to_console("Error\n"); goto exec;}
+
+    // char kb[] = {"events"};     // use SDL naming
+    // if (call_sys_open(kb, O_RDONLY) < 0) {
+    //     call_sys_mknod(kb, KEYBOARD, 0);
+    //     call_sys_open(console, O_RDONLY);
+    // }    
 
     call_sys_exec(path, argv);
 }

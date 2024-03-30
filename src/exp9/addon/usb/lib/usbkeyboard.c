@@ -18,7 +18,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-// xzl: USB HID kb scand codes... 
+// xzl: USB HID kb scan codes... 
 // 	each HID report (often 8 bytes) 
 //  byte 0 modifier mask
 //	byte 1 =00 reserved

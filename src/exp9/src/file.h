@@ -1,14 +1,15 @@
 // from xv6-riscv 
 // a vfs layer
 struct file {
-  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE, FD_PROCFS } type;
   int ref; // reference count
   char readable;
   char writable;
   struct pipe *pipe; // FD_PIPE
-  struct inode *ip;  // FD_INODE and FD_DEVICE
+  struct inode *ip;  // FD_INODE and FD_DEVICE (& FD_PROCFS)
   uint off;          // FD_INODE
-  short major;       // FD_DEVICE
+  short major;       // FD_DEVICE (& FD_PROCFS)
+  char *content;    // 1 page, allocated on open(). FD_PROCFS
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
@@ -17,13 +18,14 @@ struct file {
 
 // in-memory copy of an inode
 struct inode {
-  uint dev;           // Device number   xzl: ROOTDEV=1, but not major/minor for which CONSOLE=1..?
+  uint dev;           // Device number   xzl: ROOTDEV=1, but not major/minor for which CONSOLE=1.
   uint inum;          // Inode number
   int ref;            // Reference count
   struct sleeplock lock; // protects everything below here (xzl: above protected by itable spinlock)
   int valid;          // inode has been read from disk?
 
-  short type;         // copy of disk inode
+  // copy of disk inode 
+  short type;         // cf stat.h
   short major;
   short minor;
   short nlink;
@@ -39,7 +41,3 @@ struct devsw {
 
 extern struct devsw devsw[];
 
-// major num for devices
-#define CONSOLE       1     
-#define KEYBOARD      2    
-#define FRAMEBUFFER   3

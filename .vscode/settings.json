@@ -36,9 +36,18 @@
         "assert.h": "c",
         "uspios.h": "c",
         "keymap.h": "c",
-        "stdarg.h": "c"
+        "stdarg.h": "c",
+        "fcntl.h": "c",
+        "functional": "c",
+        "istream": "c",
+        "ostream": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "param.h": "c"
     },
     "files.exclude": {
+        "docs/**": true,
         "src/exp1/**": true,
         "src/exp2/**": true,
         "src/exp3/**": true,

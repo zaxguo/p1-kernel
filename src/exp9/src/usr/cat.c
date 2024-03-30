@@ -9,6 +9,7 @@ cat(int fd)
 {
   int n;
 
+  // read until returning 0
   while((n = read(fd, buf, sizeof(buf))) > 0) {
     // printf("read %d bytes\n", n);
     if (write(1, buf, n) != n) {

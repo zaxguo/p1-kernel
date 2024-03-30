@@ -8,6 +8,7 @@
 #include "sleeplock.h"
 #include "fs.h"
 #include "file.h"
+#include "fcntl.h"
 #include "sched.h"
 #include "utils.h"
 

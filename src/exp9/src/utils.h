@@ -48,7 +48,6 @@ void            uartputc(int);
 void            uartputc_sync(int);
 int             uartgetc(void);
 
-
 // ------------------- timer ----------------------------- //
 /* These are for "System Timer". See timer.c for details */
 void sys_timer_init ( void );
@@ -279,5 +278,8 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
 // cache ops, util.S
 void __asm_invalidate_dcache_range(void* start_addr, void* end_addr);
 void __asm_flush_dcache_range(void* start_addr, void* end_addr);
+
+#define MAX(a,b) ((a) > (b) ? a : b)
+#define MIN(a,b) ((a) < (b) ? a : b)
 
 #endif  /*_UTILS_H */

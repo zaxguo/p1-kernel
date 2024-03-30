@@ -17,6 +17,7 @@
 #include "sched.h"
 #include "fs.h"
 #include "file.h"
+#include "fcntl.h"
 
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x

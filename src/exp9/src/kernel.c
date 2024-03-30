@@ -8,7 +8,6 @@
 #include "mmu.h"
 #include "sched.h"
 #include "sys.h"
-#include "user.h"
 
 // unittests.c
 extern void test_ktimer(); 
@@ -17,6 +16,11 @@ extern void test_mbox();
 extern void test_usb_kb(); 
 extern void test_usb_storage(); 
 extern void test_fb(); 
+
+// 1st user process
+extern unsigned long user_begin;	// linker script
+extern unsigned long user_end;
+extern void user_process(); // user.c
 
 // main body of kernel thread
 void kernel_process() {

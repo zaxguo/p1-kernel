@@ -145,6 +145,48 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
+
+const char *procfs_fnames[] = 
+    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo"};
+const char *dev_fnames[] = 
+    {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero"};
+const int majors[] = 
+    {KEYBOARD, FRAMEBUFFER, DEVNULL, DEVZERO};
+
+// return 0 if ok
+static int create_dev_procfs(void) {
+  int fd; 
+
+  if (mkdir("/proc/") != 0) {
+    printf("failed to create /proc"); 
+    goto mkdev; 
+  }
+
+  for (int i = 0; i < sizeof(procfs_fnames)/sizeof(procfs_fnames[0]); i++) {
+    const char *p = procfs_fnames[i]; 
+    if ((fd = open(p, O_RDONLY)) < 0 && (fd = open(p, O_CREATE)) < 0)
+      printf("failed to create %s\n", p); 
+    else 
+      close(fd); 
+  }
+
+mkdev: 
+  if (mkdir("/dev/") != 0) {
+    printf("failed to create /dev"); 
+    return -1; 
+  }
+  for (int i = 0; i < sizeof(dev_fnames)/sizeof(dev_fnames[0]); i++) {
+    const char *p = dev_fnames[i];
+    if ((fd = open(p, O_RDONLY)) < 0 && (fd = mknod(p, majors[i], 0)) != 0) 
+      printf("failed to create %s\n", p);  
+    if (fd>0)
+      close(fd); 
+  }
+
+  return 0; 
+}
+
+
 int
 main(void)
 {
@@ -158,6 +200,9 @@ main(void)
       break;
     }
   }
+  
+  if (create_dev_procfs()==0)
+    printf("created dev/procfs entries done\n"); 
 
   // Read and run input commands.       xzl: very simple main loop
   while(getcmd(buf, sizeof(buf)) >= 0){
