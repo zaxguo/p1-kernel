@@ -170,7 +170,7 @@ consoleintr(int c)
         cons.w = cons.e;
         wakeup(&cons.r);
       }
-    }
+    }   // xzl: if buf full, just drop the new char?
     break;
   }
   

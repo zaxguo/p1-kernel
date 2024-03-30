@@ -187,7 +187,7 @@ exec(char *path, char **argv)   // called from sys_exec
 
   set_pgd(p->mm.pgd);
 
-  I("exec succeeds argc=%d", argc);
+  I("exec succeeds argc=%ld", argc);
   return argc; // this ends up in x0, the first argument to main(argc, argv)
 
  bad:

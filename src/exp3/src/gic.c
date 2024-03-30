@@ -475,7 +475,7 @@ void arm_gic_dump_type(rt_uint64_t index)
     unsigned int gic_type;
 
     gic_type = GIC_DIST_TYPE(_gic_table[index].dist_hw_base);
-    printf("GICv%d on %08x, max IRQs: %d, %s security extension(%08x)\n",
+    printf("GICv%ld on %08lx, max IRQs: %d, %s security extension(%08x)\n",
                (GIC_DIST_ICPIDR2(_gic_table[index].dist_hw_base) >> 4U) & 0xfUL,
                _gic_table[index].dist_hw_base,
                _gic_max_irq,

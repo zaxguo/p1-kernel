@@ -33,8 +33,9 @@ extern void delay ( unsigned long);
 // extern unsigned int get32 ( unsigned long );
 extern void put32(unsigned int *addr, unsigned int v);
 extern unsigned int get32 (unsigned int *addr);
-
 extern int get_el ( void );
+
+void panic(char *s);  
 
 // ------------------- uart ----------------------------- //
 void uart_init (void);

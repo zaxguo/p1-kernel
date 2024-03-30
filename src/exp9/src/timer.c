@@ -87,7 +87,7 @@ static void sys_timer_tune_delay() {
 
 	cycles_per_us = ncycles / us; 
 	cycles_per_ms = ncycles / ms; 
-	I("cycles_per_us %lu cycles_per_ms %lu", cycles_per_us, cycles_per_ms);
+	I("cycles_per_us %u cycles_per_ms %u", cycles_per_us, cycles_per_ms);
 }
 
 void ms_delay(unsigned ms) {

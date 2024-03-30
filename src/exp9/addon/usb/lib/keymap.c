@@ -153,6 +153,7 @@ boolean KeyMapSetEntry (TKeyMap *pThis, u8 nTable, u8 nPhyCode, u16 nValue)
 	return TRUE;
 }
 
+// xzl: translate to custom "actions"?
 u16 KeyMapTranslate (TKeyMap *pThis, u8 nPhyCode, u8 nModifiers)
 {
 	assert (pThis != 0);
@@ -229,6 +230,7 @@ u16 KeyMapTranslate (TKeyMap *pThis, u8 nPhyCode, u8 nModifiers)
 	return nLogCode;
 }
 
+// xzl: from keyevent, get a null terminated string (??
 const char *KeyMapGetString (TKeyMap *pThis, u16 nKeyCode, u8 nModifiers, char Buffer[2])
 {
 	assert (pThis != 0);
@@ -246,7 +248,7 @@ const char *KeyMapGetString (TKeyMap *pThis, u16 nKeyCode, u8 nModifiers, char B
 
 	char chChar = (char) nKeyCode;
 		
-	if (nModifiers & (LCTRL | RCTRL))
+	if (nModifiers & (LCTRL | RCTRL))		// xzl:ctrl+'X'?
 	{
 		chChar -= 'a';
 		if ('\0' <= chChar && chChar <= 'z'-'a')

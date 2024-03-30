@@ -34,7 +34,9 @@
         "bcmmailbox.h": "c",
         "bcmpropertytags.h": "c",
         "assert.h": "c",
-        "uspios.h": "c"
+        "uspios.h": "c",
+        "keymap.h": "c",
+        "stdarg.h": "c"
     },
     "files.exclude": {
         "src/exp1/**": true,

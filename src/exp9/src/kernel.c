@@ -27,9 +27,9 @@ void kernel_process() {
 	// test_ktimer(); while (1); 
 	// test_malloc(); while (1); 
 	// test_mbox(); while (1); 
-	// test_usb_kb(); while (1); 
+	test_usb_kb(); while (1); 
 	// test_usb_storage(); while (1); 
-	test_fb(); while (1); 
+	// test_fb(); while (1); 
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);

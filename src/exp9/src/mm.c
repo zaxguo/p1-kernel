@@ -353,7 +353,7 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 	if (!pte)
 		return 0; 
 	if ((*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)) != MMU_PTE_FLAGS) {
-		W("pte found but invalid %016lx, %016lx", 
+		W("pte found but invalid %016lx, %016x", 
 			(*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
 		return 0; 
 	}
@@ -658,7 +658,7 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 	unsigned long dfs = (esr & 0b111111);
 
 	if (addr > USER_VA_END) {
-		E("do_mem_abort: bad user va. faulty addr 0x%lx > USER_VA_END %lx", addr, 
+		E("do_mem_abort: bad user va. faulty addr 0x%lx > USER_VA_END %x", addr, 
 			USER_VA_END); 
 		goto exit; 
 	}

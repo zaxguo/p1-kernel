@@ -198,6 +198,9 @@ static struct fb_struct the_fb = {
  * For mailbox property interface,
  * cf: https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
  * 
+ * below uses mbox "property channel". another way is to use the "fb" channel 
+ * directly. cf: https://github.com/rsta2/circle/blob/master/lib/bcmframebuffer.cpp
+ * 
  * return 0 if succeeds. 
  */
 static int do_fb_init(struct fb_struct *fbs)

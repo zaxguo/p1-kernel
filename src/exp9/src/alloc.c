@@ -92,9 +92,9 @@ unsigned int paging_init() {
 	
     BUG_ON(2 * MALLOC_PAGES >= PAGING_PAGES); // too many malloc pages 
 
-	I("phys mem: %08lx -- %08lx", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
-	I("	kernel: %08lx -- %08lx", KERNEL_START, VA2PA(&kernel_end));
-	I("	paging mem: %08lx -- %08lx", LOW_MEMORY, HIGH_MEMORY);
+	I("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
+	I("	kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
+	I("	paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY);
 	I("     %lu%s %ld pages", 
 		int_val((HIGH_MEMORY - LOW_MEMORY)),
 		int_postfix((HIGH_MEMORY - LOW_MEMORY)),

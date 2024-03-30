@@ -17,6 +17,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
+
+// xzl: USB HID kb scand codes... 
+// 	each HID report (often 8 bytes) 
+//  byte 0 modifier mask
+//	byte 1 =00 reserved
+// 	remaining N bytes ("slots", N=6)
+//		0x0 if no key pressed; otherwise scan code. 
+//		if multiple keys are pressed at same time, lower-index scan codes will be non zero
+// cf:  https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  
+//			"USB HID Keyboard scan codes as per USB spec 1.11"
+
+// xzl: the "cooked" logic seems: 
+//		if multiple keys pressed. keep one and drop others. also dont handle repeated key press
+//	this is probably fine for console typing. but not for gaming. 
+// 	it's a user choice
+
 #include <uspi/usbkeyboard.h>
 #include <uspi/usbhid.h>
 #include <uspi/usbhostcontroller.h>
@@ -226,7 +242,7 @@ void USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode)
 	u8 ucModifiers = USBKeyboardDeviceGetModifiers (pThis);
 	u16 usLogCode = KeyMapTranslate (&pThis->m_KeyMap, ucPhyCode, ucModifiers);
 
-	switch (usLogCode)
+	switch (usLogCode)		// xzl: specific system 'actions'.
 	{
 	case ActionSwitchCapsLock:
 	case ActionSwitchNumLock:
@@ -267,7 +283,7 @@ void USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode)
 		{
 			if (pThis->m_pKeyPressedHandler != 0)
 			{
-				(*pThis->m_pKeyPressedHandler) (pKeyString);	// xzl: goes to default hander..
+				(*pThis->m_pKeyPressedHandler) (pKeyString);	// xzl: goes to default hander.. ("cooked"
 			}
 		}
 		break;
@@ -307,7 +323,7 @@ void USBKeyboardDeviceCompletionRoutine (TUSBRequest *pURB, void *pParam, void *
 		{
 			u8 ucPhyCode = USBKeyboardDeviceGetKeyCode (pThis);
 
-			if (ucPhyCode == pThis->m_ucLastPhyCode)
+			if (ucPhyCode == pThis->m_ucLastPhyCode)		// xzl: avoid repeating?
 			{
 				ucPhyCode = 0;
 			}
@@ -345,9 +361,10 @@ void USBKeyboardDeviceCompletionRoutine (TUSBRequest *pURB, void *pParam, void *
 u8 USBKeyboardDeviceGetModifiers (TUSBKeyboardDevice *pThis)
 {
 	assert (pThis != 0);
-	return pThis->m_pReportBuffer[0];
+	return pThis->m_pReportBuffer[0];		// xzl: mod -- first char?
 }
 
+// xzl: if multiple keys pressed. keep one and drop others. 
 u8 USBKeyboardDeviceGetKeyCode (TUSBKeyboardDevice *pThis)
 {
 	assert (pThis != 0);

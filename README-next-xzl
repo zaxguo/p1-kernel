@@ -170,6 +170,16 @@ https://www.valvers.com/open-software/raspberry-pi/bare-metal-programming-in-c-p
 newlib nju os
 https://github.com/NJU-ProjectN/newlib-navy/tree/master
 
+mynes: 
+this seems more suitable -- 
+https://github.com/NJU-ProjectN/LiteNES
+
+NJU os port
+https://github.com/NJU-ProjectN/am-kernels/tree/master/kernels/litenes/src
+original
+https://github.com/yaglo/mynes
+
+
 -------------
 device interfacwes
 
@@ -183,6 +193,8 @@ https://wiki.libsdl.org/SDL2/SDL_Keysym
 three major interfaces
 framebuffer, keyboard, sound
 https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libos/src/native.cpp#L167
+https://github.com/NJU-ProjectN/abstract-machine/blob/master/am/include/amdev.h
+
 
 in NJU OS, kb events -- 
     dev read/write return as textual strings. 

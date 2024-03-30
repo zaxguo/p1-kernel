@@ -17,6 +17,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
+
 #ifndef _uspi_usbkeyboard_h
 #define _uspi_usbkeyboard_h
 
@@ -26,7 +27,7 @@
 #include <uspi/keymap.h>
 #include <uspi/types.h>
 
-#define BOOT_REPORT_SIZE	8
+#define BOOT_REPORT_SIZE	8			
 
 typedef void TKeyPressedHandler (const char *pString);
 typedef void TSelectConsoleHandler (unsigned nConsole);

@@ -54,14 +54,7 @@ int USPiInitialize (void);
 int USPiKeyboardAvailable (void);
 
 // "cooked mode"			
-// xzl: https://unix.stackexchange.com/questions/21752/what-s-the-difference-between-a-raw-and-a-cooked-device-driver#:~:text=%22Cooked%22%20is%20called%20canonical%20and,this%20is%20called%20%22cooked%22.
-// The terminal driver is, by default a line-based system: characters are 
-// buffered internally until a carriage return (Enter or Return) before 
-// it is passed to the program - this is called "cooked".
-// This allows certain characters to be processed (see stty(1)), such as CtrlD, 
-// CtrlS, CtrlU, Backspace); essentially rudimentary line-editing. The terminal 
-// driver "cooks" the characters before serving them up.
-// xzl: the following func still returns one keypress at a time??
+// xzl: processed capslock, Ctrl+X, etc. still returns one char at a time...
 typedef void TUSPiKeyPressedHandler (const char *pString);
 void USPiKeyboardRegisterKeyPressedHandler (TUSPiKeyPressedHandler *pKeyPressedHandler);
 

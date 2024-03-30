@@ -5,7 +5,7 @@
 static void handler(TKernelTimerHandle hTimer, void *param, void *context) {
 	unsigned sec, msec; 
 	current_time(&sec, &msec);
-	I("%u.%03u: fired. htimer %d, param %lx, contex %lx", sec, msec,
+	I("%u.%03u: fired. htimer %ld, param %lx, contex %lx", sec, msec,
 		hTimer, (unsigned long)param, (unsigned long)context); 
 }
 
@@ -31,7 +31,7 @@ void test_ktimer() {
 	t = ktimer_start(1000, handler, (void *)0xdeadbeef, (void*)0xdeaddeed);
 	I("timer start. timer id %u", t); 
 	ms_delay(2000); 
-	I("both timers should have fired", t); 
+	I("both timers should have fired"); 
 
 	// start, cancel 
 	t = ktimer_start(500, handler, (void *)0xdeadbeef, (void*)0xdeaddeed);
@@ -131,8 +131,14 @@ void test_mbox() {
 #include "uspios.h"
 #include "uspi.h"
 
-static void KeyPressedHandler(const char *pString) {
+__attribute__ ((unused)) static void KeyPressedHandler(const char *pString) {
     I("received string: %s", pString);
+}
+
+__attribute__ ((unused)) static void KeyStatusHandlerRaw(unsigned char ucModifiers,
+				       const unsigned char  RawKeys[6]) {
+    I("received raw ev: modifier %u rawkeys %02x %02x %02x %02x %02x %02x", 
+            ucModifiers, RawKeys[0], RawKeys[1], RawKeys[2], RawKeys[3], RawKeys[4], RawKeys[5]);
 }
 
 void test_usb_kb() {
@@ -147,6 +153,8 @@ void test_usb_kb() {
 	}
     I("kb found... Just type something!");
     USPiKeyboardRegisterKeyPressedHandler (KeyPressedHandler); 
+    // USPiKeyboardRegisterKeyStatusHandlerRaw(KeyStatusHandlerRaw); 
+
 	// just wait and turn the rotor		xzl: inf loop
     for (unsigned nCount = 0; 1; nCount++) {
         USPiKeyboardUpdateLEDs(); // xzl: keep updating kb LED
