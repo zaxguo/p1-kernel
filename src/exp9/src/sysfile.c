@@ -240,8 +240,9 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
-      return ip;    // xzl: file already exists? just return inode
+    if(type == T_FILE 
+      && (ip->type == T_FILE || ip->type == T_DEVICE || ip->type == T_PROCFS))
+      return ip;    // file already exists.. just return inode
     iunlockput(ip);
     return 0;
   }
@@ -258,9 +259,9 @@ create(char *path, short type, short major, short minor)
   // dirty hack for /procfs/XXX
   if (type == T_FILE) { 
     const char *procfs_fnames[] = 
-    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo"};
+    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl"};
     const int majors[] = 
-    {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO};
+    {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO, PROCFS_FBCTL};
 
     for (int i = 0; i < sizeof(procfs_fnames)/sizeof(procfs_fnames[0]); i++) {
       if (strncmp(path, procfs_fnames[i], 40) == 0) { 

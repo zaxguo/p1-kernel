@@ -18,5 +18,6 @@ enum {
   PROCFS_DISPINFO, 
   PROCFS_CPUINFO,
   PROCFS_MEMINFO, 
+  PROCFS_FBCTL, 
   NDEV    // max
 };

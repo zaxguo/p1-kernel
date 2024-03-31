@@ -32,12 +32,12 @@ main(int argc, char *argv[])
     cat(0);
     exit(0);
   }
-
+  
   for(i = 1; i < argc; i++){
     if((fd = open(argv[i], 0)) < 0){
       fprintf(2, "cat: cannot open %s\n", argv[i]);
       exit(1);
-    }
+    }  // else printf("open %s ok\n", argv[1]);
     cat(fd);
     close(fd);
   }

@@ -147,7 +147,7 @@ getcmd(char *buf, int nbuf)
 
 
 const char *procfs_fnames[] = 
-    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo"};
+    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl"};
 const char *dev_fnames[] = 
     {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero"};
 const int majors[] = 
@@ -182,10 +182,18 @@ mkdev:
     if (fd>0)
       close(fd); 
   }
-
   return 0; 
 }
 
+void logo() {
+  char *args[] = {"cat", "logo.txt", 0}; 
+  int pid=fork(); 
+  if (pid==0) {
+    if (exec("cat", args) <0)
+      exit(1); 
+  } 
+  wait(0); 
+}
 
 int
 main(void)
@@ -200,9 +208,10 @@ main(void)
       break;
     }
   }
-  
+    
   if (create_dev_procfs()==0)
     printf("created dev/procfs entries done\n"); 
+  logo(); 
 
   // Read and run input commands.       xzl: very simple main loop
   while(getcmd(buf, sizeof(buf)) >= 0){

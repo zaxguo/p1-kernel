@@ -130,6 +130,8 @@ int fileread(struct file *f, uint64 addr, int n) {
     return r;
 }
 
+static int writeprocfs(struct file *f, uint64 src, uint n); 
+
 // Write to file f.
 // addr is a user virtual address.
 int filewrite(struct file *f, uint64 addr, int n) {
@@ -173,8 +175,7 @@ int filewrite(struct file *f, uint64 addr, int n) {
         }
         ret = (i == n ? n : -1);
     } else if (f->type == FD_PROCFS) {
-        W("write to procfs...TBD"); 
-        return n; 
+        return writeprocfs(f, addr, n); 
     } else
         panic("filewrite");
 
@@ -214,6 +215,9 @@ static int procfs_gen_content(int major, char *txtbuf) {
     case PROCFS_DISPINFO:
         len = snprintf(txtbuf, TXTSIZE, "%s\n", "dispinfo"); 
         break;    
+    case PROCFS_FBCTL: 
+        len = snprintf(txtbuf, TXTSIZE, "format: W H\n"); 
+        break; 
     default:
         len = snprintf(txtbuf, TXTSIZE, "%s\n", "TBD"); 
         break;
@@ -222,7 +226,6 @@ static int procfs_gen_content(int major, char *txtbuf) {
     return len; 
 }
 
-// Read data from inode.
 static int readprocfs(struct file *f, uint64 dst, uint off, uint n) {    
     uint len; 
     if (off == 0) { // regenerate content
@@ -234,6 +237,48 @@ static int readprocfs(struct file *f, uint64 dst, uint off, uint n) {
         BUG(); return -1; 
     }
     return len; 
+}
+
+int atoi(const char *s) {
+  int n;
+  n = 0;
+  while('0' <= *s && *s <= '9')
+    n = n*10 + *s++ - '0';
+  return n;
+}
+
+// so far, procfs extracts a line from each write() 
+//           (not parsing a line across write()s
+// return 0 on failure
+#define LINESIZE   32
+#define MAX_ARGS   8
+static int writeprocfs(struct file *f, uint64 src, uint n) {
+    char buf[LINESIZE], *s; 
+    int args[MAX_ARGS]={0}; 
+    int len = MIN(n,LINESIZE), nargs = 0; 
+    if (either_copyin(buf, 1, src, len) == -1)
+        return 0; 
+
+    for (s = buf; s < buf+len; s++) {
+        if (*s=='\n' || *s=='\0')
+            break;         
+        if ('0' <= *s && *s <= '9') { // start of a num
+            args[nargs] = atoi(s); W("got arg %d", args[nargs]);             
+            while ('0' <= *s && *s <= '9' && s<buf+len) 
+                s++; 
+            if (nargs++ == MAX_ARGS)
+                break; 
+        } 
+    }
+
+    switch (f->major)
+    {
+    case PROCFS_FBCTL:
+        break;    
+    default:
+        break;
+    }
+    return (s-buf); 
 }
 
 static void init_devfs() {
