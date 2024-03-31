@@ -7,7 +7,6 @@
 #include "utils.h"
 #include "mmu.h"
 #include "sched.h"
-#include "sys.h"
 
 // unittests.c
 extern void test_ktimer(); 

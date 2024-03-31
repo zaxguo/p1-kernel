@@ -47,3 +47,10 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+unsigned atoi16(const char*); // xzl
+// tinyprintf.c, so far we only uses its sprintf()
+// void tfp_printf(char *fmt, ...);
+void tfp_sprintf(char* s,char *fmt, ...);   // xzl: TODO const chat *fmt...
+// void tfp_format(void* putp,void (*putf) (void*,char),char *fmt, va_list va);
+// #define printf tfp_printf
+#define sprintf tfp_sprintf

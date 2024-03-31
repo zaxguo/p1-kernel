@@ -1,6 +1,6 @@
 ARMGNU ?= aarch64-linux-gnu
 
-ULIB = ulib.o printf.o usys_s.o umalloc.o 
+ULIB = ulib.o printf.o usys_s.o umalloc.o tinyprintf.o
 
 UPROGS = \
 	build/echo \
@@ -14,7 +14,8 @@ UPROGS = \
 	build/kill	\
 	build/ln	\
 	build/rm	\
-	build/wc	
+	build/wc	\
+	build/slider	
 
 sd.bin: $(UPROGS) mkfs	
 	cd build && ../mkfs ../sd.bin `ls`

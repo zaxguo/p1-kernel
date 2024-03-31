@@ -46,7 +46,8 @@
         "utility": "c",
         "param.h": "c",
         "tv-test-screen-64x48.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "stat.h": "c"
     },
     "files.exclude": {
         "docs/**": true,
@@ -58,6 +59,7 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
+        "src/exp9/addon/**": true,  // usb 
         "src/experimental/**": true,
     }, 
     "search.exclude": {
@@ -70,6 +72,7 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
+        "src/exp9/addon/**": true,  // usb 
         "src/experimental/**": true,        
         "*.asm": true,
         ".*": true,
