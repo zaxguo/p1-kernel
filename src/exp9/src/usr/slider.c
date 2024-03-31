@@ -36,7 +36,9 @@ struct BitmapHeader {
   uint32_t clrused, clrimportant;
 } __attribute__((packed));
 
-// xzl: load bmp file into a packed buf 
+// xzl: load bmp file into a packed buf. expect 24bit color depth
+// return pixel buffer. 
+// caller must free the buffer 
 void* BMP_Load(const char *filename, int *width, int *height) {
 //   FILE *fp = fopen(filename, "r");  
 //   if (!fp) return NULL;
@@ -55,7 +57,8 @@ void* BMP_Load(const char *filename, int *width, int *height) {
   int w = hdr.width;
   int h = hdr.height;
   uint32_t *pixels = malloc(w * h * sizeof(uint32_t));  // xzl: each pixel 4bytes
-
+  assert(pixels); 
+  
   int line_off = (w * 3 + 3) & ~0x3;
   for (int i = 0; i < h; i ++) {
     // fseek(fp, hdr.offset + (h - 1 - i) * line_off, SEEK_SET);
@@ -139,11 +142,22 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 // number of slides
 const int N = 10;
 // slides path pattern (starts from 0)
-const char *path = "/slides/slides-%d.bmp";
+// const char *path = "/slides/slides-%d.bmp";
+const char *path = "/Slide%d.bmp";
+
+// display config
+// the field of /proc/dispinfo. order must be right
+#define MAX_ARGS   8
+enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,PITCH,DEPTH,ISRGB}; 
+int dispinfo[MAX_ARGS]={0};
+
+#define PIXELSIZE 4 /*ARGB*/ 
 
 // static SDL_Surface *slide = NULL;
 static int cur = 0;   // cur slide num 
 static int fb; 
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 void render() {
 #if 0
@@ -161,8 +175,27 @@ void render() {
   int w, h; 
   sprintf(fname, (char *)path, cur);
   char *pixels = BMP_Load(fname, &w, &h); 
-  assert(pixels); 
-  
+  if (!pixels) {printf("load from %s failed\n", fname); return;}
+
+  // crop img data per the framebuf size  
+  int vwidth= dispinfo[VWIDTH], vheight = dispinfo[VHEIGHT]; 
+  int pitch = dispinfo[PITCH]; 
+  int fb_w = min(vwidth,w), fb_h = min(vheight,h); // the actual canvas
+
+  printf("bmpsize: w %d h %d; canvas w %d h %d\n", w, h, fb_w, fb_h); 
+
+  assert(fb); 
+  int n, y; 
+  for(y=0;y<fb_h;y++) {
+    n = lseek(fb, y*pitch, SEEK_SET); assert(n>=0); 
+    if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < sizeof(fb_w*PIXELSIZE)) {
+      printf("failed to write (row %d) to fb\n", y); 
+      break; 
+    }    
+  }
+  free(pixels); 
+  printf("show %s\n", fname);   
+  // no need to close fb
 }
 
 void prev(int rep) {
@@ -180,13 +213,8 @@ void next(int rep) {
 }
 
 #define LINESIZE 128
-#define MAX_ARGS   8
 
 enum{INVALID=0,KEYDOWN,KEYUP};
-
-// the field of /proc/dispinfo. order must be right
-enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,PITCH,DEPTH,ISRGB}; 
-int dispinfo[MAX_ARGS]={0};
 
 int main() {
   int n, nargs = 0; 
@@ -214,8 +242,8 @@ int main() {
               break; 
       } 
   }
-  printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d\n", 
-    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH]); 
+  printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d\n", 
+    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH], dispinfo[PITCH]); 
 
   render();
   

@@ -19,7 +19,7 @@
 #define ROOTDEV       DEV_RAMDISK  // device number of file system root disk xzl: block disk id, not major/minor
     
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
-#define FSSIZE       2000  // size of file system in blocks
+#define FSSIZE       4000 // 2000  // size of file system in blocks
 
 // Large user vm, works, but usertests slow b/c freecount()
 // #define USER_VA_END         (128 * 1024 * 1024) // == user stack top

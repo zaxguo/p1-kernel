@@ -2630,7 +2630,7 @@ void fbstatic() {
 #define IMG_HEIGHT img_height
 #define IMG_WIDTH img_width
   int x,y;
-  int vheight=1024, vwidth=768; 
+  int vheight=768, vwidth=1024; 
   int pitch=4096;   // in bytes
   char *data=IMG_DATA; 
   char pixel[4] = {0x00, 0x40, 0x60, 0xe0}, black[]={0,0,0,0}; 

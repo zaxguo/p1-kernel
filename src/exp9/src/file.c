@@ -138,6 +138,7 @@ int fileread(struct file *f, uint64 addr, int n) {
 //  the beginning of the file. 
 //  On error, the value -1 is returned
 // https://man7.org/linux/man-pages/man2/lseek.2.html
+#include "fb.h"
 int filelseek(struct file *f, int offset, int whence) {
     int newoff; uint size; 
 
@@ -149,12 +150,18 @@ int filelseek(struct file *f, int offset, int whence) {
             return -1;        
     }
 
-    // take a snapshot of filesize. but nothing prevents file size changes
-    // after we unlock inode, making f->off invalid. in that case, read/write
-    // shall fail and nothing bad shall happen
-    ilock(f->ip);
-    size = f->ip->size; 
-    iunlock(f->ip);
+    if (f->type == FD_DEVICE && f->major == FRAMEBUFFER) {
+        acquire(&mboxlock); 
+        size = the_fb.size; 
+        release(&mboxlock); 
+    } else { // normal file
+        // take a snapshot of filesize. but nothing prevents file size changes
+        // after we unlock inode, making f->off invalid. in that case, read/write
+        // shall fail and nothing bad shall happen
+        ilock(f->ip);
+        size = f->ip->size; 
+        iunlock(f->ip);
+    }
     
     switch (whence)
     {
@@ -169,10 +176,11 @@ int filelseek(struct file *f, int offset, int whence) {
         newoff = size + offset; 
         break; 
     default:
+        E("unrecog option");
         return -1; 
     }
 
-    if (newoff < 0 || newoff > size) return -1; 
+    if (newoff < 0 || newoff > size) {E("newoff %d OOB", newoff); return -1;}
 
     f->off = newoff; 
     return newoff; 
@@ -265,7 +273,8 @@ int devfb_write(int user_src, uint64 src, int off, int n) {
     if (either_copyin(the_fb.fb + off, 1, src, len) == -1)
         goto out; 
     ret = len;
-    __asm_flush_dcache_range(the_fb.fb+off, the_fb.fb+len); 
+    __asm_flush_dcache_range(the_fb.fb+off, the_fb.fb+off+len); 
+    // __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
 out: 
     release(&mboxlock); 
     return ret; 
@@ -313,6 +322,7 @@ static int procfs_gen_content(int major, char *txtbuf) {
 static int readprocfs(struct file *f, uint64 dst, uint n) {    
     uint len, off = f->off;
     char content[TXTSIZE];
+    // a hack: re-gen same content for each read(). 
     procfs_gen_content(f->major, content); 
     
     len = MIN(n, strlen(content)-off); 

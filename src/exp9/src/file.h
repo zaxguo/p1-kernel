@@ -9,7 +9,7 @@ struct file {
   struct inode *ip;  // FD_INODE and FD_DEVICE (& FD_PROCFS)
   uint off;          // FD_INODE
   short major;       // FD_DEVICE (& FD_PROCFS)
-  unsigned char *content;    // FD_PROCFS and FD_DEVICE (backing content)
+  unsigned char *content;    // FD_PROCFS, FD_DEVICE (backing content). not in use now
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)

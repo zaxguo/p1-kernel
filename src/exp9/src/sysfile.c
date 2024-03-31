@@ -362,7 +362,7 @@ int sys_open(unsigned long upath, int omode) {
     f->major = ip->major;
     f->off = 0;         // /dev/fb supports seek
     if (f->major == FRAMEBUFFER) {
-      ; // dont init fb; instead, do it when user writes to /dev/fbctl
+      ; // dont (re)init fb; instead, do it when user writes to /dev/fbctl
 #if 0      
       fb_fini(); 
       if (fb_init() == 0) {

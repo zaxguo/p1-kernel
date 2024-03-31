@@ -47,7 +47,18 @@
         "param.h": "c",
         "tv-test-screen-64x48.h": "c",
         "stdlib.h": "c",
-        "stat.h": "c"
+        "stat.h": "c",
+        "atomic": "c",
+        "bit": "c",
+        "*.tcc": "c",
+        "deque": "c",
+        "vector": "c",
+        "algorithm": "c",
+        "memory_resource": "c",
+        "memory": "c",
+        "fstream": "c",
+        "initializer_list": "c",
+        "stdexcept": "c"
     },
     "files.exclude": {
         "docs/**": true,

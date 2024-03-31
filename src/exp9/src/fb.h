@@ -1,3 +1,5 @@
+#ifndef FB_H
+#define FB_H
 struct fb_struct {
     unsigned char *fb;  // framebuffer, kernel va
     unsigned width, height, vwidth, vheight, pitch; 
@@ -10,3 +12,4 @@ struct fb_struct {
 
 extern struct fb_struct the_fb; //mbox.c
 extern struct spinlock mboxlock; 
+#endif

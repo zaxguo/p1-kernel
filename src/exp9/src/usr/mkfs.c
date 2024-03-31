@@ -127,7 +127,7 @@ main(int argc, char *argv[])
   strcpy(de.name, "..");
   iappend(rootino, &de, sizeof(de));
 
-  for(i = 2; i < argc; i++){
+  for(i = 2; i < argc; i++){  // xzl: go through all files passed in
     // get rid of "user/"
     char *shortname;
     if(strncmp(argv[i], "user/", 5) == 0)
@@ -209,12 +209,12 @@ rinode(uint inum, struct dinode *ip)
 }
 
 void
-rsect(uint sec, void *buf)
+rsect(uint sec, void *buf)        // xzl: read from a sector?
 {
   if(lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
     die("lseek");
   if(read(fsfd, buf, BSIZE) != BSIZE)
-    die("read");
+    die("read");  // xzl: this failed, why (reports "Success"
 }
 
 uint
