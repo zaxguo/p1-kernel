@@ -123,8 +123,10 @@ int fileread(struct file *f, uint64 addr, int n) {
             f->off += r;
         iunlock(f->ip);
     } else if (f->type == FD_PROCFS) {
-        if (f->off != 0) return 0; // we dont support seek in profs
-        return readprocfs(f, addr, n); 
+        // must maintain offset in procfs read, otherwise user don't know
+        //  if if reads all contents & should stop
+        if ((r = readprocfs(f, addr, n))>0)
+            f->off += r; 
     } else {
         panic("fileread");
     }
@@ -186,7 +188,7 @@ int filewrite(struct file *f, uint64 addr, int n) {
     return ret;
 }
 
-/// devfs
+///////////// devfs
 int devnull_read(int user_dst, uint64 dst, int off, int n) {
     return 0; 
 }
@@ -225,19 +227,34 @@ out:
     return ret; 
 }
 
-/// procfs 
-// return: len of content generated 
-#define TXTSIZE  64 
+///////// procfs read handlers .... 
+
+// return: len of content generated. can be multi lines.
+#define TXTSIZE  256 
 static int procfs_gen_content(int major, char *txtbuf) {
     int len; 
 
     switch (major)
     {
     case PROCFS_DISPINFO:
-        len = snprintf(txtbuf, TXTSIZE, "%s\n", "dispinfo"); 
+        acquire(&mboxlock);
+        len = snprintf(txtbuf, TXTSIZE, 
+            "%6d %6d %6d %6d %6d %6d %6d %6d %6d\n"
+            "%6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
+            the_fb.width, the_fb.height, 
+            the_fb.vwidth, the_fb.vheight, 
+            the_fb.scr_width, the_fb.scr_height, 
+            the_fb.pitch, the_fb.depth, the_fb.isrgb,
+            "width","height","vwidth","vheigh","swidth","sheigh",
+            "pitch","depth","isrgb"); 
+        release(&mboxlock); 
         break;    
     case PROCFS_FBCTL: 
-        len = snprintf(txtbuf, TXTSIZE, "format: W H\n"); 
+        acquire(&mboxlock);
+        len = snprintf(txtbuf, TXTSIZE, 
+            "format: %6s %6s %6s %6s\n",
+            "width","height","vwidth","vheigh"); 
+        release(&mboxlock); 
         break; 
     default:
         len = snprintf(txtbuf, TXTSIZE, "%s\n", "TBD"); 
@@ -247,10 +264,10 @@ static int procfs_gen_content(int major, char *txtbuf) {
     return len; 
 }
 
-// for simplicity, we dont support seek. the entire content needs to 
-//      be read out in one shot, otherwise the content is truncated
+// must maintain offset in procfs read, otherwise user don't know
+//        if reads all contents & should stop
 static int readprocfs(struct file *f, uint64 dst, uint n) {    
-    uint len, off=0;
+    uint len, off = f->off;
     char content[TXTSIZE];
     procfs_gen_content(f->major, content); 
     
@@ -261,19 +278,22 @@ static int readprocfs(struct file *f, uint64 dst, uint n) {
     return len; 
 }
 
-int atoi(const char *s) {
-  int n;
-  n = 0;
-  while('0' <= *s && *s <= '9')
-    n = n*10 + *s++ - '0';
-  return n;
+////////// procfs write handlers....
+
+#define LINESIZE   32
+#define MAX_ARGS   8
+
+static int procfs_fbctl_w(int args[MAX_ARGS]) {
+    return 0; 
 }
 
+// parse a line of write into a list of MAX_ARGS integers, and 
+//      call relevant subsystems
+// limit: only support dec integers
 // so far, procfs extracts a line from each write() 
 //           (not parsing a line across write()s
 // return 0 on failure
-#define LINESIZE   32
-#define MAX_ARGS   8
+
 static int writeprocfs(struct file *f, uint64 src, uint n) {
     char buf[LINESIZE], *s; 
     int args[MAX_ARGS]={0}; 
@@ -281,11 +301,12 @@ static int writeprocfs(struct file *f, uint64 src, uint n) {
     if (either_copyin(buf, 1, src, len) == -1)
         return 0; 
 
+    // parse the 1st line of write to a list of int args... (ignore other lines
     for (s = buf; s < buf+len; s++) {
         if (*s=='\n' || *s=='\0')
             break;         
         if ('0' <= *s && *s <= '9') { // start of a num
-            args[nargs] = atoi(s); W("got arg %d", args[nargs]);             
+            args[nargs] = atoi(s); // W("got arg %d", args[nargs]);             
             while ('0' <= *s && *s <= '9' && s<buf+len) 
                 s++; 
             if (nargs++ == MAX_ARGS)
@@ -296,6 +317,7 @@ static int writeprocfs(struct file *f, uint64 src, uint n) {
     switch (f->major)
     {
     case PROCFS_FBCTL:
+        procfs_fbctl_w(args); 
         break;    
     default:
         break;
@@ -310,6 +332,6 @@ static void init_devfs() {
     devsw[DEVZERO].read = devzero_read;
     devsw[DEVZERO].write = 0; // nothing
 
-    devsw[FRAMEBUFFER].read = 0; // TBD (readback fb
+    devsw[FRAMEBUFFER].read = 0; // TBD (readback fb?
     devsw[FRAMEBUFFER].write = devfb_write; 
 }

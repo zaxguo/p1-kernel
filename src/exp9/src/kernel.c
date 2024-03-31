@@ -53,16 +53,11 @@ void kernel_main()
 	printf("kernel boots ...\n\r");
 	
 	paging_init(); 
-	W("here");
 	fb_init(); 		// reserve fb memory other page allocations
 	consoleinit(); 	
-	W("here");
 	binit();         // buffer cache
-	W("here");
     iinit();         // inode table
-	W("here");
     fileinit();      // file table
-	W("here");
 	ramdisk_init(); 	// ramdisk - blk dev1
 #ifdef PLAT_VIRT	
     virtio_disk_init(); // emulated hard disk - blk dev2

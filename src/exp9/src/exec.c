@@ -179,7 +179,7 @@ exec(char *path, char **argv)   // called from sys_exec
   // Commit to the user image. free previous user mapping, pages. if any
   regs->pc = elf.entry;  // initial program counter = main
   regs->sp = sp; // initial stack pointer
-  I("init sp 0x%lx", sp);
+  V("init sp 0x%lx", sp);
   free_task_pages(&p->mm, 1 /*useronly*/); 
   p->mm = *tmpmm; 
   p->mm.sz = p->mm.codesz = sz; 
@@ -187,7 +187,7 @@ exec(char *path, char **argv)   // called from sys_exec
 
   set_pgd(p->mm.pgd);
 
-  I("exec succeeds argc=%ld", argc);
+  V("exec succeeds argc=%ld", argc);
   return argc; // this ends up in x0, the first argument to main(argc, argv)
 
  bad:

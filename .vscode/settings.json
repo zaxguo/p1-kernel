@@ -45,7 +45,8 @@
         "type_traits": "c",
         "utility": "c",
         "param.h": "c",
-        "tv-test-screen-64x48.h": "c"
+        "tv-test-screen-64x48.h": "c",
+        "stdlib.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

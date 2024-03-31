@@ -183,11 +183,38 @@ struct fb_struct the_fb = {
     .height = 768, 
     .vwidth = 1024, 
     .vheight = 768,
+    .scr_width = 0,
+    .scr_height = 0, 
     .depth = 32, 
+    .isrgb = 1, 
     .offsetx = 0,
     .offsety = 0,
     .size = 0, 
 }; 
+
+// detect phys display optimal x/y, if unconfigured
+// caller must hold mboxlock
+// 0 on success
+static int fb_detect_phys_dim(uint *w, uint *h) {
+    // acquire(&mboxlock); 
+    mbox[0] = 8*4;     // size of the whole buf that follows
+    mbox[1] = MBOX_REQUEST; // cpu->gpu request
+        mbox[2] = 0x40003;     // rls framebuffer
+        mbox[3] = 8;           // total buf size
+        mbox[4] = 0;           // req para size
+        mbox[5] = 0;           // resp: width
+        mbox[6] = 0;           // resp: height
+    mbox[7] = MBOX_TAG_LAST;
+
+    if(!mbox_call(MBOX_CH_PROP)) {
+        E("failed to get screen dim");
+        return -1;
+    } 
+
+    *w=mbox[5];*h=mbox[6]; W("detected screen dim %d %d", *w, *h);    
+    // release(&mboxlock);          
+    return 0; 
+}
 
 /**
  * For mailbox property interface,
@@ -196,6 +223,9 @@ struct fb_struct the_fb = {
  * below uses mbox "property channel". another way is to use the "fb" channel 
  * directly. cf: https://github.com/rsta2/circle/blob/master/lib/bcmframebuffer.cpp
  * 
+ * code ex: 
+ * https://github.com/RT-Thread/rt-thread/blob/master/bsp/raspberry-pi/raspi3-64/driver/mbox.c
+ * 
  * return 0 if succeeds. 
  */
 static int do_fb_init(struct fb_struct *fbs)
@@ -203,6 +233,8 @@ static int do_fb_init(struct fb_struct *fbs)
     if (!fbs) return -1; 
 
     acquire(&mboxlock); 
+
+    fb_detect_phys_dim(&the_fb.width,&the_fb.height); 
 
     mbox[0] = 35*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
@@ -291,13 +323,18 @@ int fb_fini(void) {
         goto out; 
     }
 
-    mbox[0] = 5*4;     // size of the whole buf that follows
+    mbox[0] = 6*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
 
     mbox[2] = 0x48001;     // rls framebuffer
     mbox[3] = 0;           // total buf size
     mbox[4] = 0;           // req para size
     
+    mbox[5] = MBOX_TAG_LAST;
+
+    if(!mbox_call(MBOX_CH_PROP))
+        E("failed to rls fb with GPU. bug?");
+
     if (free_phys_region(VA2PA(the_fb.fb), the_fb.size)) {
         E("failed to free fb memory. bug?"); 
         ret = -2; 

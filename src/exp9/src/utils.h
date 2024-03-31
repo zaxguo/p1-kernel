@@ -198,6 +198,7 @@ char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
+int atoi(const char *s); 
 
 //sys.c 
 int             fetchstr(uint64, char*, int);

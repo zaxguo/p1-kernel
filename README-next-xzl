@@ -149,8 +149,15 @@ add procfs support.
     it cannot be device file, which does not keep track of offset.
     the read/write path also must be implemented. 
 
+added dev/ support, esp fb and fbctl (for set parameters, control, etc)
+
+
+-------------
+
+
 [ ] add hw suport for  rpi3 
     [ ]  refactor display driver  -- clean up the code, make fb interface (w/ double buffering                
+    
     [x]     add kb driver (usb seems more universal - both storage and input)
     [ ]     add storage driver
     [ ]         usb storage r/w -- existing code no irq (otherwise FSM becomes messy)
