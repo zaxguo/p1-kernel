@@ -66,6 +66,8 @@ void fileclose(struct file *f) {
     }
     if (f->type == FD_PROCFS && f->content)
         kfree(f->content); 
+    if (f->type == FD_DEVICE && f->major == FRAMEBUFFER && f->content)
+        ; // fb_fini(); 
     ff = *f;
     f->ref = 0;
     f->type = FD_NONE;
@@ -99,7 +101,7 @@ int filestat(struct file *f, uint64 addr) {
     return -1;
 }
 
-static int readprocfs(struct file *f, uint64 dst, uint off, uint n);
+static int readprocfs(struct file *f, uint64 dst, uint n);
 
 // Read from file f.
 // addr is a user virtual address.
@@ -114,15 +116,15 @@ int fileread(struct file *f, uint64 addr, int n) {
     } else if (f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
             return -1;
-        r = devsw[f->major].read(1, addr, n); // device read
+        r = devsw[f->major].read(1, addr, 0/*off*/, n); // device read
     } else if (f->type == FD_INODE) { // normal file
         ilock(f->ip);
         if ((r = readi(f->ip, 1, addr, f->off, n)) > 0) // fs read
             f->off += r;
         iunlock(f->ip);
     } else if (f->type == FD_PROCFS) {
-        if ((r = readprocfs(f, addr, f->off, n)) > 0)
-            f->off += r; 
+        if (f->off != 0) return 0; // we dont support seek in profs
+        return readprocfs(f, addr, n); 
     } else {
         panic("fileread");
     }
@@ -145,7 +147,9 @@ int filewrite(struct file *f, uint64 addr, int n) {
     } else if (f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
             return -1;
-        ret = devsw[f->major].write(1, addr, n);
+        ret = devsw[f->major].write(1/*userdst*/, addr, f->off, n);
+        if (ret>0 && f->major == FRAMEBUFFER)
+            f->off += ret; 
     } else if (f->type == FD_INODE) {
         // write a few blocks at a time to avoid exceeding
         // the maximum log transaction size, including
@@ -182,15 +186,16 @@ int filewrite(struct file *f, uint64 addr, int n) {
     return ret;
 }
 
-int devnull_read(int user_dst, uint64 dst, int n) {
+/// devfs
+int devnull_read(int user_dst, uint64 dst, int off, int n) {
     return 0; 
 }
 
-int devnull_write(int user_src, uint64 src, int n) {
+int devnull_write(int user_src, uint64 src, int off, int n) {
     return 0; 
 }
 
-int devzero_read(int user_dst, uint64 dst, int n) {
+int devzero_read(int user_dst, uint64 dst, int off, int n) {
     char zeros[64]; memzero(zeros, 64); 
     int target=n;
     while (n>0) {
@@ -203,10 +208,26 @@ int devzero_read(int user_dst, uint64 dst, int n) {
     return target; 
 }
 
+#include "fb.h"
+int devfb_write(int user_src, uint64 src, int off, int n) {
+    int ret = 0, len; 
+
+    acquire(&mboxlock); 
+    if (!the_fb.fb)
+        goto out; 
+    len = MIN(the_fb.size - off, n); 
+    if (either_copyin(the_fb.fb + off, 1, src, len) == -1)
+        goto out; 
+    ret = len;
+    __asm_flush_dcache_range(the_fb.fb+off, the_fb.fb+len); 
+out: 
+    release(&mboxlock); 
+    return ret; 
+}
+
 /// procfs 
 // return: len of content generated 
-
-#define TXTSIZE  4096 // 1 page
+#define TXTSIZE  64 
 static int procfs_gen_content(int major, char *txtbuf) {
     int len; 
 
@@ -226,14 +247,15 @@ static int procfs_gen_content(int major, char *txtbuf) {
     return len; 
 }
 
-static int readprocfs(struct file *f, uint64 dst, uint off, uint n) {    
-    uint len; 
-    if (off == 0) { // regenerate content
-        if (!f->content) {BUG(); return -1;}
-        procfs_gen_content(f->major, f->content); 
-    }
-    len = MIN(n, strlen(f->content)-off); 
-    if (either_copyout(1/*userdst*/, dst, f->content+off, len) == -1) {
+// for simplicity, we dont support seek. the entire content needs to 
+//      be read out in one shot, otherwise the content is truncated
+static int readprocfs(struct file *f, uint64 dst, uint n) {    
+    uint len, off=0;
+    char content[TXTSIZE];
+    procfs_gen_content(f->major, content); 
+    
+    len = MIN(n, strlen(content)-off); 
+    if (either_copyout(1/*userdst*/, dst, content+off, len) == -1) {
         BUG(); return -1; 
     }
     return len; 
@@ -287,4 +309,7 @@ static void init_devfs() {
 
     devsw[DEVZERO].read = devzero_read;
     devsw[DEVZERO].write = 0; // nothing
+
+    devsw[FRAMEBUFFER].read = 0; // TBD (readback fb
+    devsw[FRAMEBUFFER].write = devfb_write; 
 }

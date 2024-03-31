@@ -44,7 +44,8 @@
         "tuple": "c",
         "type_traits": "c",
         "utility": "c",
-        "param.h": "c"
+        "param.h": "c",
+        "tv-test-screen-64x48.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

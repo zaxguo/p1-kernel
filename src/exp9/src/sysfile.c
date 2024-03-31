@@ -17,6 +17,7 @@
 #include "fcntl.h"
 #include "sleeplock.h"
 #include "file.h"
+#include "fb.h" // for fb device
 
 // given fd, return the corresponding struct file.
 // return 0 on success
@@ -350,10 +351,23 @@ int sys_open(unsigned long upath, int omode) {
   if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;
     f->major = ip->major;
+    f->off = 0;         // /dev/fb supports seek
+    if (f->major == FRAMEBUFFER) {
+      fb_fini(); 
+      if (fb_init() == 0) {
+        f->content = the_fb.fb;
+        ip->size = the_fb.size; 
+      } else {
+        fileclose(f);
+        iunlockput(ip);
+        end_op();
+        return -1;
+      }
+    }
   } else if (ip->type == T_PROCFS) {
     f->type = FD_PROCFS;
     f->major = ip->major; // type of procfs entries
-    f->content = kalloc(); BUG_ON(!f->content);
+    f->content = 0; 
     f->off = 0;
   } else {
     f->type = FD_INODE;

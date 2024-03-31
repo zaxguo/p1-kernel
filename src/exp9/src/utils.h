@@ -90,6 +90,7 @@ void kfree(void *p);    // give kernel va
 unsigned long get_free_page();      // pa
 void free_page(unsigned long p);    // pa 
 int reserve_phys_region(unsigned long pa_start, unsigned long size); 
+int free_phys_region(unsigned long pa_start, unsigned long size); 
 
 void *malloc (unsigned s); 
 void free (void *p); 
@@ -253,6 +254,7 @@ int set_powerstate_on(unsigned deviceid);
 int get_board_serial(unsigned long *s);
 
 int fb_init(void); 
+int fb_fini(void); 
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)

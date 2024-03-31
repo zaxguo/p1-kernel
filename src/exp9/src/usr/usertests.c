@@ -2614,6 +2614,53 @@ void simplesleep(char *s)
   }
 }
 
+#if 1
+// #include "../rev_uva_logo_color3-resized.h" // too big. fs cannot support
+#include "tv-test-screen-64x48.h"
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+void fbstatic() {
+  int fd = open("/dev/fb", O_RDWR); 
+  if (fd < 0) {
+    printf("open /dev/fb failed"); 
+    exit(1);
+  }
+
+#define IMG_DATA img_data      
+#define IMG_HEIGHT img_height
+#define IMG_WIDTH img_width
+  int x,y;
+  int vheight=1024, vwidth=768; 
+  int pitch=4096;   // in bytes
+  char *data=IMG_DATA; 
+  char pixel[4] = {0x00, 0x40, 0x60, 0xe0}, black[]={0,0,0,0}; 
+
+  // crop img data per the framebuf size
+  unsigned int img_fb_height = min(vheight,IMG_HEIGHT);
+  unsigned int img_fb_width = min(vwidth,IMG_WIDTH);
+    // img_height = img_height; img_width = img_width;
+    // unsigned int img_fb_height = vheight;
+    // unsigned int img_fb_width = vwidth;
+
+  // copy the image pixels to the start (top) of framebuf    
+//   ptr += (the_fb.vwidth-img_fb_width)*2;  // align to center
+  
+  for(y=0;y<img_fb_height;y++) {
+      for(x=0;x<img_fb_width;x++) {
+          HEADER_PIXEL(data, pixel);
+          if (write(fd, &pixel, sizeof(pixel)) < sizeof(pixel)) {
+            printf("failed to write (%d,%d) to fb\n", x, y); 
+            break; 
+          }
+      }
+    //   ptr+=the_fb.pitch-img_fb_width*4;      // TODO: handle seek 
+      for (;x<pitch/4;x++)
+        if (write(fd, &black, 4) < 4) {printf("failed\n");break;}
+  }
+  close(fd);   
+}
+#endif
+
 // xzl: list of quicktests...
 struct test {
   void (*f)(char *);
@@ -2681,6 +2728,7 @@ struct test {
   {badarg, "badarg" },
   /* xzladd */
   {simplesleep, "simplesleep"},
+  {fbstatic, "fb"},
   { 0, 0},
 };
 

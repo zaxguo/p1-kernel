@@ -64,23 +64,33 @@ static void alloc_init (unsigned char *ulBase, unsigned long ulSize);
 
 // reserve a phys region. all pages must be unused previously. 
 // caller must hold alloc_lock
+// is_reserve==1 for reserve, 0 for free
 // return 0 if succeeds
-static int _reserve_phys_region(unsigned long pa_start, unsigned long size) {
+static int _reserve_phys_region(unsigned long pa_start, 
+	unsigned long size, int is_reserve) {
 	if ((pa_start & ~PAGE_MASK) != 0 || (size & ~PAGE_MASK) != 0)
 		{BUG(); return -1;}
 	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++){
-		if (mem_map[i])	
+		if (mem_map[i] == is_reserve)	
 			{return -2;}      // page already taken?   
 	}	
 	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++)
-		mem_map[i] = 1; 
+		mem_map[i] = is_reserve; 
 	return 0; 
 }
 
 int reserve_phys_region(unsigned long pa_start, unsigned long size) {
 	int ret; 
 	acquire(&alloc_lock); 
-	ret = _reserve_phys_region(pa_start, size);
+	ret = _reserve_phys_region(pa_start, size, 1/*is_reserve*/);
+	release(&alloc_lock); 
+	return ret; 
+}
+
+int free_phys_region(unsigned long pa_start, unsigned long size) {
+	int ret; 
+	acquire(&alloc_lock); 
+	ret = _reserve_phys_region(pa_start, size, 0/*is_reserve*/);
 	release(&alloc_lock); 
 	return ret; 
 }
@@ -111,7 +121,7 @@ unsigned int paging_init() {
 		// BUG_ON(ret); 
         // alloc_init(PA2VA(LOW_MEMORY), MALLOC_PAGES * PAGE_SIZE); 
 		int ret = _reserve_phys_region(HIGH_MEMORY-MALLOC_PAGES*PAGE_SIZE, 
-			MALLOC_PAGES*PAGE_SIZE); 
+			MALLOC_PAGES*PAGE_SIZE, 1); 
 		BUG_ON(ret); 
         alloc_init(PA2VA(HIGH_MEMORY-MALLOC_PAGES*PAGE_SIZE), 
 			MALLOC_PAGES*PAGE_SIZE); 		

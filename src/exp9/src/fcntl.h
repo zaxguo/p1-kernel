@@ -12,7 +12,7 @@
 enum {
   CONSOLE = 1, 
   KEYBOARD,
-  FRAMEBUFFER,  
+  FRAMEBUFFER,  // /dev/fb
   DEVNULL,  // /dev/null
   DEVZERO,     // /dev/zero
   PROCFS_DISPINFO, 

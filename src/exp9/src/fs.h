@@ -25,7 +25,7 @@ struct superblock {
 
 #define NDIRECT 12
 #define NINDIRECT (BSIZE / sizeof(uint))
-#define MAXFILE (NDIRECT + NINDIRECT)
+#define MAXFILE (NDIRECT + NINDIRECT)   // xzl: max # of blocks per file. ~270KB filesize limit
 
 // On-disk inode structure
 struct dinode {

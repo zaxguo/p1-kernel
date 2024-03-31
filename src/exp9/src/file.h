@@ -9,7 +9,7 @@ struct file {
   struct inode *ip;  // FD_INODE and FD_DEVICE (& FD_PROCFS)
   uint off;          // FD_INODE
   short major;       // FD_DEVICE (& FD_PROCFS)
-  char *content;    // 1 page, allocated on open(). FD_PROCFS
+  unsigned char *content;    // FD_PROCFS and FD_DEVICE (backing content)
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
@@ -34,9 +34,9 @@ struct inode {
 };
 
 // map major device number to device functions.
-struct devsw {
-  int (*read)(int, uint64, int);
-  int (*write)(int, uint64, int);
+struct devsw {  
+  int (*read)(int /*usrdst?*/, uint64 /*usrptr*/, int /*off*/, int /*sz*/);
+  int (*write)(int, uint64, int, int);
 };
 
 extern struct devsw devsw[];

@@ -32,7 +32,7 @@
 #include "utils.h"
 #include "spinlock.h"
 
-static struct spinlock mboxlock = {.locked=0, .cpu=0, .name="mbox_lock"};
+struct spinlock mboxlock = {.locked=0, .cpu=0, .name="mbox_lock"};
 
 /* mailbox message buffer */
 // xzl: dont have to be "coherent" mem?
@@ -140,6 +140,7 @@ int mbox_call(unsigned char ch)
 //  a simple framebuffer 
 //
 #include "rev_uva_logo_color3-resized.h"
+#include "fb.h"
 
 /* PC Screen Font as used by Linux Console */
 typedef struct {
@@ -174,17 +175,10 @@ typedef struct {
 
 extern volatile unsigned char _binary_font_sfn_start; // linker script
 
-struct fb_struct {
-    unsigned char *fb;  // framebuffer, kernel va
-    unsigned width, height, vwidth, vheight, pitch; 
-    unsigned depth; 
-    unsigned isrgb; 
-    unsigned offsetx, offsety; 
-    unsigned size; 
-}; 
-
 // 1024x768, phys WH = virt WH, offset (0,0)
-static struct fb_struct the_fb = {
+// said to support up to 1920x1080
+struct fb_struct the_fb = {
+    .fb = 0,
     .width = 1024,
     .height = 768, 
     .vwidth = 1024, 
@@ -192,6 +186,7 @@ static struct fb_struct the_fb = {
     .depth = 32, 
     .offsetx = 0,
     .offsety = 0,
+    .size = 0, 
 }; 
 
 /**
@@ -284,6 +279,33 @@ static int do_fb_init(struct fb_struct *fbs)
 
 int fb_init(void) {
     return do_fb_init(&the_fb); 
+}
+
+// return 0 on success
+int fb_fini(void) {
+    int ret = 0; 
+
+    acquire(&mboxlock); 
+    if (!the_fb.fb || !the_fb.size) {
+        ret = -1; 
+        goto out; 
+    }
+
+    mbox[0] = 5*4;     // size of the whole buf that follows
+    mbox[1] = MBOX_REQUEST; // cpu->gpu request
+
+    mbox[2] = 0x48001;     // rls framebuffer
+    mbox[3] = 0;           // total buf size
+    mbox[4] = 0;           // req para size
+    
+    if (free_phys_region(VA2PA(the_fb.fb), the_fb.size)) {
+        E("failed to free fb memory. bug?"); 
+        ret = -2; 
+    }
+    the_fb.fb = 0; 
+out:
+    release(&mboxlock);          
+    return ret; 
 }
 
 // Display a string using fixed size PSF update x,y screen coordinates
