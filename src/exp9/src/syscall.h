@@ -1,6 +1,6 @@
 // from xv6. to be included by the kernel and user code (via source-to-soruce gen)
 
-#define __NR_syscalls	 22
+#define __NR_syscalls	 23
 
 // System call numbers
 // 0 .. unused??
@@ -25,3 +25,4 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_lseek  22       // not in xv6

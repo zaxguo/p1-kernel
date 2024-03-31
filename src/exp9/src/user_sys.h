@@ -3,7 +3,8 @@
 
 struct stat; 
 
-// for kernel threads to call syscalls
+// for kernel threads to call syscalls      
+// user_sys.S
 int call_sys_write(int fd, char * buf, int n);
 int call_sys_read(int, void*, int);
 int call_sys_open(const char * buf, int omode);

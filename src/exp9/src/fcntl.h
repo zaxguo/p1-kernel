@@ -5,6 +5,9 @@
 #define O_CREATE  0x200
 #define O_TRUNC   0x400
 
+#define	SEEK_SET	0	/* set file offset to offset */
+#define	SEEK_CUR	1	/* set file offset to current plus offset */
+#define	SEEK_END	2	/* set file offset to EOF plus offset */
 
 // major num for devices
 // modeled after: https://github.com/NJU-ProjectN/navy-apps/blob/master/README.md

@@ -2661,6 +2661,51 @@ void fbstatic() {
 }
 #endif
 
+#define BUFSIZE 32
+void seektest(char *s) {
+  char buf[BUFSIZE]; 
+
+  int fd = open("README", 0);
+  if(fd < 0){
+    printf("open(README) failed\n");
+    exit(1);
+  }
+
+  // read beginning 
+  int n = read(fd, buf, 31); 
+  if (n<0) {printf("read failed"); exit(1);}
+  else {buf[n]=0; printf("read ok. %d: %s\n", n, buf);}
+
+  n = lseek(fd, 32, SEEK_CUR); 
+  if (n<0) {printf("seek failed"); exit(1);}
+  else printf("SEEK_CUR ok. new pos %d\n", n); 
+
+  printf("read again."); 
+  n = read(fd, buf, 31); 
+  if (n<0) {printf("read failed"); exit(1);}
+  else {buf[n]=0; printf("read ok. %d: %s\n", n, buf);}
+
+  n = lseek(fd, 32, SEEK_SET); 
+  if (n<0) {printf("seek failed"); exit(1);}
+  else printf("SEEK_SET ok. new pos %d\n", n); 
+  
+  printf("read again."); 
+  n = read(fd, buf, 31); 
+  if (n<0) {printf("read failed"); exit(1);}
+  else {buf[n]=0; printf("read ok. %d: %s\n", n, buf);}
+
+  n = lseek(fd, -32, SEEK_END); 
+  if (n<0) {printf("SEEK_END failed"); exit(1);}
+  else printf("SEEK_END ok. new pos %d\n", n); 
+
+  printf("read again."); 
+  n = read(fd, buf, 31); 
+  if (n<0) {printf("read failed"); exit(1);}
+  else {buf[n]=0; printf("read ok. %d: %s\n", n, buf);}  
+
+  exit(0); 
+}
+
 // xzl: list of quicktests...
 struct test {
   void (*f)(char *);
@@ -2729,6 +2774,7 @@ struct test {
   /* xzladd */
   {simplesleep, "simplesleep"},
   {fbstatic, "fb"},
+  {seektest, "seek"},
   { 0, 0},
 };
 

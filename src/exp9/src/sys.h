@@ -1,6 +1,8 @@
 #ifndef	_SYS_H
 #define	_SYS_H
 
+// xzl: combine this file with others?
+
 #ifndef __ASSEMBLER__
 
 void sys_write(int fd, char * buf, int n);

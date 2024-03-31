@@ -72,6 +72,7 @@
     svc #0
     ret          
           
+
 .globl call_sys_mknod
     call_sys_mknod:
     mov x8, #SYS_mknod
@@ -145,6 +146,13 @@
 .globl call_sys_uptime
     call_sys_uptime:
     mov x8, #SYS_uptime
+    svc #0
+    ret          
+          
+
+.globl call_sys_lseek
+    call_sys_lseek:
+    mov x8, #SYS_lseek
     svc #0
     ret          
           

@@ -84,6 +84,15 @@ int sys_write(int fd, unsigned long p /*user va*/, int n) {
   return filewrite(f, p, n);
 }
 
+int sys_lseek(int fd, int offset, int whence) {
+  struct file *f;
+    
+  if(argfd(fd, &f) < 0)
+    return -1;
+    
+  return filelseek(f, offset, whence);  
+}
+
 int sys_close(int fd) {
   struct file *f;
 

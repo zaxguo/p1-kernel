@@ -133,6 +133,7 @@ int sys_uptime(void) {
 extern int sys_dup(int fd);
 extern int sys_read(int fd, unsigned long p /*user va*/, int n);
 extern int sys_write(int fd, unsigned long p /*user va*/, int n);
+extern int sys_lseek(int fd, int offset, int whence); 
 extern int sys_close(int fd); 
 extern int sys_fstat(int fd, unsigned long st /*user va*/);
 extern int sys_link(unsigned long userold, unsigned long usernew);
@@ -143,10 +144,10 @@ extern int sys_mknod(unsigned long upath, short major, short minor);
 extern int sys_chdir(unsigned long upath);
 extern int sys_exec(unsigned long upath, unsigned long uargv);
 extern int sys_pipe(unsigned long fdarray);
+extern int sys_fork();		// sys.c
 
 // mm.c
 extern unsigned long sys_sbrk(int incr); 
-
 
 /* An array of pointers to all syscall handlers. 
 	Each syscall has a "syscall number" (sys.h) — which is just an index in this array 		
@@ -174,4 +175,5 @@ void * const sys_call_table[] = {
 	[SYS_link]    sys_link,
 	[SYS_mkdir]   sys_mkdir,
 	[SYS_close]   sys_close,	
+	[SYS_lseek]   sys_lseek,	
 };

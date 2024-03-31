@@ -126,12 +126,56 @@ int fileread(struct file *f, uint64 addr, int n) {
         // must maintain offset in procfs read, otherwise user don't know
         //  if if reads all contents & should stop
         if ((r = readprocfs(f, addr, n))>0)
-            f->off += r; 
+            f->off += r; // xzl: no need lock inode?
     } else {
         panic("fileread");
     }
 
     return r;
+}
+
+// if ok, return the resulting offset location as measured in bytes from 
+//  the beginning of the file. 
+//  On error, the value -1 is returned
+// https://man7.org/linux/man-pages/man2/lseek.2.html
+int filelseek(struct file *f, int offset, int whence) {
+    int newoff; uint size; 
+
+    // sanity checks 
+    if (f->type == FD_PIPE)     
+        return -1;      
+    if (f->type == FD_DEVICE) {
+        if (f->major < 0 || f->major >= NDEV)
+            return -1;        
+    }
+
+    // take a snapshot of filesize. but nothing prevents file size changes
+    // after we unlock inode, making f->off invalid. in that case, read/write
+    // shall fail and nothing bad shall happen
+    ilock(f->ip);
+    size = f->ip->size; 
+    iunlock(f->ip);
+    
+    switch (whence)
+    {
+    case SEEK_SET:
+        newoff = offset; 
+        break;
+    case SEEK_CUR:
+        newoff = f->off + offset; 
+        break; 
+    case SEEK_END:  // "set file offset to EOF plus offset", i.e. offset shall <0
+        if (offset > 0) { W("unsupported"); return -1;}
+        newoff = size + offset; 
+        break; 
+    default:
+        return -1; 
+    }
+
+    if (newoff < 0 || newoff > size) return -1; 
+
+    f->off = newoff; 
+    return newoff; 
 }
 
 static int writeprocfs(struct file *f, uint64 src, uint n); 

@@ -149,3 +149,8 @@
     svc #0
     ret          
           
+.globl lseek
+    lseek:
+    mov x8, #SYS_lseek
+    svc #0
+    ret          

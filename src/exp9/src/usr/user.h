@@ -1,6 +1,13 @@
 struct stat;
 
 // system calls
+// to add new syscalls:
+//      add the prototype in this file below 
+//      add stub. update usys.S (gen by usys.py; 
+//      kernel: syscall.h 
+//      kernel: sys.c update syscall table 
+//      kernel: add the sys_XXX implementation
+
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int*);
@@ -22,6 +29,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int lseek(int, int, int whence); // return -1 on failure. otherwise offset
 
 // ulib.c
 int stat(const char*, struct stat*);
