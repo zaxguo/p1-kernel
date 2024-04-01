@@ -2,8 +2,16 @@
 // self contained as much as possible, 
 //  but removed dep (newlib, minisdl, even sscanf)
 // as such, this file includes small implementation of common functions like atoi
+//  Mar 2024 xzl
 //
 // https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nslider/src/main.cpp
+// how to gen slides: see slides/conver.sh 
+
+// USAGE:
+//   j/down - page down
+//   k/up - page up
+//   gg - first page
+//   (xzl): number then j/k to jmp fwd/back by X slides
 
 #include <stdint.h> 
 #include <assert.h>
@@ -39,19 +47,16 @@ struct BitmapHeader {
   uint32_t clrused, clrimportant;
 } __attribute__((packed));
 
-// xzl: load bmp file into a packed buf. expect 24bit color depth
-// return pixel buffer. 
+// load bmp file into a packed buf. expect 24bit color depth
+// return:  pixel buffer. 
 // caller must free the buffer 
 void* BMP_Load(const char *filename, int *width, int *height) {
-//   FILE *fp = fopen(filename, "r");  
-//   if (!fp) return NULL;
   int nread; 
   int fd = open(filename, O_RDONLY);
   if (fd<0) return 0; 
 
   struct BitmapHeader hdr;
   assert(sizeof(hdr) == 54);
-  // assert(1 == fread(&hdr, sizeof(struct BitmapHeader), 1, fp));
   nread = read(fd, &hdr, sizeof hdr); 
   assert(nread == sizeof(hdr)); 
 
@@ -59,16 +64,14 @@ void* BMP_Load(const char *filename, int *width, int *height) {
   if (hdr.compression != 0) return 0;
   int w = hdr.width;
   int h = hdr.height;
-  uint32_t *pixels = malloc(w * h * sizeof(uint32_t));  // xzl: each pixel 4bytes
+  uint32_t *pixels = malloc(w * h * sizeof(uint32_t));  // each pixel 4bytes
   assert(pixels); 
   
   int line_off = (w * 3 + 3) & ~0x3;
   for (int i = 0; i < h; i ++) {
-    // fseek(fp, hdr.offset + (h - 1 - i) * line_off, SEEK_SET);
     lseek(fd, hdr.offset + (h - 1 - i) * line_off, SEEK_SET);
-    // nread = fread(&pixels[w * i], 3, w, fp);
     nread = read(fd, &pixels[w * i], 3*w);  assert(nread==3*w); // read a row
-    // reshape row: pixel r/g/b as 0/r/g/b 
+    // reshape a row: from pixel r/g/b to 0/r/g/b 
     for (int j = w - 1; j >= 0; j --) {
       uint8_t b = *(((uint8_t*)&pixels[w * i]) + 3 * j);
       uint8_t g = *(((uint8_t*)&pixels[w * i]) + 3 * j + 1);
@@ -135,30 +138,22 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 #define W 400
 #define H 300
 
-// USAGE:
-//   j/down - page down
-//   k/up - page up
-//   gg - first page
-//   (xzl): number then j/k to jmp fwd/back by X slides
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
-// number of slides
-const int N = 10;
-// slides path pattern (starts from 0)
-// const char *path = "/slides/slides-%d.bmp";
+const int N = 10; // max slide num 
+// slides path pattern (starts from 1, per pptx export naming convention)
 const char *path = "/Slide%d.bmp";
 
 // display config
 // the field of /proc/dispinfo. order must be right
-#define MAX_ARGS   8
-enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,PITCH,DEPTH,ISRGB}; 
+// check by "cat /proc/dispinfo"
+enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,PITCH,DEPTH,ISRGB,MAX_ARGS}; 
 int dispinfo[MAX_ARGS]={0};
 
 #define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
 
-static int cur = 0;   // cur slide num 
-static int fb; 
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
+static int cur = 1;   // cur slide num 
+static int fb = 0; 
 
 void render() {
   char fname[256];
@@ -170,12 +165,13 @@ void render() {
   // crop img data per the framebuf size  
   int vwidth= dispinfo[VWIDTH], vheight = dispinfo[VHEIGHT]; 
   int pitch = dispinfo[PITCH]; 
-  int fb_w = min(vwidth,w), fb_h = min(vheight,h); // the actual canvas
+  int fb_w = min(vwidth,w), fb_h = min(vheight,h); // actual size for visible area
 
   printf("%s:size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
 
   assert(fb); 
   int n, y; 
+  // write to /dev/fb by row 
   for(y=0;y<fb_h;y++) {
     n = lseek(fb, y*pitch, SEEK_SET); assert(n>=0); 
     if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < sizeof(fb_w*PIXELSIZE)) {
@@ -191,14 +187,14 @@ void render() {
 void prev(int rep) {
   if (rep == 0) rep = 1;
   cur -= rep;
-  if (cur < 0) cur = 0;
+  if (cur <= 0) cur = 1;
   render();
 }
 
 void next(int rep) {
   if (rep == 0) rep = 1;
   cur += rep;
-  if (cur >= N) cur = N - 1;
+  if (cur > N) cur = N;
   render();
 }
 
@@ -212,10 +208,10 @@ int main() {
   char buf[LINESIZE], *s=buf; 
   int evtype; uint scancode; 
 
-  fb = open("/dev/fb/", O_RDWR); 
   int events = open("/dev/events", O_RDONLY); 
   int dp = open("/proc/dispinfo", O_RDONLY); 
   int fbctl = open("/proc/fbctl", O_RDWR); 
+  fb = open("/dev/fb/", O_RDWR); //printf("fb is %d\n", fb); 
   assert(fb>0 && events>0 && dispinfo>0 && fbctl>0); 
 
   // config fb 
@@ -223,16 +219,17 @@ int main() {
   sprintf(buf, "%d %d %d %d\n", 1360, 768, W, H); 
   n=write(fbctl,buf,LINESIZE); assert(n>0); 
 
-  // after config, read dispinfo again
+  // after config, read dispinfo again (GPU may specify different dims)
   // parse /proc/dispinfo into dispinfo[]
   n=read(dp, buf, LINESIZE); assert(n>0); 
   close(dp);   
+
   // parse the 1st line to a list of int args... (ignore other lines
   for (s = buf; s < buf+n; s++) {
       if (*s=='\n' || *s=='\0')
           break;         
       if ('0' <= *s && *s <= '9') { // start of a num
-          dispinfo[nargs] = atoi(s); // W("got arg %d", args[nargs]);             
+          dispinfo[nargs] = atoi(s); // printf("got arg %d\n", dispinfo[nargs]);             
           while ('0' <= *s && *s <= '9' && s<buf+n) 
               s++; 
           if (nargs++ == MAX_ARGS)
@@ -244,6 +241,7 @@ int main() {
 
   render();
   
+  // main loop. handle keydown event, switch among bmps
   while (1) {
     evtype = INVALID; scancode = 0; //invalid
 

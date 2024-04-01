@@ -14,7 +14,7 @@
 # 1b. use Adobe's online tool: export PDF to multiple jpgs (no bmps)
 # 2. use some online tool to batch convert/resize bmps/jpgs to smaller bmps
 #   https://redketchup.io/bulk-image-resizer    
-#     (note - pick 24bit color depth; resize by filesize: 200KB
+#     (note - color depth: 24bit; resize by filesize: 200KB
 # then manual rename 
 
 convert slides.pdf \

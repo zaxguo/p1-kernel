@@ -7,17 +7,27 @@
 #include "spinlock.h"
 #include "sched.h"
 
-// 10Hz (100ms per tick) is assumed by some user tests.
+// current design. 
+// scheduler ticks (& user sleep()) are based on arm generic timers. 
+// higher precision timekeeping (e.g. ms/us delay, kernel timers) are calibrated
+// and based on Arm system timers (hence only available for Rpi3, not qemu)
+
+// below are for arm generic timers
+// 10Hz (100ms per tick) is assumed by some user tests. 
+// TODO could be too slow for games which renders by sleep(). 60Hz then?
+
+#define SCHED_TICK_HZ	10 
+
 #ifdef PLAT_VIRT
-int interval = ((1 << 26) / 10); // (1 << 26) around 1 sec
+int interval = ((1 << 26) / SCHED_TICK_HZ); // (1 << 26) around 1 sec
 #elif defined PLAT_RPI3QEMU
-int interval = ((1 << 26) / 10); // (1 << 26) around 1 sec
+int interval = ((1 << 26) / SCHED_TICK_HZ); // (1 << 26) around 1 sec
 #elif defined PLAT_RPI3
-int interval = (1 * 1000 * 1000 / 10);
+int interval = (1 * 1000 * 1000 / SCHED_TICK_HZ);
 #endif
 
 struct spinlock tickslock = {.locked = 0, .cpu=0, .name="tickslock"};
-unsigned int ticks; 	// sleep() tasks sleep on this var
+unsigned int ticks; 	// sleep() tasks sleep on this var. 
 
 /* 	These are for Arm generic timers. 
 	They are fully functional on both QEMU and Rpi3.
@@ -60,7 +70,7 @@ void handle_generic_timer_irq( void )
 */
 
 #define N_TIMERS 20
-#define CLOCKHZ	1000000	// rpi3 seems to use 1MHz clock for system counter. 
+#define CLOCKHZ	1000000	// rpi3 use 1MHz clock for system counter. 
 
 #define TICKPERSEC (CLOCKHZ)
 #define TICKPERMS (CLOCKHZ / 1000)

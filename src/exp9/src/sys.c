@@ -1,4 +1,5 @@
-#define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_WARNING
 
 #include "plat.h"
 #include "utils.h"
@@ -104,7 +105,7 @@ int sys_getpid(void) {
 	return current->pid; 
 }
 
-// n: # of ticks to sleep 
+// n: # of sched ticks to sleep (cf timer.c)
 int sys_sleep(int n) {
 	uint ticks0;
     acquire(&tickslock);

@@ -760,7 +760,7 @@ pipe1(char *s)
   } else if(pid > 0){
     close(fds[1]);
     total = 0;
-    cc = 1;
+    cc = 1; // xzl: give it expoentially larger buf to read....
     while((n = read(fds[0], buf, cc)) > 0){
       for(i = 0; i < n; i++){
         if((buf[i] & 0xff) != (seq++ & 0xff)){
@@ -774,9 +774,9 @@ pipe1(char *s)
         cc = sizeof(buf);
     }
     if(total != N * SZ){
-      printf("%s: pipe1 oops 3 total %d\n", total);
+      printf("%s: pipe1 oops 3 total %d\n", s, total);
       exit(1);
-    }
+    } else printf("%s: OK. pipe1 total %d\n", s, total); // xzl
     close(fds[0]);
     wait(&xstatus);
     exit(xstatus);
@@ -2706,6 +2706,70 @@ void seektest(char *s) {
   exit(0); 
 }
 
+// two writers, one reader  (a T shape)
+// modeled after pipe1()
+void pipe3(char *s) {
+  int fds[2], xstatus; 
+  int i, n, cc, total;
+  enum { N=5, SZ=5 };
+  int tick=1; // for writers to sleep. 
+
+  if(pipe(fds) != 0){
+    printf("%s: pipe() failed\n", s);
+    exit(1);
+  }
+
+  if (fork() == 0) {  // 1st writer
+    close(fds[0]); 
+    for(n = 0; n < N; n++){
+      for(i = 0; i < SZ; i++)
+        buf[i] = 'a';
+      if(write(fds[1], buf, SZ) != SZ){
+        printf("%s: pipe3 oops 1\n", s);
+        exit(1);
+      }
+      if (tick) sleep(tick); 
+    }
+    exit(0);
+  }
+
+  if (fork() == 0) {  // 2nd writer
+    close(fds[0]); 
+    for(n = 0; n < N; n++){
+      for(i = 0; i < SZ; i++)
+        buf[i] = 'b';
+      if(write(fds[1], buf, SZ) != SZ){
+        printf("%s: pipe3 oops 2\n", s);
+        exit(1);
+      }
+      if (tick) sleep(tick); 
+    }
+    exit(0);
+  }
+
+  // reader
+  close(fds[1]);
+  total = 0;
+  cc = 1;
+  while ((n = read(fds[0], buf, cc)) > 0) {
+      for (i = 0; i < n; i++) {
+          printf("%c", buf[i]); 
+      }
+      total += n;
+      cc = cc * 2;
+      if (cc > sizeof(buf))
+          cc = sizeof(buf);
+  }
+  if(total != 2*N*SZ){
+    printf("%s: pipe3 oops 3 total %d. expected %d\n", total, 2*N*SZ);
+    exit(1);
+  }
+  close(fds[0]);
+  wait(&xstatus);
+  wait(&xstatus);
+  exit(xstatus);  
+}
+
 // xzl: list of quicktests...
 struct test {
   void (*f)(char *);
@@ -2775,6 +2839,7 @@ struct test {
   {simplesleep, "simplesleep"},
   {fbstatic, "fb"},
   {seektest, "seek"},
+  {pipe3, "pipe3"},
   { 0, 0},
 };
 

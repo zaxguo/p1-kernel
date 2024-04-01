@@ -158,6 +158,10 @@ cf devfb_write()
 
 xv6 fs filesize limit... 260KB. too limited. need to swtich to fat32 soon. 
 
+added test for pipe3: two writers, one reader. 
+    needed by liteNES event queue (has to receive on both timer and input events)
+    (we dont have threads, or nonblocking IO support. can use pipes to implement)
+    
 -------------
 
 [ ] add hw suport for  rpi3 
