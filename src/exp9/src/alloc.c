@@ -69,7 +69,7 @@ static void alloc_init (unsigned char *ulBase, unsigned long ulSize);
 static int _reserve_phys_region(unsigned long pa_start, 
 	unsigned long size, int is_reserve) {
 	if ((pa_start & ~PAGE_MASK) != 0 || (size & ~PAGE_MASK) != 0)
-		{BUG(); return -1;}
+		{W("pa_start %lx size %lx", pa_start, size);BUG(); return -1;}
 	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++){
 		if (mem_map[i] == is_reserve)	
 			{return -2;}      // page already taken?   

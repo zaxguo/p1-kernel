@@ -151,9 +151,14 @@ add procfs support.
 
 added dev/ support, esp fb and fbctl (for set parameters, control, etc)
 
+an intersting bug... write to /dev/fb didn't flush completely. artifacts on display. 
+can be a good example. 
+
+cf devfb_write()
+
+xv6 fs filesize limit... 260KB. too limited. need to swtich to fat32 soon. 
 
 -------------
-
 
 [ ] add hw suport for  rpi3 
     [ ]  refactor display driver  -- clean up the code, make fb interface (w/ double buffering                

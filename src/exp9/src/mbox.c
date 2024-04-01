@@ -83,6 +83,7 @@ int mbox_call(unsigned char ch)
             V("r is 0x%x", r); 
             __asm_invalidate_dcache_range((void *)mbox, (char *)mbox + sizeof(mbox)); 
             /* is it a valid successful response? */
+            if (mbox[1]!=MBOX_RESPONSE) E("mbox[1] is %08x", mbox[1]);
             return mbox[1]==MBOX_RESPONSE;
         } else {
             W("got an irrelvant msg. bug?"); 
@@ -295,7 +296,7 @@ static int do_fb_init(struct fb_struct *fbs)
         fbs->vwidth=mbox[10];
         fbs->vheight=mbox[11];        
         fbs->isrgb=mbox[24];         // channel order        
-        fbs->size = fbs->pitch * fbs->vheight; 
+        fbs->size = PGROUNDUP(fbs->pitch * fbs->vheight);  // roundup b/c we'll reserve pages for it
         I("OK. fb pa: 0x%08x pitch %u", mbox[28], mbox[33]); 
     } else {
         E("Unable to set screen resolution to 1024x768x32\n");
@@ -329,11 +330,12 @@ int fb_fini(void) {
     mbox[2] = 0x48001;     // rls framebuffer
     mbox[3] = 0;           // total buf size
     mbox[4] = 0;           // req para size
-    
+        
     mbox[5] = MBOX_TAG_LAST;
 
     if(!mbox_call(MBOX_CH_PROP))
-        E("failed to rls fb with GPU. bug?");
+        I("failed to rls fb with GPU."); 
+        // response code always 0x80000001 (failure). couldn't figure out why
 
     if (free_phys_region(VA2PA(the_fb.fb), the_fb.size)) {
         E("failed to free fb memory. bug?"); 

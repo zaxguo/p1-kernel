@@ -274,7 +274,7 @@ int devfb_write(int user_src, uint64 src, int off, int n) {
         goto out; 
     ret = len;
     __asm_flush_dcache_range(the_fb.fb+off, the_fb.fb+off+len); 
-    // __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
+    // __asm_flush_dcache_range(the_fb.fb, the_fb.fb+len); // a bug by xzl. what will happen on display?
 out: 
     release(&mboxlock); 
     return ret; 
@@ -337,7 +337,17 @@ static int readprocfs(struct file *f, uint64 dst, uint n) {
 #define LINESIZE   32
 #define MAX_ARGS   8
 
-static int procfs_fbctl_w(int args[MAX_ARGS]) {
+static int procfs_fbctl_w(int args[MAX_ARGS]) {    
+    fb_fini(); 
+
+    acquire(&mboxlock); 
+    the_fb.width = args[0];
+    the_fb.height = args[1];
+    the_fb.vwidth = args[2];
+    the_fb.vheight = args[3];
+    release(&mboxlock);      
+
+    fb_init(); 
     return 0; 
 }
 
@@ -376,7 +386,8 @@ static int writeprocfs(struct file *f, uint64 src, uint n) {
     default:
         break;
     }
-    return (s-buf); 
+    // return (s-buf); 
+    return n; // as if all writes are done, so that user won't try again
 }
 
 static void init_devfs() {

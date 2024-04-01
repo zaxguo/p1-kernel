@@ -1,5 +1,8 @@
 // inspired by nslider 
-// but removed as much dep as possible (newlib, minisdl)
+// self contained as much as possible, 
+//  but removed dep (newlib, minisdl, even sscanf)
+// as such, this file includes small implementation of common functions like atoi
+//
 // https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nslider/src/main.cpp
 
 #include <stdint.h> 
@@ -11,7 +14,7 @@
 #include "../fs.h"
 #include "user.h"
 
-/// assert 
+/// assert. needed by assert()
 void __assert_fail(const char * assertion, const char * file, 
   unsigned int line, const char * function) {  
   printf("assertion failed: %s at %s:%d\n", assertion, file, (int)line); 
@@ -74,7 +77,6 @@ void* BMP_Load(const char *filename, int *width, int *height) {
     }
   }
 
-  // fclose(fp);
   close(fd); 
   if (width) *width = w;
   if (height) *height = h;
@@ -82,7 +84,7 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 }
 
 
-// scancode defs: 
+// USB keyboard scancode defs: 
 // https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
 #define KEY_A 0x04 // Keyboard a and A
 #define KEY_B 0x05 // Keyboard b and B
@@ -127,9 +129,9 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 #define KEY_DOWN 0x51 // Keyboard Down Arrow
 #define KEY_UP 0x52 // Keyboard Up Arrow
 
-
 //// main loop
 
+// will be used as virt fb size
 #define W 400
 #define H 300
 
@@ -151,26 +153,14 @@ const char *path = "/Slide%d.bmp";
 enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,PITCH,DEPTH,ISRGB}; 
 int dispinfo[MAX_ARGS]={0};
 
-#define PIXELSIZE 4 /*ARGB*/ 
+#define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
 
-// static SDL_Surface *slide = NULL;
 static int cur = 0;   // cur slide num 
 static int fb; 
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 void render() {
-#if 0
-  if (slide) {
-    SDL_FreeSurface(slide);//free a prev surface
-  }
-  char fname[256];
-  sprintf(fname, path, cur);
-  slide = SDL_LoadBMP(fname);// cr a new surface
-  assert(slide);
-  SDL_UpdateRect(slide, 0, 0, 0, 0);
-#endif  
-
   char fname[256];
   int w, h; 
   sprintf(fname, (char *)path, cur);
@@ -182,7 +172,7 @@ void render() {
   int pitch = dispinfo[PITCH]; 
   int fb_w = min(vwidth,w), fb_h = min(vheight,h); // the actual canvas
 
-  printf("bmpsize: w %d h %d; canvas w %d h %d\n", w, h, fb_w, fb_h); 
+  printf("%s:size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
 
   assert(fb); 
   int n, y; 
@@ -225,12 +215,19 @@ int main() {
   fb = open("/dev/fb/", O_RDWR); 
   int events = open("/dev/events", O_RDONLY); 
   int dp = open("/proc/dispinfo", O_RDONLY); 
-  assert(fb>0 && events>0 && dispinfo>0); 
+  int fbctl = open("/proc/fbctl", O_RDWR); 
+  assert(fb>0 && events>0 && dispinfo>0 && fbctl>0); 
 
+  // config fb 
+  // assuming phys display is 1360x768. TODO: read swidth/sheight from /proc/dispinfo
+  sprintf(buf, "%d %d %d %d\n", 1360, 768, W, H); 
+  n=write(fbctl,buf,LINESIZE); assert(n>0); 
+
+  // after config, read dispinfo again
   // parse /proc/dispinfo into dispinfo[]
   n=read(dp, buf, LINESIZE); assert(n>0); 
   close(dp);   
-  // parse the 1st line of write to a list of int args... (ignore other lines
+  // parse the 1st line to a list of int args... (ignore other lines
   for (s = buf; s < buf+n; s++) {
       if (*s=='\n' || *s=='\0')
           break;         
@@ -298,5 +295,3 @@ int main() {
 
   return 0;
 }
-
-
