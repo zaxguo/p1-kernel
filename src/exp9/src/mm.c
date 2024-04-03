@@ -14,8 +14,10 @@
 */
 void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned long perm) {
 	unsigned long page;
-	if (mm->user_pages_count == MAX_TASK_USER_PAGES) // no need to go further
+	if (mm->user_pages_count == MAX_TASK_USER_PAGES) { // no need to go further
+		E("reached limit of MAX_TASK_USER_PAGES %d", MAX_TASK_USER_PAGES); 
 		return 0; 
+	}
 
 	page = get_free_page();
 	if (page == 0) {
