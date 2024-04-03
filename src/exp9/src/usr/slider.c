@@ -22,13 +22,6 @@
 #include "../fs.h"
 #include "user.h"
 
-/// assert. needed by assert()
-void __assert_fail(const char * assertion, const char * file, 
-  unsigned int line, const char * function) {  
-  printf("assertion failed: %s at %s:%d\n", assertion, file, (int)line); 
-  exit(1); 
-}
-
 ////////// bmp load 
 
 struct BitmapHeader {
@@ -86,71 +79,17 @@ void* BMP_Load(const char *filename, int *width, int *height) {
   return pixels;
 }
 
-
-// USB keyboard scancode defs: 
-// https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
-#define KEY_A 0x04 // Keyboard a and A
-#define KEY_B 0x05 // Keyboard b and B
-#define KEY_C 0x06 // Keyboard c and C
-#define KEY_D 0x07 // Keyboard d and D
-#define KEY_E 0x08 // Keyboard e and E
-#define KEY_F 0x09 // Keyboard f and F
-#define KEY_G 0x0a // Keyboard g and G
-#define KEY_H 0x0b // Keyboard h and H
-#define KEY_I 0x0c // Keyboard i and I
-#define KEY_J 0x0d // Keyboard j and J
-#define KEY_K 0x0e // Keyboard k and K
-#define KEY_L 0x0f // Keyboard l and L
-#define KEY_M 0x10 // Keyboard m and M
-#define KEY_N 0x11 // Keyboard n and N
-#define KEY_O 0x12 // Keyboard o and O
-#define KEY_P 0x13 // Keyboard p and P
-#define KEY_Q 0x14 // Keyboard q and Q
-#define KEY_R 0x15 // Keyboard r and R
-#define KEY_S 0x16 // Keyboard s and S
-#define KEY_T 0x17 // Keyboard t and T
-#define KEY_U 0x18 // Keyboard u and U
-#define KEY_V 0x19 // Keyboard v and V
-#define KEY_W 0x1a // Keyboard w and W
-#define KEY_X 0x1b // Keyboard x and X
-#define KEY_Y 0x1c // Keyboard y and Y
-#define KEY_Z 0x1d // Keyboard z and Z
-
-#define KEY_1 0x1e // Keyboard 1 and !
-#define KEY_2 0x1f // Keyboard 2 and @
-#define KEY_3 0x20 // Keyboard 3 and #
-#define KEY_4 0x21 // Keyboard 4 and $
-#define KEY_5 0x22 // Keyboard 5 and %
-#define KEY_6 0x23 // Keyboard 6 and ^
-#define KEY_7 0x24 // Keyboard 7 and &
-#define KEY_8 0x25 // Keyboard 8 and *
-#define KEY_9 0x26 // Keyboard 9 and (
-#define KEY_0 0x27 // Keyboard 0 and )
-
-#define KEY_RIGHT 0x4f // Keyboard Right Arrow
-#define KEY_LEFT 0x50 // Keyboard Left Arrow
-#define KEY_DOWN 0x51 // Keyboard Down Arrow
-#define KEY_UP 0x52 // Keyboard Up Arrow
-
 //// main loop
 
 // will be used as virt fb size
 #define W 400
 #define H 300
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
 const int N = 10; // max slide num 
 // slides path pattern (starts from 1, per pptx export naming convention)
 const char *path = "/Slide%d.bmp";
 
-// display config
-// the field of /proc/dispinfo. order must be right
-// check by "cat /proc/dispinfo"
-enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,PITCH,DEPTH,ISRGB,MAX_ARGS}; 
-int dispinfo[MAX_ARGS]={0};
-
-#define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
+int dispinfo[MAX_DISP_ARGS]={0};
 
 static int cur = 1;   // cur slide num 
 static int fb = 0; 
@@ -198,15 +137,12 @@ void next(int rep) {
   render();
 }
 
-#define LINESIZE 128
-
-enum{INVALID=0,KEYDOWN,KEYUP};
-
 int main() {
-  int n, nargs = 0; 
+  int n;
   int rep = 0, g = 0; // rep: num of slides to skip
-  char buf[LINESIZE], *s=buf; 
-  int evtype; uint scancode; 
+  // char buf[LINESIZE], *s=buf; 
+  int evtype;
+  unsigned scancode; 
 
   int events = open("/dev/events", O_RDONLY); 
   int dp = open("/proc/dispinfo", O_RDONLY); 
@@ -216,26 +152,26 @@ int main() {
 
   // config fb 
   // assuming phys display is 1360x768. TODO: read swidth/sheight from /proc/dispinfo
-  sprintf(buf, "%d %d %d %d\n", 1360, 768, W, H); 
-  n=write(fbctl,buf,LINESIZE); assert(n>0); 
+  n = config_fbctl(fbctl, 1360, 768, W, H); assert(n==0); 
+  close(fbctl); 
 
   // after config, read dispinfo again (GPU may specify different dims)
   // parse /proc/dispinfo into dispinfo[]
-  n=read(dp, buf, LINESIZE); assert(n>0); 
+  // n=read(dp, buf, LINESIZE); assert(n>0); 
+  // // parse the 1st line to a list of int args... (ignore other lines
+  // for (s = buf; s < buf+n; s++) {
+  //     if (*s=='\n' || *s=='\0')
+  //         break;         
+  //     if ('0' <= *s && *s <= '9') { // start of a num
+  //         dispinfo[nargs] = atoi(s); // printf("got arg %d\n", dispinfo[nargs]);             
+  //         while ('0' <= *s && *s <= '9' && s<buf+n) 
+  //             s++; 
+  //         if (nargs++ == MAX_ARGS)
+  //             break; 
+  //     } 
+  // }
+  n = read_dispinfo(dp, dispinfo); assert(n==MAX_DISP_ARGS); 
   close(dp);   
-
-  // parse the 1st line to a list of int args... (ignore other lines
-  for (s = buf; s < buf+n; s++) {
-      if (*s=='\n' || *s=='\0')
-          break;         
-      if ('0' <= *s && *s <= '9') { // start of a num
-          dispinfo[nargs] = atoi(s); // printf("got arg %d\n", dispinfo[nargs]);             
-          while ('0' <= *s && *s <= '9' && s<buf+n) 
-              s++; 
-          if (nargs++ == MAX_ARGS)
-              break; 
-      } 
-  }
   printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d\n", 
     dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH], dispinfo[PITCH]); 
 
@@ -247,20 +183,20 @@ int main() {
 
     // read a line from /dev/events and parse it into key events
     // line format: [kd|ku] 0x12
-    n = read(events, buf, LINESIZE); assert(n>0); 
-    s=buf;         
-    if (buf[0]=='k' && buf[1]=='d') {
-      evtype = KEYDOWN; 
-    } else if (buf[0]=='k' && buf[1]=='u') {
-      evtype = KEYUP; 
-    } 
-    s += 2; while (*s==' ') s++; 
-    if (s[0]=='0' && s[1]=='x')
-      scancode = atoi16(s); 
-      
+    // n = read(events, buf, LINESIZE); assert(n>0); 
+    // s=buf;         
+    // if (buf[0]=='k' && buf[1]=='d') {
+    //   evtype = KEYDOWN; 
+    // } else if (buf[0]=='k' && buf[1]=='u') {
+    //   evtype = KEYUP; 
+    // } 
+    // s += 2; while (*s==' ') s++; 
+    // if (s[0]=='0' && s[1]=='x')
+    //   scancode = atoi16(s); 
+    n = read_kb_event(events, &evtype, &scancode); assert(n==0); 
     if (!(scancode && evtype)) {
       printf("warning:"); 
-      printf("%s", buf); 
+      // printf("%s", buf); 
       printf("ev %d scancode 0x%x\n", evtype, scancode); 
     }
     

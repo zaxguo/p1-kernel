@@ -161,7 +161,7 @@ xv6 fs filesize limit... 260KB. too limited. need to swtich to fat32 soon.
 added test for pipe3: two writers, one reader. 
     needed by liteNES event queue (has to receive on both timer and input events)
     (we dont have threads, or nonblocking IO support. can use pipes to implement)
-    
+
 -------------
 
 [ ] add hw suport for  rpi3 
@@ -181,6 +181,16 @@ added test for pipe3: two writers, one reader.
 [ ]  add support for rpi3 hardware
     [ ] 
     [ ]     sound driver
+    ref: via HDMI 
+        https://github.com/rsta2/circle/tree/master/sample/29-miniorgan
+        https://github.com/rsta2/circle/tree/master/lib/sound
+
+        ported from  circle
+        https://github.com/ayuusweetfish/AMPi
+
+        can via V
+        https://forums.raspberrypi.com/viewtopic.php?t=306441
+
 
 
 ------------

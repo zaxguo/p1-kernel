@@ -1,5 +1,8 @@
 struct stat;
 
+// misc
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 // system calls
 // to add new syscalls:
 //      add the prototype in this file below 
@@ -48,9 +51,75 @@ int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
 unsigned atoi16(const char*); // xzl
+
 // tinyprintf.c, so far we only uses its sprintf()
 // void tfp_printf(char *fmt, ...);
 void tfp_sprintf(char* s,char *fmt, ...);   // xzl: TODO const chat *fmt...
 // void tfp_format(void* putp,void (*putf) (void*,char),char *fmt, va_list va);
 // #define printf tfp_printf
 #define sprintf tfp_sprintf
+
+/////////////// uio.c
+
+// display config
+// the field of /proc/dispinfo. order must be right
+// check by "cat /proc/dispinfo"
+enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
+    PITCH,DEPTH,ISRGB,MAX_DISP_ARGS}; 
+int config_fbctl(int fbctl, int w, int d, int vw, int vh);
+int read_dispinfo(int dp, int dispinfo[MAX_DISP_ARGS]);
+
+// /dev/fb
+#define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
+
+// USB keyboard 
+enum{INVALID=0,KEYDOWN,KEYUP}; 
+int read_kb_event(int events, int *evtype, unsigned *scancode);
+
+// scancode defs: 
+// https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
+#define KEY_A 0x04 // Keyboard a and A
+#define KEY_B 0x05 // Keyboard b and B
+#define KEY_C 0x06 // Keyboard c and C
+#define KEY_D 0x07 // Keyboard d and D
+#define KEY_E 0x08 // Keyboard e and E
+#define KEY_F 0x09 // Keyboard f and F
+#define KEY_G 0x0a // Keyboard g and G
+#define KEY_H 0x0b // Keyboard h and H
+#define KEY_I 0x0c // Keyboard i and I
+#define KEY_J 0x0d // Keyboard j and J
+#define KEY_K 0x0e // Keyboard k and K
+#define KEY_L 0x0f // Keyboard l and L
+#define KEY_M 0x10 // Keyboard m and M
+#define KEY_N 0x11 // Keyboard n and N
+#define KEY_O 0x12 // Keyboard o and O
+#define KEY_P 0x13 // Keyboard p and P
+#define KEY_Q 0x14 // Keyboard q and Q
+#define KEY_R 0x15 // Keyboard r and R
+#define KEY_S 0x16 // Keyboard s and S
+#define KEY_T 0x17 // Keyboard t and T
+#define KEY_U 0x18 // Keyboard u and U
+#define KEY_V 0x19 // Keyboard v and V
+#define KEY_W 0x1a // Keyboard w and W
+#define KEY_X 0x1b // Keyboard x and X
+#define KEY_Y 0x1c // Keyboard y and Y
+#define KEY_Z 0x1d // Keyboard z and Z
+
+#define KEY_1 0x1e // Keyboard 1 and !
+#define KEY_2 0x1f // Keyboard 2 and @
+#define KEY_3 0x20 // Keyboard 3 and #
+#define KEY_4 0x21 // Keyboard 4 and $
+#define KEY_5 0x22 // Keyboard 5 and %
+#define KEY_6 0x23 // Keyboard 6 and ^
+#define KEY_7 0x24 // Keyboard 7 and &
+#define KEY_8 0x25 // Keyboard 8 and *
+#define KEY_9 0x26 // Keyboard 9 and (
+#define KEY_0 0x27 // Keyboard 0 and )
+
+#define KEY_RIGHT 0x4f // Keyboard Right Arrow
+#define KEY_LEFT 0x50 // Keyboard Left Arrow
+#define KEY_DOWN 0x51 // Keyboard Down Arrow
+#define KEY_UP 0x52 // Keyboard Up Arrow
+
+
+

@@ -1,6 +1,6 @@
 ARMGNU ?= aarch64-linux-gnu
 
-ULIB = ulib.o printf.o usys_s.o umalloc.o tinyprintf.o
+ULIB = ulib.o printf.o usys_s.o umalloc.o tinyprintf.o uio.o
 
 UPROGS = \
 	build/echo \
@@ -15,13 +15,16 @@ UPROGS = \
 	build/ln	\
 	build/rm	\
 	build/wc	\
-	build/slider	
+	build/slider	\
+	build/litenes 
 
 sd.bin: $(UPROGS) mkfs	
 	cd build && ../mkfs ../sd.bin `ls`
 
-COPS = -Wall -Werror -nostdlib -g -O0 -fno-omit-frame-pointer
+COPS = -MMD -Wall -Werror -nostdlib -g -O0 -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only
+
+.PRECIOUS: $(ULIB)
 
 mkfs: mkfs.c
 	gcc -Werror -Wall -I. -o $@ $^
@@ -31,6 +34,10 @@ mkfs: mkfs.c
 
 %_s.o: %.S
 	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
+
+build/litenes: 
+	cd LiteNES && make
+	cp LiteNES/litenes build/
 
 # to prevent makefile from its implicit rule which is shorter & preferred
 # https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html

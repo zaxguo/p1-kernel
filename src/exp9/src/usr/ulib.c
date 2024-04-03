@@ -189,3 +189,10 @@ unsigned atoi16(const char *num) {
 
     return value;
 }
+
+/// assert. needed by assert()
+void __assert_fail(const char * assertion, const char * file, 
+  unsigned int line, const char * function) {  
+  printf("assertion failed: %s at %s:%d\n", assertion, file, (int)line); 
+  exit(1); 
+}

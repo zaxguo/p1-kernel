@@ -58,7 +58,9 @@
         "memory": "c",
         "fstream": "c",
         "initializer_list": "c",
-        "stdexcept": "c"
+        "stdexcept": "c",
+        "common.h": "c",
+        "stdbool.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

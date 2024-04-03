@@ -22,19 +22,19 @@
 #define FSSIZE       4000 // 2000  // size of file system in blocks
 
 // Large user vm, works, but usertests slow b/c freecount()
-// #define USER_VA_END         (128 * 1024 * 1024) // == user stack top
-// #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
-// #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-// #define MAX_TASK_KER_PAGES      64       //max kernel pages per task. 128MB user va
-
-// Small user vm
-#define USER_VA_END         (4 * 1024 * 1024) // == user stack top
+#define USER_VA_END         (128 * 1024 * 1024) // == user stack top
 #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
 #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-#define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 128MB user va
+#define MAX_TASK_KER_PAGES      64       //max kernel pages per task. 128MB user va
+
+// Small user vm (simple tests, slider - ok; too small for liteNes)
+// #define USER_VA_END         (4 * 1024 * 1024) // == user stack top
+// #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
+// #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
+// #define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 128MB user va
 
 
-// keep xv6 code happy. TODO: replace them
+// keep xv6 code happy. TODO: separate them out...
 typedef unsigned int   uint;
 typedef unsigned short ushort;
 typedef unsigned char  uchar;
