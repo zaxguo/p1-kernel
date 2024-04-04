@@ -71,13 +71,16 @@ int read_dispinfo(int dp, int dispinfo[MAX_DISP_ARGS]);
 
 // /dev/fb
 #define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
+typedef unsigned int PIXEL; 
 
 // USB keyboard 
 enum{INVALID=0,KEYDOWN,KEYUP}; 
 int read_kb_event(int events, int *evtype, unsigned *scancode);
 
 // scancode defs: 
+// all the way to KEY_KPDOT, cf https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  
 // https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
+#define NUM_SCANCODES   0x64 
 #define KEY_A 0x04 // Keyboard a and A
 #define KEY_B 0x05 // Keyboard b and B
 #define KEY_C 0x06 // Keyboard c and C

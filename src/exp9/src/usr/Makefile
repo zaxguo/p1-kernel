@@ -16,13 +16,14 @@ UPROGS = \
 	build/rm	\
 	build/wc	\
 	build/slider	\
-	build/litenes 
+	build/nes 
 
 sd.bin: $(UPROGS) mkfs	
 	cd build && ../mkfs ../sd.bin `ls`
 
-COPS = -MMD -Wall -Werror -nostdlib -g -O0 -fno-omit-frame-pointer
+COPS = -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only
+COPS += -O0
 
 .PRECIOUS: $(ULIB)
 
@@ -35,9 +36,9 @@ mkfs: mkfs.c
 %_s.o: %.S
 	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
 
-build/litenes: 
-	cd LiteNES && make
-	cp LiteNES/litenes build/
+build/nes: 
+	cd LiteNES && $(MAKE)
+	cp LiteNES/nes build/
 
 # to prevent makefile from its implicit rule which is shorter & preferred
 # https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html

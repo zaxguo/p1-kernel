@@ -195,6 +195,18 @@ void logo() {
   wait(0); 
 }
 
+void run_nes() {
+  // char *args[] = {"nes", 0}; 
+  char *args[] = {"nes", "kungfu.nes", 0}; 
+  printf("auto launch nes...\n");
+  int pid=fork(); 
+  if (pid==0) {
+    if (exec("nes", args) <0)
+      exit(1); 
+  } 
+  wait(0); 
+}
+
 int
 main(void)
 {
@@ -212,6 +224,7 @@ main(void)
   if (create_dev_procfs()==0)
     printf("created dev/procfs entries done\n"); 
   logo(); 
+  run_nes();    // xzl: hack
 
   // Read and run input commands.       xzl: very simple main loop
   while(getcmd(buf, sizeof(buf)) >= 0){

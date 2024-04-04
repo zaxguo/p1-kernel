@@ -265,7 +265,6 @@ int devzero_read(int user_dst, uint64 dst, int off, int n) {
 #include "fb.h"
 int devfb_write(int user_src, uint64 src, int off, int n) {
     int ret = 0, len; 
-
     acquire(&mboxlock); 
     if (!the_fb.fb)
         goto out; 

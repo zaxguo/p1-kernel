@@ -16,7 +16,7 @@
 // 10Hz (100ms per tick) is assumed by some user tests. 
 // TODO could be too slow for games which renders by sleep(). 60Hz then?
 
-#define SCHED_TICK_HZ	10 
+#define SCHED_TICK_HZ	60 
 
 #ifdef PLAT_VIRT
 int interval = ((1 << 26) / SCHED_TICK_HZ); // (1 << 26) around 1 sec

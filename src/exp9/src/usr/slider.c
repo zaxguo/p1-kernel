@@ -113,7 +113,7 @@ void render() {
   // write to /dev/fb by row 
   for(y=0;y<fb_h;y++) {
     n = lseek(fb, y*pitch, SEEK_SET); assert(n>=0); 
-    if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < sizeof(fb_w*PIXELSIZE)) {
+    if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < fb_w*PIXELSIZE) {
       printf("failed to write (row %d) to fb\n", y); 
       break; 
     }    

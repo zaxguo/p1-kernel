@@ -5,13 +5,16 @@
 
 struct Pixel {
     int x, y; // (x, y) coordinate
-    int c; // RGB value of colors can be found in fce.h		(xzl: index into palette?)
+    int c; // RGB value of colors can be found in fce.h	(xzl: index in palette)
 };
 typedef struct Pixel Pixel;
 
 /* A buffer of pixels */
+// xzl consider this "working buf" of fce. 
+// Pixels are unordered, and include x/y (which can be minus--out of view)
+// 264x264 are NOT screen dimension. 
 struct PixelBuf {
-	Pixel buf[264 * 264];
+	Pixel buf[264 * 264];		
 	int size;
 };
 typedef struct PixelBuf PixelBuf;

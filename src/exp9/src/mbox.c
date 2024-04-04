@@ -268,7 +268,7 @@ static int do_fb_init(struct fb_struct *fbs)
     mbox[21] = 0x48006;     //set pixel order
     mbox[22] = 4;
     mbox[23] = 4;
-    mbox[24] = 1;           //RGB, not BGR preferably
+    mbox[24] = fbs->isrgb;           //RGB, not BGR preferably
 
     mbox[25] = 0x40001;     //get framebuffer, gets alignment on request
     mbox[26] = 8;
@@ -292,10 +292,11 @@ static int do_fb_init(struct fb_struct *fbs)
         fbs->fb = PA2VA((unsigned long)mbox[28]);   // save framebuf ptr
         fbs->width=mbox[5];
         fbs->height=mbox[6];
-        fbs->pitch=mbox[33];
         fbs->vwidth=mbox[10];
         fbs->vheight=mbox[11];        
+        fbs->depth=mbox[20]; 
         fbs->isrgb=mbox[24];         // channel order        
+        fbs->pitch=mbox[33];
         fbs->size = PGROUNDUP(fbs->pitch * fbs->vheight);  // roundup b/c we'll reserve pages for it
         I("OK. fb pa: 0x%08x pitch %u", mbox[28], mbox[33]); 
     } else {

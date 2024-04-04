@@ -2,5 +2,6 @@
 *~
 *.nes
 litenes
+nes
 /build
 !.gitignore

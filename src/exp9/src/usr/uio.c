@@ -13,7 +13,7 @@ int config_fbctl(int fbctl, int w, int d, int vw, int vh) {
 
     sprintf(buf, "%d %d %d %d\n", 1360, 768, vw, vh); 
     n=write(fbctl,buf,LINESIZE); 
-    return (n>0); 
+    return !(n>0); 
 }
 
 // return # of int args parsed; 0 on failure

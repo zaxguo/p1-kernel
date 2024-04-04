@@ -45,17 +45,14 @@ To port this project, replace the following functions by your own:
 
 // static ALLEGRO_VERTEX vtx[1000000];         // xzl: a tmp fraembuffer? before flushing to hw
 // ALLEGRO_COLOR color_map[64];            // xzl: nes palette to actual colors
-// int vtx_sz = 0;         // xzl: offset into vtx (app fb)
 
+static char *vtx = 0;       // byte-to-byte mirror of hw fb (inc pitch)
+static int vtx_sz = 0;      // in bytes
+// static int vtx_sz = 0;         // xzl: offset into vtx (app fb)
 
-/// assert. needed by assert()
-void __assert_fail(const char * assertion, const char * file, 
-  unsigned int line, const char * function) {  
-  printf("assertion failed: %s at %s:%d\n", assertion, file, (int)line); 
-  exit(1); 
-}
-
-int fds[2]; //pipes for exchanging events
+static int dispinfo[MAX_DISP_ARGS]={0};    // display config
+static int fb = 0;      // framebuf fd
+static int fds[2]; //pipes for exchanging events
 
 struct event {
     int type; 
@@ -67,8 +64,6 @@ struct event {
 }; 
 
 // kb state 
-// all the way to KEY_KPDOT, cf https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  
-#define NUM_SCANCODES   0x64 
 char key_states[NUM_SCANCODES] = {0}; // all EV_KEYUP
 
 /* Wait until next allegro timer event is fired. */
@@ -76,12 +71,12 @@ void wait_for_frame()
 {
     struct event ev; 
 
-    printf("entering.. %s\n", __func__); 
+    // printf("entering.. %s\n", __func__); 
 
-    if (fds[0]<=0 || fds[1]<=0) {printf("fatal:pipe invalid\n"); exit(1);};
-    close(fds[1]); 
+    if (fds[0]<=0) {printf("fatal:pipe invalid\n"); exit(1);};
+    
 
-    while (1) {
+    while (1) { 
         if (read(fds[0], &ev, sizeof ev) != sizeof ev) {
             printf("read ev failed"); exit(1); 
         }
@@ -89,25 +84,41 @@ void wait_for_frame()
         {
         case EV_TIMER:
             // printf("timer ev\n");        // lots of prints
-            break;
+            return;     
         case EV_KEYDOWN: 
         case EV_KEYUP:
             assert(ev.scancode<NUM_SCANCODES); 
             key_states[ev.scancode]=ev.type;   
-            printf("key %x %s\n", ev.scancode, ev.type == EV_KEYDOWN ? "down":"up");
-            break;         
+            // printf("key %x %s\n", ev.scancode, ev.type == EV_KEYDOWN ? "down":"up");
+            break;      // continue to wait for timer ev   
         default:
             printf("unknown ev"); exit(1); 
             break;
         }
     }
 }
+// #define getpixel(x,y,pit)  (PIXEL *)(vtx + y*pit + x*PIXELSIZE)
+static inline void setpixel(char *buf, int x, int y, int pit, PIXEL p) {
+    assert(x>=0 && y>=0); 
+    *(PIXEL *)(buf + y*pit + x*PIXELSIZE) = p; 
+}
+
+static inline PIXEL getpixel(char *buf, int x, int y, int pit) {
+    assert(x>=0 && y>=0); 
+    return *(PIXEL *)(buf + y*pit + x*PIXELSIZE); 
+}
+
+#define fcecolor_to_pixel(color) \
+(((char)color.r<<16)|((char)color.g<<8)|((char)color.b))
 
 /* Set background color. RGB value of c is defined in fce.h */
 void nes_set_bg_color(int c)
 {
-    // https://www.allegro.cc/manual/5/al_clear_to_color
-    // al_clear_to_color(color_map[c]);
+    int pitch = dispinfo[PITCH];
+    PIXEL p = fcecolor_to_pixel(palette[c]);
+    for (int y = 0; y < 2*SCREEN_HEIGHT; y++) 
+        for (int x = 0; x < 2*SCREEN_WIDTH; x++)
+            setpixel(vtx,x,y,pitch,p); 
 }
 
 /* Flush the pixel buffer */
@@ -134,6 +145,26 @@ void nes_flush_buf(PixelBuf *buf) {
         vtx[vtx_sz ++].color = c;
     }
 #endif     
+    int pitch = dispinfo[PITCH]; //in bytes
+
+    for (int i = 0; i < buf->size; i ++) {
+        Pixel *p = &buf->buf[i];
+        int x = p->x, y = p->y;
+        pal color = palette[p->c];
+        PIXEL c = fcecolor_to_pixel(color);
+
+        // Pixel could have x<0 (loopks like fce was shifting drawn pixels
+        //  by applying offsets to them). these pixels shall be invisible. 
+        assert(x<SCREEN_WIDTH && y>=0 && y<SCREEN_HEIGHT);
+        if (x>=0) {
+            // setpixel(vtx,x,y,pitch,c); //1x scaling
+            // xzl: 2x scaling
+            setpixel(vtx, x*2,      y*2,    pitch, c); 
+            setpixel(vtx, x*2+1,    y*2,    pitch, c); 
+            setpixel(vtx, x*2,      y*2+1,  pitch, c); 
+            setpixel(vtx, x*2+1,    y*2+1,  pitch, c); 
+        }
+    }
 }
 
 
@@ -173,7 +204,7 @@ void nes_hal_init() {
         int events = open("/dev/events", O_RDONLY); assert(events>0); 
 
         printf("input task running\n");
-        while (1) {            
+        while (1) {             // xzl: TODO replace with read_kb_events()
             // read a line from /dev/events and parse it into key events
             // line format: [kd|ku] 0x12
             n = read(events, buf, LINESIZE); assert(n>0); 
@@ -198,7 +229,32 @@ void nes_hal_init() {
             }            
         }
         exit(0); // shall never reach here
-    }           
+    }
+    close(fds[1]); 
+
+    // config fb 
+    fb = open("/dev/fb/", O_RDWR);
+    int fbctl = open("/proc/fbctl", O_RDWR); 
+    int dp = open("/proc/dispinfo", O_RDONLY); 
+    assert(fb>0 && dispinfo>0 && fbctl>0); 
+    
+    // assuming phys display is 1360x768. TODO: read swidth/sheight from /proc/dispinfo
+    //      ask for a vframebuf that scales the native fce canvas by 2x
+    n = config_fbctl(fbctl, 1360, 768, 2*SCREEN_WIDTH, 2*SCREEN_HEIGHT); assert(n==0); 
+    close(fbctl); 
+
+    n = read_dispinfo(dp, dispinfo); assert(n==MAX_DISP_ARGS); 
+    close(dp); 
+    printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d depth %d isrgb %d\n", 
+    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], dispinfo[PITCH], dispinfo[DEPTH], dispinfo[ISRGB]); 
+
+    // note: pitch already in bytes
+    vtx_sz = dispinfo[PITCH] * dispinfo[VHEIGHT]; 
+    vtx = malloc(vtx_sz);
+    if (!vtx) {printf("failed to alloc vtx\n"); exit(1);}
+    printf("fb alloc ...ok\n"); 
+
+    // TODO: free vtx
 }
 
 /* Update screen at FPS rate by allegro's drawing function. 
@@ -215,6 +271,14 @@ void nes_flip_display()
         color_map[i] = al_map_rgb(color.r, color.g, color.b);
     }
 #endif    
+    int n;     
+    assert(fb && vtx && vtx_sz); 
+    n = lseek(fb, 0, SEEK_SET); assert(n==0); 
+    if ((n=write(fb, vtx, vtx_sz)) != vtx_sz) {
+        printf("%s: failed to write to hw fb. fb %d vtx_sz %d ret %d\n",
+            __func__, fb, vtx_sz, n); 
+    }
+    // no need to sync palette
 }
 
 #define KEY_A 0x04 // Keyboard a and A

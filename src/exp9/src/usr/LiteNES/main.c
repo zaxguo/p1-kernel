@@ -52,18 +52,12 @@ int main(int argc, char *argv[])
         goto load; 
     }
     
-    // FILE *fp = fopen(argv[1], "r");    
     if ((fd = open(argv[1], O_RDONLY)) <0) {
         fprintf(stderr, "Open rom file failed.\n");
         exit(1);
     }
-    // int nread = fread(rom, sizeof(rom), 1, fp);
-    int nread = read(fd, rom, sizeof(rom)); 
-    // if (nread == 0 && ferror(fp)) {
-    //     fprintf(stderr, "Read rom file failed.\n");
-    //     exit(1);
-    // }
-    if (nread==0) { // rom may be smaller than buf size? 
+    int nread = read(fd, rom, sizeof(rom));     
+    if (nread==0) { // rom may be smaller than buf size
       fprintf(stderr, "Read rom file failed.\n");
       exit(1);
     }
