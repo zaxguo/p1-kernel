@@ -224,7 +224,7 @@ main(void)
   if (create_dev_procfs()==0)
     printf("created dev/procfs entries done\n"); 
   logo(); 
-  run_nes();    // xzl: hack
+  // run_nes();    // xzl: hack
 
   // Read and run input commands.       xzl: very simple main loop
   while(getcmd(buf, sizeof(buf)) >= 0){

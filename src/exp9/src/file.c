@@ -304,8 +304,10 @@ static int procfs_gen_content(int major, char *txtbuf) {
     case PROCFS_FBCTL: 
         acquire(&mboxlock);
         len = snprintf(txtbuf, TXTSIZE, 
-            "format: %6s %6s %6s %6s\n",
-            "width","height","vwidth","vheigh"); 
+            "format: %6s %6s %6s %6s [%6s] [%6s]\n"
+            "ex1: echo 256-256-128-128 > /procfs/fbctl // will reinit fb \n"
+            "ex2: echo 0-0-0-0-32-32 > /procfs/fbctl // won't init. only change offsets\n",
+            "width","height","vwidth","vheigh", "offsetx", "offsety"); 
         release(&mboxlock); 
         break; 
     default:
@@ -337,16 +339,22 @@ static int readprocfs(struct file *f, uint64 dst, uint n) {
 #define MAX_ARGS   8
 
 static int procfs_fbctl_w(int args[MAX_ARGS]) {    
-    fb_fini(); 
-
-    acquire(&mboxlock); 
-    the_fb.width = args[0];
-    the_fb.height = args[1];
-    the_fb.vwidth = args[2];
-    the_fb.vheight = args[3];
-    release(&mboxlock);      
-
-    fb_init(); 
+    if (args[0]>0 || args[1]>0 || args[2]>0 || args[3]>0) {
+        fb_fini(); 
+        acquire(&mboxlock); 
+        the_fb.width = args[0];
+        the_fb.height = args[1];
+        the_fb.vwidth = args[2];
+        the_fb.vheight = args[3];
+        release(&mboxlock);      
+        fb_init(); 
+    }
+    if (args[4]>0 || args[5]>0) {
+        acquire(&mboxlock); 
+        if (fb_set_voffsets(args[4], args[5]) <0)
+            E("failed to set voffsets");
+        release(&mboxlock);      
+    }
     return 0; 
 }
 
@@ -376,6 +384,11 @@ static int writeprocfs(struct file *f, uint64 src, uint n) {
                 break; 
         } 
     }
+
+    W("args");
+    for (int i = 0; i < MAX_ARGS; i++)
+        printf("%d ", args[i]); 
+    printf("\n");
 
     switch (f->major)
     {

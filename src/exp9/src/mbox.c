@@ -140,7 +140,6 @@ int mbox_call(unsigned char ch)
 ///////////////////////////////////////////////////
 //  a simple framebuffer 
 //
-#include "rev_uva_logo_color3-resized.h"
 #include "fb.h"
 
 /* PC Screen Font as used by Linux Console */
@@ -196,7 +195,7 @@ struct fb_struct the_fb = {
 // detect phys display optimal x/y, if unconfigured
 // caller must hold mboxlock
 // 0 on success
-static int fb_detect_phys_dim(uint *w, uint *h) {
+int fb_detect_phys_dim(uint *w, uint *h) {
     // acquire(&mboxlock); 
     mbox[0] = 8*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
@@ -217,6 +216,37 @@ static int fb_detect_phys_dim(uint *w, uint *h) {
     return 0; 
 }
 
+// caller must hold mboxlock
+// 0 on success
+int fb_set_voffsets(int offsetx, int offsety) {
+
+    mbox[0] = 8*4;
+    mbox[1] = MBOX_REQUEST;
+
+    //set virt offset
+    mbox[2] = 0x48009; 
+    mbox[3] = 8;
+    mbox[4] = 8;
+    mbox[5] =  offsetx;           //FrameBufferInfo.x_offset
+    mbox[6] =  offsety;           //FrameBufferInfo.y.offset    
+
+    mbox[7] = MBOX_TAG_LAST;
+
+    if(!mbox_call(MBOX_CH_PROP)) {
+        E("failed to set virt offsets");
+        return -1;
+    }     
+     if (mbox[5] != offsetx || mbox[6] != offsety) {
+        E("failed set: offsetx %u offsety %u res: offsetx %u offsety %u", 
+            offsetx, offsety, mbox[5], mbox[6]);
+        return -1;     
+     }
+     I("set OK: offsetx %u offsety %u res: offsetx %u offsety %u", 
+            offsetx, offsety, mbox[5], mbox[6]);
+     return 0; 
+}
+
+
 /**
  * For mailbox property interface,
  * cf: https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
@@ -235,7 +265,7 @@ static int do_fb_init(struct fb_struct *fbs)
 
     acquire(&mboxlock); 
 
-    fb_detect_phys_dim(&the_fb.width,&the_fb.height); 
+    // fb_detect_phys_dim(&the_fb.width,&the_fb.height); // maxmize viewport
 
     mbox[0] = 35*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
@@ -297,8 +327,10 @@ static int do_fb_init(struct fb_struct *fbs)
         fbs->depth=mbox[20]; 
         fbs->isrgb=mbox[24];         // channel order        
         fbs->pitch=mbox[33];
+        BUG_ON(fbs->pitch * fbs->vheight != mbox[29]); // ???
         fbs->size = PGROUNDUP(fbs->pitch * fbs->vheight);  // roundup b/c we'll reserve pages for it
-        I("OK. fb pa: 0x%08x pitch %u", mbox[28], mbox[33]); 
+        I("OK. fb pa: 0x%08x w %u h %u vw %u vh %u pitch %u", 
+            mbox[28], fbs->width, fbs->height, fbs->vwidth, fbs->vheight, fbs->pitch); 
     } else {
         E("Unable to set screen resolution to 1024x768x32\n");
         return -2; 
@@ -311,8 +343,13 @@ static int do_fb_init(struct fb_struct *fbs)
         return 0; 
 }
 
+void fb_showpicture();
 int fb_init(void) {
-    return do_fb_init(&the_fb); 
+    static int once = 1; 
+    int ret = do_fb_init(&the_fb); 
+    if (ret==0 && once)
+        {fb_showpicture(); once=0;}
+    return ret; 
 }
 
 // return 0 on success
@@ -456,10 +493,10 @@ void lfb_proprint(int x, int y, char *s)
 }
 #endif
 
-#define IMG_DATA img_data      
-#define IMG_HEIGHT img_height
-#define IMG_WIDTH img_width
-
+#include "uvalogo.h"
+#define IMG_DATA header_data      
+#define IMG_HEIGHT height
+#define IMG_WIDTH width
 void fb_showpicture()
 {
     int x,y;

@@ -235,7 +235,73 @@ void test_usb_storage() {
 
 ///////////////////
 extern void fb_showpicture(void); 
+#include "fb.h"
+
+#define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
+typedef unsigned int PIXEL; 
+#define N 256
+
+static inline void setpixel(unsigned char *buf, int x, int y, int pit, PIXEL p) {
+    assert(x>=0 && y>=0); 
+    *(PIXEL *)(buf + y*pit + x*PIXELSIZE) = p; 
+}
 
 void test_fb() {
-    fb_showpicture();
+    // fb_showpicture();        // works
+
+    // acquire(&mboxlock);      //it's a test. so no lock
+
+    // this shows how to flip fb 
+    
+    // create a vir fb with four quads, with R/G/B/black. 
+    // phys (viewport) is of one quad size. 
+    // then cycle the viewport through the four quads
+    fb_fini(); 
+
+    the_fb.width = N;
+    the_fb.height = N;
+
+    the_fb.vwidth = N*2; 
+    the_fb.vheight = N*2; 
+
+    BUG_ON(fb_init() != 0);
+
+    PIXEL b=0x00ff0000, g=0x0000ff00, r=0x000000ff; 
+    int x, y;
+    int pitch = the_fb.pitch; 
+    for (y=0;y<N;y++)
+        for (x=0;x<N;x++)
+            setpixel(the_fb.fb,x,y,pitch,r); 
+
+    for (y=0;y<N;y++)
+        for (x=N;x<2*N;x++)
+            setpixel(the_fb.fb,x,y,pitch,(b|r));             
+
+    for (y=N;y<2*N;y++)
+        for (x=0;x<N;x++)
+            setpixel(the_fb.fb,x,y,pitch,g); 
+
+    for (y=N;y<2*N;y++)
+        for (x=N;x<2*N;x++)
+            setpixel(the_fb.fb,x,y,pitch,b);             
+
+
+    // // test
+    // for (y=0;y<2*N;y++)
+    //     for (x=0;x<2*N;x++)
+    //         setpixel(the_fb.fb,x,y,pitch,b);             
+
+    //what if we dont flush cache?
+    __asm_flush_dcache_range(the_fb.fb, the_fb.fb + the_fb.size); 
+
+    while (1) {
+        fb_set_voffsets(0,0);
+        ms_delay(500); 
+        fb_set_voffsets(0,N);
+        ms_delay(500); 
+        fb_set_voffsets(N,0);
+        ms_delay(500); 
+        fb_set_voffsets(N,N);
+        ms_delay(500); 
+    }
 }

@@ -11,7 +11,7 @@ int config_fbctl(int fbctl, int w, int d, int vw, int vh) {
     char buf[LINESIZE];
     int n; 
 
-    sprintf(buf, "%d %d %d %d\n", 1360, 768, vw, vh); 
+    sprintf(buf, "%d %d %d %d\n", w, d, vw, vh); 
     n=write(fbctl,buf,LINESIZE); 
     return !(n>0); 
 }

@@ -257,6 +257,7 @@ int get_board_serial(unsigned long *s);
 
 int fb_init(void); 
 int fb_fini(void); 
+int fb_set_voffsets(int offsetx, int offsety);
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)

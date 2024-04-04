@@ -43,12 +43,8 @@ To port this project, replace the following functions by your own:
 #include "../user.h"
 #include "../../fcntl.h"    // kernel's
 
-// static ALLEGRO_VERTEX vtx[1000000];         // xzl: a tmp fraembuffer? before flushing to hw
-// ALLEGRO_COLOR color_map[64];            // xzl: nes palette to actual colors
-
 static char *vtx = 0;       // byte-to-byte mirror of hw fb (inc pitch)
 static int vtx_sz = 0;      // in bytes
-// static int vtx_sz = 0;         // xzl: offset into vtx (app fb)
 
 static int dispinfo[MAX_DISP_ARGS]={0};    // display config
 static int fb = 0;      // framebuf fd
@@ -66,15 +62,17 @@ struct event {
 // kb state 
 char key_states[NUM_SCANCODES] = {0}; // all EV_KEYUP
 
+// the original code scales fce's raw pixels by 2x for larger display;
+//   since the hw gpu will scale fb to display anyway, we don't need this
+// #define SCALE   2     
+#define SCALE 1
+
 /* Wait until next allegro timer event is fired. */
 void wait_for_frame()
 {
     struct event ev; 
 
-    // printf("entering.. %s\n", __func__); 
-
     if (fds[0]<=0) {printf("fatal:pipe invalid\n"); exit(1);};
-    
 
     while (1) { 
         if (read(fds[0], &ev, sizeof ev) != sizeof ev) {
@@ -97,7 +95,7 @@ void wait_for_frame()
         }
     }
 }
-// #define getpixel(x,y,pit)  (PIXEL *)(vtx + y*pit + x*PIXELSIZE)
+
 static inline void setpixel(char *buf, int x, int y, int pit, PIXEL p) {
     assert(x>=0 && y>=0); 
     *(PIXEL *)(buf + y*pit + x*PIXELSIZE) = p; 
@@ -116,35 +114,20 @@ void nes_set_bg_color(int c)
 {
     int pitch = dispinfo[PITCH];
     PIXEL p = fcecolor_to_pixel(palette[c]);
-    for (int y = 0; y < 2*SCREEN_HEIGHT; y++) 
-        for (int x = 0; x < 2*SCREEN_WIDTH; x++)
+    for (int y = 0; y < SCALE*SCREEN_HEIGHT; y++) 
+        for (int x = 0; x < SCALE*SCREEN_WIDTH; x++)
             setpixel(vtx,x,y,pitch,p); 
 }
 
 /* Flush the pixel buffer */
-// xzl: transforme nes's pixel buf to "vtx" (al's tmp buffer)
+// xzl: materialize nes's drawing (unordered pixels) to fb
 //          this lays out pixels in memory (hw format
 // xzl: ver1: draw to an app fb, which is to be write to /dev/fb in one shot
 //      ver2: draw to a "back" fb (which will be made visible later)
+// 
+// fb basics
+// https://github.com/fxlin/p1-kernel/blob/master/docs/exp3/fb.md
 void nes_flush_buf(PixelBuf *buf) {
-#if 0     
-    int i;
-    for (i = 0; i < buf->size; i ++) {
-        Pixel *p = &buf->buf[i];
-        int x = p->x, y = p->y;
-        ALLEGRO_COLOR c = color_map[p->c];
-
-        // xzl: dup each fce raw pixel maps to 4 pixels? (enlarge the canvas?)
-        vtx[vtx_sz].x = x*2; vtx[vtx_sz].y = y*2;
-        vtx[vtx_sz ++].color = c;
-        vtx[vtx_sz].x = x*2+1; vtx[vtx_sz].y = y*2;
-        vtx[vtx_sz ++].color = c;
-        vtx[vtx_sz].x = x*2; vtx[vtx_sz].y = y*2+1;
-        vtx[vtx_sz ++].color = c;
-        vtx[vtx_sz].x = x*2+1; vtx[vtx_sz].y = y*2+1;
-        vtx[vtx_sz ++].color = c;
-    }
-#endif     
     int pitch = dispinfo[PITCH]; //in bytes
 
     for (int i = 0; i < buf->size; i ++) {
@@ -157,12 +140,15 @@ void nes_flush_buf(PixelBuf *buf) {
         //  by applying offsets to them). these pixels shall be invisible. 
         assert(x<SCREEN_WIDTH && y>=0 && y<SCREEN_HEIGHT);
         if (x>=0) {
-            // setpixel(vtx,x,y,pitch,c); //1x scaling
+#if SCALE==1            
+            setpixel(vtx,x,y,pitch,c); //1x scaling
+#else 
             // xzl: 2x scaling
             setpixel(vtx, x*2,      y*2,    pitch, c); 
             setpixel(vtx, x*2+1,    y*2,    pitch, c); 
             setpixel(vtx, x*2,      y*2+1,  pitch, c); 
             setpixel(vtx, x*2+1,    y*2+1,  pitch, c); 
+#endif            
         }
     }
 }
@@ -240,7 +226,8 @@ void nes_hal_init() {
     
     // assuming phys display is 1360x768. TODO: read swidth/sheight from /proc/dispinfo
     //      ask for a vframebuf that scales the native fce canvas by 2x
-    n = config_fbctl(fbctl, 1360, 768, 2*SCREEN_WIDTH, 2*SCREEN_HEIGHT); assert(n==0); 
+    n = config_fbctl(fbctl, 1360, 768, 
+        SCALE*SCREEN_WIDTH, SCALE*SCREEN_HEIGHT); assert(n==0); 
     close(fbctl); 
 
     n = read_dispinfo(dp, dispinfo); assert(n==MAX_DISP_ARGS); 

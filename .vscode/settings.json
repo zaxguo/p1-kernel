@@ -60,7 +60,8 @@
         "initializer_list": "c",
         "stdexcept": "c",
         "common.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "uvalogo.h": "c"
     },
     "files.exclude": {
         "docs/**": true,
