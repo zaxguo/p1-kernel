@@ -7,11 +7,11 @@
 #define LINESIZE 128    
 
 // return 0 on success
-int config_fbctl(int fbctl, int w, int d, int vw, int vh) {
+int config_fbctl(int fbctl, int w, int d, int vw, int vh, int offx, int offy) {
     char buf[LINESIZE];
     int n; 
 
-    sprintf(buf, "%d %d %d %d\n", w, d, vw, vh); 
+    sprintf(buf, "%d %d %d %d %d %d\n", w, d, vw, vh, offx, offy); 
     n=write(fbctl,buf,LINESIZE); 
     return !(n>0); 
 }

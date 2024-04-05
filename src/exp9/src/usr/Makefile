@@ -46,10 +46,10 @@ build/nes:
 
 #%.elf: %.o $(ULIB)
 build/%: %.o $(ULIB)		
-	mkdir -p build
+	@mkdir -p build
 	$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
-	$(ARMGNU)-objdump -S $@ > $*.asm
-	$(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+	@$(ARMGNU)-objdump -S $@ > $*.asm
+	@$(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
 clean: 
 	rm -f *.o $(UPROGS) mkfs *.d *.sym *.asm sd.bin

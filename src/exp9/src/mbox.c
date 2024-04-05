@@ -241,7 +241,7 @@ int fb_set_voffsets(int offsetx, int offsety) {
             offsetx, offsety, mbox[5], mbox[6]);
         return -1;     
      }
-     I("set OK: offsetx %u offsety %u res: offsetx %u offsety %u", 
+     V("set OK: offsetx %u offsety %u res: offsetx %u offsety %u", 
             offsetx, offsety, mbox[5], mbox[6]);
      return 0; 
 }
@@ -327,7 +327,8 @@ static int do_fb_init(struct fb_struct *fbs)
         fbs->depth=mbox[20]; 
         fbs->isrgb=mbox[24];         // channel order        
         fbs->pitch=mbox[33];
-        BUG_ON(fbs->pitch * fbs->vheight != mbox[29]); // ???
+        if(fbs->pitch * fbs->vheight > mbox[29])  // possible that pitch*vheight < actual allocation
+            {W("pitch %d x vheight %d!= mbox[29] %u", fbs->pitch, fbs->vheight, mbox[29]);BUG();}
         fbs->size = PGROUNDUP(fbs->pitch * fbs->vheight);  // roundup b/c we'll reserve pages for it
         I("OK. fb pa: 0x%08x w %u h %u vw %u vh %u pitch %u", 
             mbox[28], fbs->width, fbs->height, fbs->vwidth, fbs->vheight, fbs->pitch); 

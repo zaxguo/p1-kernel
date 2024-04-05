@@ -151,8 +151,8 @@ int main() {
   assert(fb>0 && events>0 && dispinfo>0 && fbctl>0); 
 
   // config fb 
-  // assuming phys display is 1360x768. TODO: read swidth/sheight from /proc/dispinfo
-  n = config_fbctl(fbctl, 1360, 768, W, H); assert(n==0); 
+  // n = config_fbctl(fbctl, 1360, 768, W, H, 0, 0); assert(n==0); 
+  n = config_fbctl(fbctl, W, H, W, H, 0, 0); assert(n==0); 
   close(fbctl); 
 
   // after config, read dispinfo again (GPU may specify different dims)

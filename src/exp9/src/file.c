@@ -349,12 +349,12 @@ static int procfs_fbctl_w(int args[MAX_ARGS]) {
         release(&mboxlock);      
         fb_init(); 
     }
-    if (args[4]>0 || args[5]>0) {
-        acquire(&mboxlock); 
-        if (fb_set_voffsets(args[4], args[5]) <0)
-            E("failed to set voffsets");
-        release(&mboxlock);      
-    }
+    
+    acquire(&mboxlock); 
+    if (fb_set_voffsets(args[4], args[5]) <0)
+        E("failed to set voffsets");
+    release(&mboxlock);      
+
     return 0; 
 }
 
@@ -384,11 +384,11 @@ static int writeprocfs(struct file *f, uint64 src, uint n) {
                 break; 
         } 
     }
-
-    W("args");
-    for (int i = 0; i < MAX_ARGS; i++)
-        printf("%d ", args[i]); 
-    printf("\n");
+    
+    // V("args");
+    // for (int i = 0; i < MAX_ARGS; i++)
+    //     printf("%d ", args[i]); 
+    // printf("\n");
 
     switch (f->major)
     {

@@ -66,7 +66,7 @@ void tfp_sprintf(char* s,char *fmt, ...);   // xzl: TODO const chat *fmt...
 // check by "cat /proc/dispinfo"
 enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
     PITCH,DEPTH,ISRGB,MAX_DISP_ARGS}; 
-int config_fbctl(int fbctl, int w, int d, int vw, int vh);
+int config_fbctl(int fbctl, int w, int d, int vw, int vh, int offx, int offy);
 int read_dispinfo(int dp, int dispinfo[MAX_DISP_ARGS]);
 
 // /dev/fb

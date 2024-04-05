@@ -43,11 +43,15 @@ To port this project, replace the following functions by your own:
 #include "../user.h"
 #include "../../fcntl.h"    // kernel's
 
+#define FB_FLIP  1   // double fb buffering
+
+static int cur_id = 0; // id of fb being worked on, 0 or 1 (if FB_FLIP on)
+
 static char *vtx = 0;       // byte-to-byte mirror of hw fb (inc pitch)
 static int vtx_sz = 0;      // in bytes
 
 static int dispinfo[MAX_DISP_ARGS]={0};    // display config
-static int fb = 0;      // framebuf fd
+static int fb = 0, fbctl = 0;      // /dev/fb /proc/fbctl
 static int fds[2]; //pipes for exchanging events
 
 struct event {
@@ -61,11 +65,6 @@ struct event {
 
 // kb state 
 char key_states[NUM_SCANCODES] = {0}; // all EV_KEYUP
-
-// the original code scales fce's raw pixels by 2x for larger display;
-//   since the hw gpu will scale fb to display anyway, we don't need this
-// #define SCALE   2     
-#define SCALE 1
 
 /* Wait until next allegro timer event is fired. */
 void wait_for_frame()
@@ -96,13 +95,16 @@ void wait_for_frame()
     }
 }
 
-static inline void setpixel(char *buf, int x, int y, int pit, PIXEL p) {
+// id: fb 0 or 1
+static inline void setpixel(int id, char *buf, int x, int y, int pit, PIXEL p) {
     assert(x>=0 && y>=0); 
+    y += (id*SCREEN_HEIGHT);
     *(PIXEL *)(buf + y*pit + x*PIXELSIZE) = p; 
 }
 
-static inline PIXEL getpixel(char *buf, int x, int y, int pit) {
+static inline PIXEL getpixel(int id, char *buf, int x, int y, int pit) {
     assert(x>=0 && y>=0); 
+    y += (id*SCREEN_HEIGHT);
     return *(PIXEL *)(buf + y*pit + x*PIXELSIZE); 
 }
 
@@ -114,9 +116,9 @@ void nes_set_bg_color(int c)
 {
     int pitch = dispinfo[PITCH];
     PIXEL p = fcecolor_to_pixel(palette[c]);
-    for (int y = 0; y < SCALE*SCREEN_HEIGHT; y++) 
-        for (int x = 0; x < SCALE*SCREEN_WIDTH; x++)
-            setpixel(vtx,x,y,pitch,p); 
+    for (int y = 0; y < SCREEN_HEIGHT; y++) 
+        for (int x = 0; x < SCREEN_WIDTH; x++)
+            setpixel(cur_id,vtx,x,y,pitch,p); 
 }
 
 /* Flush the pixel buffer */
@@ -140,15 +142,13 @@ void nes_flush_buf(PixelBuf *buf) {
         //  by applying offsets to them). these pixels shall be invisible. 
         assert(x<SCREEN_WIDTH && y>=0 && y<SCREEN_HEIGHT);
         if (x>=0) {
-#if SCALE==1            
-            setpixel(vtx,x,y,pitch,c); //1x scaling
-#else 
-            // xzl: 2x scaling
-            setpixel(vtx, x*2,      y*2,    pitch, c); 
-            setpixel(vtx, x*2+1,    y*2,    pitch, c); 
-            setpixel(vtx, x*2,      y*2+1,  pitch, c); 
-            setpixel(vtx, x*2+1,    y*2+1,  pitch, c); 
-#endif            
+            setpixel(cur_id,vtx,x,y,pitch,c); //1x scaling
+            // the original code scales fce's raw pixels by 2x for larger display;
+            //   since the hw gpu will scale fb to display anyway, we don't need this
+            // setpixel(vtx, x*2,      y*2,    pitch, c); 
+            // setpixel(vtx, x*2+1,    y*2,    pitch, c); 
+            // setpixel(vtx, x*2,      y*2+1,  pitch, c); 
+            // setpixel(vtx, x*2+1,    y*2+1,  pitch, c); 
         }
     }
 }
@@ -218,20 +218,25 @@ void nes_hal_init() {
     }
     close(fds[1]); 
 
-    // config fb 
+    //// config fb 
     fb = open("/dev/fb/", O_RDWR);
-    int fbctl = open("/proc/fbctl", O_RDWR); 
+    fbctl = open("/proc/fbctl", O_RDWR); 
     int dp = open("/proc/dispinfo", O_RDONLY); 
     assert(fb>0 && dispinfo>0 && fbctl>0); 
     
-    // assuming phys display is 1360x768. TODO: read swidth/sheight from /proc/dispinfo
     //      ask for a vframebuf that scales the native fce canvas by 2x
-    n = config_fbctl(fbctl, 1360, 768, 
-        SCALE*SCREEN_WIDTH, SCALE*SCREEN_HEIGHT); assert(n==0); 
-    close(fbctl); 
+    n = config_fbctl(fbctl, 
+        SCREEN_WIDTH, SCREEN_HEIGHT,    // desired viewport ("phys")
+#ifdef FB_FLIP
+        SCREEN_WIDTH, 2*SCREEN_HEIGHT,0,0);  // two fbs, each contig (can be write to /dev/fb in a shot
+#else        
+        SCREEN_WIDTH, SCREEN_HEIGHT,0,0); 
+#endif        
+    assert(n==0); 
 
     n = read_dispinfo(dp, dispinfo); assert(n==MAX_DISP_ARGS); 
     close(dp); 
+    printf("FB_FLIP=%d SCREEN_WIDTH=%d SCREEN_HEIGHT=%d\n ", FB_FLIP, SCREEN_WIDTH, SCREEN_HEIGHT); 
     printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d depth %d isrgb %d\n", 
     dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], dispinfo[PITCH], dispinfo[DEPTH], dispinfo[ISRGB]); 
 
@@ -248,52 +253,56 @@ void nes_hal_init() {
    Timer ensures this function is called FPS times a second. */
 void nes_flip_display()
 {
-#if 0     
-    al_draw_prim(vtx, NULL, NULL, 0, vtx_sz, ALLEGRO_PRIM_POINT_LIST); //xzl:make vtx (fb) visible actual hw
-    al_flip_display();  // xzl: trigger screen to change
-    vtx_sz = 0;
-    int i;      // xzl: sync color_map to palette (why needed? in case palette changing?
-    for (i = 0; i < 64; i ++) {
-        pal color = palette[i];
-        color_map[i] = al_map_rgb(color.r, color.g, color.b);
-    }
-#endif    
     int n;     
     assert(fb && vtx && vtx_sz); 
+    
+#ifdef FB_FLIP
+    int sz = SCREEN_HEIGHT*dispinfo[PITCH]; 
+    n = lseek(fb, cur_id*sz, SEEK_SET); assert(n==cur_id*sz); 
+    if ((n=write(fb, vtx, sz)) != sz) {
+        printf("%s: failed to write to hw fb. fb %d sz %d ret %d\n",
+            __func__, fb, sz, n); 
+    }    
+    // make the cur fb visible
+    assert(fbctl);
+    n = config_fbctl(fbctl,0,0,0,0/*dc*/, 0/*xoff*/, cur_id*SCREEN_HEIGHT/*yoff*/);
+    assert(n==0);     
+    cur_id = 1-cur_id; 
+#else    
     n = lseek(fb, 0, SEEK_SET); assert(n==0); 
     if ((n=write(fb, vtx, vtx_sz)) != vtx_sz) {
         printf("%s: failed to write to hw fb. fb %d vtx_sz %d ret %d\n",
             __func__, fb, vtx_sz, n); 
     }
-    // no need to sync palette
+#endif    
 }
 
-#define KEY_A 0x04 // Keyboard a and A
-#define KEY_B 0x05 // Keyboard b and B
-#define KEY_C 0x06 // Keyboard c and C
-#define KEY_D 0x07 // Keyboard d and D
-#define KEY_E 0x08 // Keyboard e and E
-#define KEY_F 0x09 // Keyboard f and F
-#define KEY_G 0x0a // Keyboard g and G
-#define KEY_H 0x0b // Keyboard h and H
-#define KEY_I 0x0c // Keyboard i and I
-#define KEY_J 0x0d // Keyboard j and J
-#define KEY_K 0x0e // Keyboard k and K
-#define KEY_L 0x0f // Keyboard l and L
-#define KEY_M 0x10 // Keyboard m and M
-#define KEY_N 0x11 // Keyboard n and N
-#define KEY_O 0x12 // Keyboard o and O
-#define KEY_P 0x13 // Keyboard p and P
-#define KEY_Q 0x14 // Keyboard q and Q
-#define KEY_R 0x15 // Keyboard r and R
-#define KEY_S 0x16 // Keyboard s and S
-#define KEY_T 0x17 // Keyboard t and T
-#define KEY_U 0x18 // Keyboard u and U
-#define KEY_V 0x19 // Keyboard v and V
-#define KEY_W 0x1a // Keyboard w and W
-#define KEY_X 0x1b // Keyboard x and X
-#define KEY_Y 0x1c // Keyboard y and Y
-#define KEY_Z 0x1d // Keyboard z and Z
+// #define KEY_A 0x04 // Keyboard a and A
+// #define KEY_B 0x05 // Keyboard b and B
+// #define KEY_C 0x06 // Keyboard c and C
+// #define KEY_D 0x07 // Keyboard d and D
+// #define KEY_E 0x08 // Keyboard e and E
+// #define KEY_F 0x09 // Keyboard f and F
+// #define KEY_G 0x0a // Keyboard g and G
+// #define KEY_H 0x0b // Keyboard h and H
+// #define KEY_I 0x0c // Keyboard i and I
+// #define KEY_J 0x0d // Keyboard j and J
+// #define KEY_K 0x0e // Keyboard k and K
+// #define KEY_L 0x0f // Keyboard l and L
+// #define KEY_M 0x10 // Keyboard m and M
+// #define KEY_N 0x11 // Keyboard n and N
+// #define KEY_O 0x12 // Keyboard o and O
+// #define KEY_P 0x13 // Keyboard p and P
+// #define KEY_Q 0x14 // Keyboard q and Q
+// #define KEY_R 0x15 // Keyboard r and R
+// #define KEY_S 0x16 // Keyboard s and S
+// #define KEY_T 0x17 // Keyboard t and T
+// #define KEY_U 0x18 // Keyboard u and U
+// #define KEY_V 0x19 // Keyboard v and V
+// #define KEY_W 0x1a // Keyboard w and W
+// #define KEY_X 0x1b // Keyboard x and X
+// #define KEY_Y 0x1c // Keyboard y and Y
+// #define KEY_Z 0x1d // Keyboard z and Z
 
 
 /* Query a button's state.
