@@ -29,13 +29,13 @@ typedef enum _TGPIOClockSource       // cf manual, pg 107, "Clock Manager Genera
 #define GPIO_CLOCK_SOURCE_ID_MAX	15		// source ID is 0-15
 #define GPIO_CLOCK_SOURCE_UNUSED	0		// returned for unused clock sources
 
-struct gpioclock_desc {
+struct gpioclock_dev {
     TGPIOClock clock; 
     TGPIOClockSource source; 
 };
 
-void gpioclock_init_desc(struct gpioclock_desc *desc, TGPIOClock clock);
-int gpioclock_start_rate(struct gpioclock_desc *desc, unsigned nRateHZ);
-void gpioclock_stop(struct gpioclock_desc *desc);
+void gpioclock_init(struct gpioclock_dev *desc, TGPIOClock clock);
+int gpioclock_start_rate(struct gpioclock_dev *desc, unsigned nRateHZ);
+void gpioclock_stop(struct gpioclock_dev *desc);
 
 void gpio_useAsAlt0(unsigned int pin_number);

@@ -1,4 +1,5 @@
 // sound device based on pwm, will output to 3.5mm jack 
+// largely ported from Circle
 //  regarding HDMI sound output, cf README-xzl
 
 // ref: https://github.com/babbleberry/rpi4-osdev/blob/master/part9-sound/kernel.c
@@ -27,9 +28,6 @@ enum TDREQ
 	DREQSourceUARTTX = 12,
 	DREQSourceUARTRX = 14
 };
-
-// manual: "PWM DMA is mapped to DMA channel 5"
-// "PWM clock source and frequency is controlled in CPRMAN."
 
 //
 // PWM device selection
@@ -135,7 +133,7 @@ enum TDREQ
 	#define TXFR_LEN_XLENGTH_SHIFT		0
 	#define TXFR_LEN_YLENGTH_SHIFT		16
 	#define TXFR_LEN_MAX			0x3FFFFFFF
-	#define TXFR_LEN_MAX_LITE		0xFFFF          // xzl: very humble
+	#define TXFR_LEN_MAX_LITE		0xFFFF          // xzl: 64K
 #define ARM_DMACHAN_STRIDE(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x18)
 	#define STRIDE_SRC_SHIFT		0
 	#define STRIDE_DEST_SHIFT		16
@@ -156,9 +154,9 @@ struct TDMAControlBlock
 	u32	nNextControlBlockAddress;
 	u32	nReserved[2];
 }
-PACKED;
+PACKED; //  shared with dma engine
 
-enum TPWMSoundState
+typedef enum TPWMSoundState
 {
 	PWMSoundIdle,
 	PWMSoundRunning,
@@ -166,7 +164,7 @@ enum TPWMSoundState
 	PWMSoundTerminating,
 	PWMSoundError,
 	PWMSoundUnknown
-};
+} TPWMSoundState;
 
 typedef enum TSoundFormat			/// All supported formats are interleaved little endian
 {
@@ -195,30 +193,27 @@ void __assert_fail(const char * assertion, const char * file,
   while (1); 
 }
 
-// hw specific (pwm)  
+// hw specific info (pwm)  
 struct sound_dev {
     // from CPWMSoundBaseDevice
 	unsigned m_nChunkSize;
 	unsigned m_nRange;
 
-	// CGPIOPin   m_Audio1;
-	// CGPIOPin   m_Audio2;
-    struct gpioclock_desc m_Clock; 
+    struct gpioclock_dev m_Clock; 
 
-	// boolean m_bIRQConnected;
-	volatile enum TPWMSoundState m_State;
+	volatile TPWMSoundState m_State;
 
-	unsigned m_nDMAChannel;
-	u32 *m_pDMABuffer[2];       // data buf for dma. each one chunk size. ker va
-	u8 *m_pControlBlockBuffer[2];
-	struct TDMAControlBlock *m_pControlBlock[2];
+	unsigned m_nDMAChannel;     // dma chan id
+	u32 *m_pDMABuffer[2];    // data for dma. each one chunk size. ker va. to be allocated
+	u8 *m_pControlBlockBuffer[2];   // metadata for dma. to be allocated.
+	struct TDMAControlBlock *m_pControlBlock[2]; // points to bufs above
 
 	unsigned m_nNextBuffer;			// 0 or 1
 
-    // from CPWMSoundDevice     
+    // (CPWMSoundDevice)
 	unsigned  m_nRangeBits;
 	boolean	  m_bChannelsSwapped;
-	u8	 *m_pSoundData;     // wont allocate. buf allocated externally
+	u8	 *m_pSoundData;     // a buf for playback. passed in externally
 	unsigned  m_nSamples;
 	unsigned  m_nChannels;
 	unsigned  m_nBitsPerSample;
@@ -226,8 +221,8 @@ struct sound_dev {
     struct spinlock m_SpinLock;     // for hw resources
 }; 
 
-// hw indep: driver resources: buffer mgmt, queuing, format, etc
-// Circle CSoundBaseDevice
+// driver resources (hw indep info): buffer mgmt, queuing, format, etc
+// (Circle CSoundBaseDevice)
 struct sound_drv {
 	TSoundFormat m_HWFormat;
 	unsigned m_nSampleRate;
@@ -247,21 +242,22 @@ struct sound_drv {
 	unsigned m_nWriteSampleSize;
 	unsigned m_nWriteFrameSize;
 
-	u8 *m_pQueue;			// Ring buffer xzl: to be alloc (by #frames or time
+    // below for continuous play
+	u8 *m_pQueue;			// Ring buffer, to be allocated
 	unsigned m_nInPtr;
 	unsigned m_nOutPtr;
 
 	TSoundNeedDataCallback *m_pCallback;
 	void *m_pCallbackParam;
 
-	struct spinlock m_SpinLock;     // xzl: protect ring buf, etc. 
+	struct spinlock m_SpinLock;    
 
     struct sound_dev dev; 
 }; 
 
 // 30-bit DMA-able memory 
 // per Circle "high memory region (memory >= 3 GB is not safe to be DMA-able and is not used)"
-// rpi3 (1GB of mem) seems fine
+// rpi3 (1GB of mem) should be fine
 static void* malloc_dma30(unsigned size) { 
     return malloc(size); 
 } 
@@ -293,9 +289,10 @@ static void setup_dma_control_block(struct sound_dev *dev, unsigned nID) {
 }
 
 // a simple version of data load -- just load chunk from m_pSoundData (preloaded)
-// not streaming. does data conversion 
+// until exhausted
+// does data conversion. one shot playback.
 // cf CPWMSoundDevice::GetChunk
-static unsigned get_chunk(struct sound_dev *dev, u32 *pBuffer, unsigned nChunkSize) {
+static unsigned GetChunkPreloaded(struct sound_dev *dev, u32 *pBuffer, unsigned nChunkSize) {
     assert(pBuffer != 0);
     assert(nChunkSize > 0);
     assert((nChunkSize & 1) == 0);
@@ -363,7 +360,7 @@ static boolean GetNextChunk(struct sound_dev *dev) {
     unsigned int next = dev->m_nNextBuffer; 
 
     assert(dev->m_pDMABuffer[next] != 0);
-    unsigned nChunkSize = get_chunk(dev, dev->m_pDMABuffer[next], 
+    unsigned nChunkSize = GetChunkPreloaded(dev, dev->m_pDMABuffer[next], 
         dev->m_nChunkSize); 
     if (nChunkSize == 0) {
         return FALSE;
@@ -375,7 +372,7 @@ static boolean GetNextChunk(struct sound_dev *dev) {
     assert(dev->m_pControlBlock[next] != 0);
     dev->m_pControlBlock[next]->nTransferLength = nTransferLength;
 
-    W("GetNextChunk: nChunkSize %u nTransferLength %u", nChunkSize, nTransferLength); 
+    V("GetNextChunk: nChunkSize %u nTransferLength %u", nChunkSize, nTransferLength); 
 
     __asm_invalidate_dcache_range(dev->m_pDMABuffer[next], 
         (char *)dev->m_pDMABuffer[next] + nTransferLength - 1);
@@ -417,10 +414,10 @@ static void StopPWM (struct sound_dev *dev)
 	PeripheralExit ();
 }
 
-static void do_dma_irq(void *para) {
+static void DoDMAIRQ(void *para) {
     struct sound_dev *dev = (struct sound_dev *)para; 
 
-    W("do_dma_irq");
+    V("DoDMAIRQ");
 
     // check channel 
 	assert (dev && dev->m_State != PWMSoundIdle);
@@ -480,7 +477,7 @@ static void do_dma_irq(void *para) {
 }
 
 // CPWMSoundBaseDevice::Start
-static boolean sound_start(struct sound_dev *dev) {
+static boolean Start(struct sound_dev *dev) {
     assert(dev->m_State == PWMSoundIdle);
 
     // fill buffer 0
@@ -493,7 +490,7 @@ static boolean sound_start(struct sound_dev *dev) {
     dev->m_State = PWMSoundRunning;
 
     // connect IRQ
-    if (!dma_irq) { dma_irq = do_dma_irq; dma_irq_param = dev; }
+    if (!dma_irq) { dma_irq = DoDMAIRQ; dma_irq_param = dev; }
 
     assert(dev->m_nDMAChannel <= DMA_CHANNEL_MAX);
 
@@ -521,7 +518,7 @@ static boolean sound_start(struct sound_dev *dev) {
 
     // kick off dma 
     W("kick dma ch %u", dev->m_nDMAChannel); 
-    
+
 	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel),   CS_WAIT_FOR_OUTSTANDING_WRITES
 					         | (DEFAULT_PANIC_PRIORITY << CS_PANIC_PRIORITY_SHIFT)
 					         | (DEFAULT_PRIORITY << CS_PRIORITY_SHIFT)
@@ -546,11 +543,11 @@ static boolean sound_start(struct sound_dev *dev) {
     return TRUE;
 }
 
-static int isactive (struct sound_dev *dev) {
+static int IsActive (struct sound_dev *dev) {
 	return dev->m_State != PWMSoundIdle ? 1 : 0;
 }
 
-// xzl: called by app. load samples, .. then start() DMAs...
+// one shot playback. load samples, .. then start() DMAs...
 // CPWMSoundDevice::Playback
 void sound_playback (struct sound_drv *drv, 
             void	*pSoundData,		// sample rate 44100 Hz
@@ -559,7 +556,7 @@ void sound_playback (struct sound_drv *drv,
             unsigned  nBitsPerSample) {	// 8 (unsigned sound data) or 16 (signed sound data)
 
     struct sound_dev *dev =  &drv->dev; 
-    assert(!isactive(dev)); 
+    assert(!IsActive(dev)); 
 	assert (pSoundData != 0);
 	assert (nChannels == 1 || nChannels == 2);
 	assert (nBitsPerSample == 8 || nBitsPerSample == 16);
@@ -569,12 +566,22 @@ void sound_playback (struct sound_drv *drv,
 	dev->m_nChannels	 = nChannels;
 	dev->m_nBitsPerSample = nBitsPerSample;
 
-    sound_start(dev); 
+    Start(dev); 
 }
 
 // CPWMSoundDevice::PlaybackActive
 int sound_playback_active(struct sound_drv *drv) {
-    return isactive(&drv->dev); 
+    return IsActive(&drv->dev); 
+}
+
+//CPWMSoundBaseDevice::Cancel
+void sound_cancel(struct sound_dev *dev)
+{
+	acquire(&dev->m_SpinLock);
+    if (dev->m_State == PWMSoundRunning) {
+        dev->m_State = PWMSoundCancelled;
+    }
+    release(&dev->m_SpinLock); 
 }
 
 #define MAX_SOUND_DRV 1
@@ -644,6 +651,7 @@ struct sound_drv * sound_init(unsigned nChunkSize)
 
     if (!nChunkSize) nChunkSize = 2048; 
 
+    // XXX: improve
     int id = __atomic_fetch_add(&next_free, 1, __ATOMIC_SEQ_CST); 
     if (id >= MAX_SOUND_DRV)    
         return 0; 
@@ -656,7 +664,6 @@ struct sound_drv * sound_init(unsigned nChunkSize)
               CMachineInfo_ArePWMChannelsSwapped()); 
 
     // CPWMSoundBaseDevice::CPWMSoundBaseDevice
-    // hw specific
     struct sound_dev *dev = &drv->dev; 
     initlock(&dev->m_SpinLock, "soundev");
 
@@ -680,7 +687,7 @@ struct sound_drv * sound_init(unsigned nChunkSize)
     gpio_useAsAlt0(40); 
     gpio_useAsAlt0(41);
     ms_delay(2); 
-    gpioclock_init_desc(&dev->m_Clock, GPIOClockPWM); 
+    gpioclock_init(&dev->m_Clock, GPIOClockPWM); 
 	dev->m_State = PWMSoundIdle;
 	dev->m_nDMAChannel = CMachineInfo_AllocateDMAChannel(DMA_CHANNEL_LITE);
 
@@ -707,9 +714,7 @@ struct sound_drv * sound_init(unsigned nChunkSize)
 
 	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel), CS_RESET);
 	while (read32 (ARM_DMACHAN_CS (dev->m_nDMAChannel)) & CS_RESET)
-	{
-		// do nothing
-	}
+		; // do nothing
 
 	PeripheralExit ();
     W("audio init ok"); 
@@ -732,9 +737,7 @@ void sound_fini(struct sound_drv *drv) {
 
 	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel), CS_RESET);
 	while (read32 (ARM_DMACHAN_CS (dev->m_nDMAChannel)) & CS_RESET)
-	{
-		// do nothing
-	}
+		; // do nothing
 
 	write32 (ARM_DMA_ENABLE, read32 (ARM_DMA_ENABLE) & ~(1 << dev->m_nDMAChannel));
 
@@ -758,14 +761,6 @@ void sound_fini(struct sound_drv *drv) {
 	dev->m_pDMABuffer[0] = 0;
 	free(dev->m_pDMABuffer[1]);
 	dev->m_pDMABuffer[1] = 0;
-}
 
-//CPWMSoundBaseDevice::Cancel
-void sound_cancel(struct sound_dev *dev)
-{
-	acquire(&dev->m_SpinLock);
-    if (dev->m_State == PWMSoundRunning) {
-        dev->m_State = PWMSoundCancelled;
-    }
-    release(&dev->m_SpinLock); 
+    __atomic_fetch_add(&next_free, -1, __ATOMIC_SEQ_CST); 
 }

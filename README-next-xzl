@@ -188,7 +188,7 @@ added test for pipe3: two writers, one reader.
 
 [ ]  add support for rpi3 hardware
     [ ] 
-    [ ]     sound driver
+    [x]     sound driver
     rf: pwm (cpu or dma playback, via 3.5mm jack
     
     https://github.com/babbleberry/rpi4-osdev/tree/master/part9-sound

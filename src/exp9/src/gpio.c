@@ -96,11 +96,11 @@ void gpio_useAsAlt5(unsigned int pin_number) {
 #define CLK_DIV_DIVI(x)		((x) << 12)
 #define CLK_DIV_DIVF(x)		((x) << 0)
 
-void gpioclock_init_desc(struct gpioclock_desc *desc, TGPIOClock clock) {
+void gpioclock_init(struct gpioclock_dev *desc, TGPIOClock clock) {
     desc->clock = clock; desc->source = GPIOClockSourceUnknown; 
 }
 
-void gpioclock_stop(struct gpioclock_desc *desc) {
+void gpioclock_stop(struct gpioclock_dev *desc) {
 	unsigned nCtlReg = ARM_CM_GP0CTL + (desc->clock * 8);
 
 	// PeripheralEntry ();
@@ -118,7 +118,7 @@ void gpioclock_stop(struct gpioclock_desc *desc) {
 // nDivF: 0..4095
 // nMASH: 0..3 MASH control
 // cf: SoC manual, table 6-33 "Example of Frequency Spread when using MASH Filtering"
-static void gpioclock_start(struct gpioclock_desc *desc, 
+static void gpioclock_start(struct gpioclock_dev *desc, 
             unsigned nDivI, unsigned nDivF, unsigned nMASH) {
 	static unsigned MinDivI[] = {1, 2, 3, 5};
 	assert (nMASH <= 3);
@@ -142,7 +142,7 @@ static void gpioclock_start(struct gpioclock_desc *desc,
 
 // assigns clock source automatically
 // return 1 on ok 
-int gpioclock_start_rate(struct gpioclock_desc *desc, unsigned nRateHZ) {
+int gpioclock_start_rate(struct gpioclock_dev *desc, unsigned nRateHZ) {
 	assert (nRateHZ > 0);
 	// xzl: iterate through all available clock sources, find one aivalable ....
 	//			will write the source id to reg in Start()
