@@ -50,9 +50,6 @@ volatile unsigned int  __attribute__((aligned(16))) mbox[36];
 #define MBOX_FULL       0x80000000
 #define MBOX_EMPTY      0x40000000
 
-// addr seen by gpu
-#define BUS_ADDRESS(phys)   (((phys) & ~0xC0000000)  |  0xC0000000)
-
 /**
  * Make a mailbox call. Use the "mbox" buffer for both request and response.
  * response overwrites request

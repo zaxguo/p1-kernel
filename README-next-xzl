@@ -222,6 +222,31 @@ added test for pipe3: two writers, one reader.
     and esier to understand solution. 
 
     so gave up as of now. in favor of pwm. 
+    
+
+    thoughts: glue circle? or port it manually in c?
+
+        this is an attempt to carva out a minm part of circle, so that we can run sound 
+    pwm. the plan was to compile the cirlce (in c++) and glue with the rest of the 
+    kernel. 
+
+    this minimizes changes to circle (it has mutiple classes, subclasses in the 
+    suond subsystem..., which can be painful to converet to c). the downside would be:
+    the glue is ugly, and linking c++ to c makes hte kernel bloated. it also 
+    limits further cusotimization of that part. 
+
+    eventually, I decided to manually port the circle's pwm sound code (as c), which 
+    turns out to be successful. 
+
+    this code base is therefore left for future ref. 
+
+    xzl, Apr 2024
+
+
+
+good dma article on rpi3
+https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/
+
 
 
 [ ] multicore

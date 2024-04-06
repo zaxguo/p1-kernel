@@ -120,10 +120,16 @@ endif
 
 ifeq (${PLAT}, rpi3)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
-C_OBJS += $(BUILD_DIR)/uspibind_c.o		# usb glue
-C_OBJS += $(BUILD_DIR)/kb_c.o		# usb glue
-C_OBJS += $(BUILD_DIR)/ampibind_c.o		# sound(vchiq) glue
-BIN_OBJS += addon/usb/lib/libuspi.a		# usb lib
+# usb glue
+C_OBJS += $(BUILD_DIR)/uspibind_c.o		
+C_OBJS += $(BUILD_DIR)/kb_c.o
+# sound 		
+C_OBJS += $(BUILD_DIR)/sound_c.o
+C_OBJS += $(BUILD_DIR)/gpio_c.o
+C_OBJS += $(BUILD_DIR)/machineinfo_c.o	
+# usb lib	
+BIN_OBJS += addon/usb/lib/libuspi.a		
+# C_OBJS += $(BUILD_DIR)/ampibind_c.o		# sound(vchiq) glue
 # BIN_OBJS += addon/sound/ampi/libampi.a		# hdmi sound lib
 endif
 
@@ -138,5 +144,5 @@ DEP_FILES = $(C_OBJS:%.o=%.d)
 kernel8.img: $(LINKSCR) $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 	$(ARMGNU)-ld -T $(LINKSCR) -o $(BUILD_DIR)/kernel8.elf $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
-	$(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
-	nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym
+	@$(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
+	@nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym

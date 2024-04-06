@@ -47,6 +47,7 @@ void enable_interrupt_controller()
     put32va(ENABLE_IRQS_1, 
                 ENABLE_IRQS_1_USB |\
                 ENABLE_IRQS_1_AUX | \
+                ENABLE_IRQS_1_DMA(12) |\
                 SYSTEM_TIMER_IRQ_1); 
 
 #elif defined(PLAT_VIRT)
@@ -75,6 +76,8 @@ void *usb_irq_param = 0;
 TInterruptHandler *vchiq_irq = 0;    // to be filled by sound driver
 void *vchiq_irq_param = 0; 
 
+TInterruptHandler *dma_irq = 0;    // to be filled by pwm sound driver
+void *dma_irq_param = 0; 
 
 void handle_irq(void) {
     // Interrupt controller can help us with this job: it has `INT_SOURCE_0` register that holds interrupt status for interrupts `0 - 31`. 
@@ -103,6 +106,13 @@ void handle_irq(void) {
             (*usb_irq)(usb_irq_param); 
             p1 &= (~IRQ_PENDING_1_USB); 
         }
+        for (int i = 0; i <= 12; i++) { // check 13 dma channels
+            if (p1 & IRQ_PENDING_1_DMA(i)) {
+                if (dma_irq)
+                    dma_irq(dma_irq_param); 
+                p1 &= (~IRQ_PENDING_1_DMA(i));
+            }
+        }
         if (p1) {
             W("unknown pending irq in IRQ_PENDING_1"); 
             goto unknown; 
@@ -120,7 +130,7 @@ void handle_irq(void) {
         return;  // all irq bits cleared
 
 unknown:
-    printf("Unknown pending irq: INT_SOURCE_0 %08x IRQ_BASIC_PENDING %08x" 
+    E("Unknown pending irq: INT_SOURCE_0 %08x IRQ_BASIC_PENDING %08x " 
             "IRQ_PENDING_1 %08x IRQ_PENDING_2 %08x\r\n", 
         irq0, 
         get32va(IRQ_BASIC_PENDING), 

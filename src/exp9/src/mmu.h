@@ -41,6 +41,7 @@
 #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
 
+// TODO: factor this out
 #define VA_START 			0xffff000000000000
 #define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
 #define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va

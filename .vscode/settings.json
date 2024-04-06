@@ -63,7 +63,11 @@
         "stdbool.h": "c",
         "uvalogo.h": "c",
         "ampienv.h": "c",
-        "coroutine.h": "c"
+        "coroutine.h": "c",
+        "optional": "c",
+        "system_error": "c",
+        "circle-glue.h": "c",
+        "sound-sample.h": "c"
     },
     "files.exclude": {
         "docs/**": true,
@@ -75,7 +79,8 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
-        // "src/exp9/addon/usb/**": true,  // usb 
+        "src/exp9/addon/usb/**": true,  // usb 
+        "src/exp9/addon/sound/**": true,  // usb 
         "src/experimental/**": true,
     }, 
     "search.exclude": {
@@ -88,7 +93,8 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
-        // "src/exp9/addon/usb/**": true,  // usb 
+        "src/exp9/addon/usb/**": true,  // usb 
+        "src/exp9/addon/sound/**": true,  // usb 
         "src/experimental/**": true,        
         "*.asm": true,
         ".*": true,

@@ -25,10 +25,13 @@ struct pipe;
 struct mm_struct; 
 struct task_struct; 
 struct fb_struct; 
+// hw specific
+struct sound_drv; 
+struct sound_dev; 
 
 // ------------------- misc ----------------------------- //
 
-extern void delay ( unsigned long);
+extern void delay (unsigned long cycles);   // utils.S 
 // extern void put32 ( unsigned long, unsigned int );
 // extern unsigned int get32 ( unsigned long );
 extern void put32(unsigned int *addr, unsigned int v);
@@ -258,6 +261,16 @@ int get_board_serial(unsigned long *s);
 int fb_init(void); 
 int fb_fini(void); 
 int fb_set_voffsets(int offsetx, int offsety);
+
+// sound.c
+struct sound_drv * sound_init(unsigned nChunkSize /* 0=driver decide*/);
+void sound_fini(struct sound_drv *drv);
+void sound_playback (struct sound_drv *drv, 
+            void	*pSoundData,		// sample rate 44100 Hz
+            unsigned  nSamples,		// for Stereo the L/R samples are count as one
+            unsigned  nChannels,		// 1 (Mono) or 2 (Stereo)
+            unsigned  nBitsPerSample);
+int sound_playback_active(struct sound_drv *drv);
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)

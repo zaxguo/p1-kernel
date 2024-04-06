@@ -308,29 +308,19 @@ void test_fb() {
 }
 
 ///// sound driver test 
-#include <ampi.h>
+#include "sound-sample.h"
 
-static unsigned synth(int16_t **buf, unsigned chunk_size) {
-    // W("called\n"); 
-    return chunk_size; 
-}
+#define SOUND_SAMPLES		(sizeof Sound / sizeof Sound[0] / SOUND_CHANNELS)
 
-#define DSB()	__asm volatile ("dsb sy" ::: "memory")
-#define DMB() 	__asm volatile ("dmb sy" ::: "memory")
-
+// cf Circle sample/12-pwmsound/kernel.cpp
 void test_sound() {
-	AMPiInitialize(44100, 4000);
-	AMPiSetChunkCallback(synth);
+    struct sound_drv *p = sound_init(0);
+    sound_playback(p, Sound, SOUND_SAMPLES, SOUND_CHANNELS, SOUND_BITS);
 
-    // Start playback
-	while (1) {
-		DSB();
-		AMPiStart();
-		while (AMPiIsActive()) { }
-		DMB();
+	for (unsigned nCount = 0; sound_playback_active(p); nCount++)
+		// W("count %d...", nCount);
+        ;
+    W("playback done"); 
 
-		DSB();
-		MsDelay(2000);
-		DMB();
-	}
+    sound_fini(p); 
 }

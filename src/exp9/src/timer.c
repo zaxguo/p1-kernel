@@ -84,8 +84,8 @@ static inline unsigned long current_counter() {
 ////////////  delay, timekeeping 
 
 // # of cpu cycles per ms, per us. will be tuned
-static unsigned int cycles_per_ms = 0; 
-static unsigned int cycles_per_us = 0; 
+static unsigned int cycles_per_ms = 602409; // measured values. before tuning
+static unsigned int cycles_per_us = 599; 
 
 // use sys timer to measure: # of cpu cycles per ms 
 static void sys_timer_tune_delay() {

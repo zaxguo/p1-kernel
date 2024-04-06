@@ -4,15 +4,18 @@
 #include "utils.h"
 #include "spinlock.h"
 
+// cf: https://github.com/bztsrc/raspi3-tutorial/blob/master/03_uart1/uart.c
 // cf: https://github.com/futurehomeno/RPI_mini_UART/tree/master
 
 #define PBASE   0x3F000000
+
 // ---------------- gpio ------------------------------------ //
-#define GPFSEL1         (PBASE+0x00200004)
-#define GPSET0          (PBASE+0x0020001C)
-#define GPCLR0          (PBASE+0x00200028)
-#define GPPUD           (PBASE+0x00200094)
-#define GPPUDCLK0       (PBASE+0x00200098)
+// cf BCM2837 manual, chap 6, "General Purpose I/O (GPIO)"
+#define GPFSEL1         (PBASE+0x00200004)    // "GPIO Function Select"
+#define GPSET0          (PBASE+0x0020001C)    // "GPIO Pin Output Set"
+#define GPCLR0          (PBASE+0x00200028)    // "GPIO Pin Output Clear"
+#define GPPUD           (PBASE+0x00200094)    // "GPIO Pin Pull-up/down Enable"
+#define GPPUDCLK0       (PBASE+0x00200098)    // "GPIO Pin Pull-up/down Enable Clock"
 
 // ---------------- mini uart ------------------------------------ //
 // "The Device has three Auxiliary peripherals: One mini UART and two SPI masters. These
@@ -127,19 +130,27 @@ void uart_init (void) {
 
 	unsigned int selector;
 
+  // code below also showcases how to configure GPIO pins
+  // cf: https://github.com/bztsrc/raspi3-tutorial/blob/master/03_uart1/uart.c#L45
+
+  // select gpio functions for pin14,15. note 3bits per pin.
 	selector = get32va(GPFSEL1);
-	selector &= ~(7<<12);                   // clean gpio14
+	selector &= ~(7<<12);                   // clean gpio14 (12 is not a typo)
 	selector |= 2<<12;                      // set alt5 for gpio14
 	selector &= ~(7<<15);                   // clean gpio15
 	selector |= 2<<15;                      // set alt5 for gpio15
 	put32va(GPFSEL1,selector);
-
-	put32va(GPPUD,0);
+  
+  // Below: set up GPIO pull modes. protocol recommended by the bcm2837 manual 
+  //    (pg 101, "GPIO Pull-up/down Clock Registers")
+  // We need neither the pull-up nor the pull-down state, because both 
+  //  the 14 and 15 pins are going to be connected all the time. 
+	put32va(GPPUD,0);   // disable pull up/down control (for pins below)
 	delay(150);
-	put32va(GPPUDCLK0,(1<<14)|(1<<15));
+  // "control the actuation of internal pull-downs on the respective GPIO pins."
+	put32va(GPPUDCLK0,(1<<14)|(1<<15));  // "clock the control signal into the GPIO pads"
 	delay(150);
-	put32va(GPPUDCLK0,0);
-
+	put32va(GPPUDCLK0,0);                   // remote the clock, flush GPIO setup
   put32va(AUX_MU_IIR_REG, FLUSH_UART);    // flush FIFO
 
 	put32va(AUX_ENABLES,1);                   //Enable mini uart (this also enables access to it registers)

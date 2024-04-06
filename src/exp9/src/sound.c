@@ -1,0 +1,771 @@
+// sound device based on pwm, will output to 3.5mm jack 
+//  regarding HDMI sound output, cf README-xzl
+
+// ref: https://github.com/babbleberry/rpi4-osdev/blob/master/part9-sound/kernel.c
+//      this is for rpi4, but close enough 
+//      https://github.com/rsta2/circle/blob/master/lib/sound/pwmsoundbasedevice.cpp
+
+#include "utils.h"
+#include "plat.h"
+#include "circle-glue.h"
+#include "spinlock.h"
+#include "gpio.h"
+
+// circle dmacommon.h
+enum TDREQ
+{
+	DREQSourceNone	 = 0,
+#if RASPPI >= 4
+	DREQSourcePWM1	 = 1,
+#endif
+	DREQSourcePCMTX	 = 2,
+	DREQSourcePCMRX	 = 3,
+	DREQSourcePWM	 = 5,
+	DREQSourceSPITX	 = 6,
+	DREQSourceSPIRX	 = 7,
+	DREQSourceEMMC	 = 11,
+	DREQSourceUARTTX = 12,
+	DREQSourceUARTRX = 14
+};
+
+// manual: "PWM DMA is mapped to DMA channel 5"
+// "PWM clock source and frequency is controlled in CPRMAN."
+
+//
+// PWM device selection
+//
+#if RASPPI <= 3
+	#define CLOCK_RATE	250000000
+	#define PWM_BASE	ARM_PWM_BASE
+	#define DREQ_SOURCE	DREQSourcePWM
+#else
+	#define CLOCK_RATE	125000000
+	#define PWM_BASE	ARM_PWM1_BASE
+	#define DREQ_SOURCE	DREQSourcePWM1
+#endif
+
+//
+// PWM register offsets
+//
+#define PWM_CTL			(PWM_BASE + 0x00)
+#define PWM_STA			(PWM_BASE + 0x04)
+#define PWM_DMAC		(PWM_BASE + 0x08)
+#define PWM_RNG1		(PWM_BASE + 0x10)
+#define PWM_DAT1		(PWM_BASE + 0x14)
+#define PWM_FIF1		(PWM_BASE + 0x18)
+#define PWM_RNG2		(PWM_BASE + 0x20)
+#define PWM_DAT2		(PWM_BASE + 0x24)
+
+//
+// PWM control register
+//
+#define ARM_PWM_CTL_PWEN1	(1 << 0)
+#define ARM_PWM_CTL_MODE1	(1 << 1)
+#define ARM_PWM_CTL_RPTL1	(1 << 2)
+#define ARM_PWM_CTL_SBIT1	(1 << 3)
+#define ARM_PWM_CTL_POLA1	(1 << 4)
+#define ARM_PWM_CTL_USEF1	(1 << 5)        // use fifo
+#define ARM_PWM_CTL_CLRF1	(1 << 6)       
+#define ARM_PWM_CTL_MSEN1	(1 << 7)
+#define ARM_PWM_CTL_PWEN2	(1 << 8)
+#define ARM_PWM_CTL_MODE2	(1 << 9)
+#define ARM_PWM_CTL_RPTL2	(1 << 10)
+#define ARM_PWM_CTL_SBIT2	(1 << 11)
+#define ARM_PWM_CTL_POLA2	(1 << 12)
+#define ARM_PWM_CTL_USEF2	(1 << 13)       // use fifo
+#define ARM_PWM_CTL_MSEN2	(1 << 14)
+
+//
+// PWM status register
+//
+#define ARM_PWM_STA_FULL1	(1 << 0)
+#define ARM_PWM_STA_EMPT1	(1 << 1)
+#define ARM_PWM_STA_WERR1	(1 << 2)
+#define ARM_PWM_STA_RERR1	(1 << 3)
+#define ARM_PWM_STA_GAPO1	(1 << 4)
+#define ARM_PWM_STA_GAPO2	(1 << 5)
+#define ARM_PWM_STA_GAPO3	(1 << 6)
+#define ARM_PWM_STA_GAPO4	(1 << 7)
+#define ARM_PWM_STA_BERR	(1 << 8)
+#define ARM_PWM_STA_STA1	(1 << 9)
+#define ARM_PWM_STA_STA2	(1 << 10)
+#define ARM_PWM_STA_STA3	(1 << 11)
+#define ARM_PWM_STA_STA4	(1 << 12)
+
+//
+// PWM DMA configuration register
+//
+#define ARM_PWM_DMAC_DREQ__SHIFT	0
+#define ARM_PWM_DMAC_PANIC__SHIFT	8
+#define ARM_PWM_DMAC_ENAB		(1 << 31)
+
+//
+// DMA controller
+//
+#define ARM_DMACHAN_CS(chan)		(ARM_DMA_BASE + ((chan) * 0x100) + 0x00) // "Control and Status"
+	#define CS_RESET			(1 << 31)
+	#define CS_ABORT			(1 << 30)
+	#define CS_WAIT_FOR_OUTSTANDING_WRITES	(1 << 28)
+	#define CS_PANIC_PRIORITY_SHIFT		20
+		#define DEFAULT_PANIC_PRIORITY		15
+	#define CS_PRIORITY_SHIFT		16
+		#define DEFAULT_PRIORITY		1
+	#define CS_ERROR			(1 << 8)
+	#define CS_INT				(1 << 2)
+	#define CS_END				(1 << 1)
+	#define CS_ACTIVE			(1 << 0)
+#define ARM_DMACHAN_CONBLK_AD(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x04)
+#define ARM_DMACHAN_TI(chan)		(ARM_DMA_BASE + ((chan) * 0x100) + 0x08)    // "Transfer info"
+	#define TI_PERMAP_SHIFT			16
+	#define TI_BURST_LENGTH_SHIFT		12
+		#define DEFAULT_BURST_LENGTH		0
+	#define TI_SRC_IGNORE			(1 << 11)
+	#define TI_SRC_DREQ			(1 << 10)
+	#define TI_SRC_WIDTH			(1 << 9)
+	#define TI_SRC_INC			(1 << 8)
+	#define TI_DEST_DREQ			(1 << 6)
+	#define TI_DEST_WIDTH			(1 << 5)
+	#define TI_DEST_INC			(1 << 4)
+	#define TI_WAIT_RESP			(1 << 3)
+	#define TI_TDMODE			(1 << 1)
+	#define TI_INTEN			(1 << 0)
+#define ARM_DMACHAN_SOURCE_AD(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x0C)
+#define ARM_DMACHAN_DEST_AD(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x10)
+#define ARM_DMACHAN_TXFR_LEN(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x14)
+	#define TXFR_LEN_XLENGTH_SHIFT		0
+	#define TXFR_LEN_YLENGTH_SHIFT		16
+	#define TXFR_LEN_MAX			0x3FFFFFFF
+	#define TXFR_LEN_MAX_LITE		0xFFFF          // xzl: very humble
+#define ARM_DMACHAN_STRIDE(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x18)
+	#define STRIDE_SRC_SHIFT		0
+	#define STRIDE_DEST_SHIFT		16
+#define ARM_DMACHAN_NEXTCONBK(chan)	(ARM_DMA_BASE + ((chan) * 0x100) + 0x1C)
+#define ARM_DMACHAN_DEBUG(chan)		(ARM_DMA_BASE + ((chan) * 0x100) + 0x20)
+	#define DEBUG_LITE			(1 << 28)
+#define ARM_DMA_INT_STATUS		(ARM_DMA_BASE + 0xFE0)
+#define ARM_DMA_ENABLE			(ARM_DMA_BASE + 0xFF0)
+
+// circle dmachannel.h
+struct TDMAControlBlock
+{
+	u32	nTransferInformation;
+	u32	nSourceAddress; // bus addr
+	u32	nDestinationAddress;
+	u32	nTransferLength;
+	u32	n2DModeStride;
+	u32	nNextControlBlockAddress;
+	u32	nReserved[2];
+}
+PACKED;
+
+enum TPWMSoundState
+{
+	PWMSoundIdle,
+	PWMSoundRunning,
+	PWMSoundCancelled,
+	PWMSoundTerminating,
+	PWMSoundError,
+	PWMSoundUnknown
+};
+
+typedef enum TSoundFormat			/// All supported formats are interleaved little endian
+{
+	SoundFormatUnsigned8,		/// Not supported as hardware format
+	SoundFormatSigned16,
+	SoundFormatSigned24,
+	SoundFormatUnsigned32,		/// Not supported as write format
+	SoundFormatUnknown
+} TSoundFormat;
+
+#define SOUND_HW_CHANNELS	2
+#define SOUND_MAX_SAMPLE_SIZE	(sizeof (u32))
+#define SOUND_MAX_FRAME_SIZE	(SOUND_HW_CHANNELS * SOUND_MAX_SAMPLE_SIZE)
+
+typedef void TSoundNeedDataCallback (void *pParam);
+
+typedef void TInterruptHandler (void *pParam); 
+extern TInterruptHandler *dma_irq; // irq.c
+extern void *dma_irq_param;  // irq.c 
+
+/// assert. needed by assert()
+void __assert_fail(const char * assertion, const char * file, 
+  unsigned int line, const char * function) {  
+  printf("assertion failed: %s at %s:%d\n", assertion, file, (int)line); 
+  asm volatile("msr	daifset, #0b0010 "); // disable irq
+  while (1); 
+}
+
+// hw specific (pwm)  
+struct sound_dev {
+    // from CPWMSoundBaseDevice
+	unsigned m_nChunkSize;
+	unsigned m_nRange;
+
+	// CGPIOPin   m_Audio1;
+	// CGPIOPin   m_Audio2;
+    struct gpioclock_desc m_Clock; 
+
+	// boolean m_bIRQConnected;
+	volatile enum TPWMSoundState m_State;
+
+	unsigned m_nDMAChannel;
+	u32 *m_pDMABuffer[2];       // data buf for dma. each one chunk size. ker va
+	u8 *m_pControlBlockBuffer[2];
+	struct TDMAControlBlock *m_pControlBlock[2];
+
+	unsigned m_nNextBuffer;			// 0 or 1
+
+    // from CPWMSoundDevice     
+	unsigned  m_nRangeBits;
+	boolean	  m_bChannelsSwapped;
+	u8	 *m_pSoundData;     // wont allocate. buf allocated externally
+	unsigned  m_nSamples;
+	unsigned  m_nChannels;
+	unsigned  m_nBitsPerSample;
+
+    struct spinlock m_SpinLock;     // for hw resources
+}; 
+
+// hw indep: driver resources: buffer mgmt, queuing, format, etc
+// Circle CSoundBaseDevice
+struct sound_drv {
+	TSoundFormat m_HWFormat;
+	unsigned m_nSampleRate;
+	boolean m_bSwapChannels;
+
+	unsigned m_nHWSampleSize;
+	unsigned m_nHWFrameSize;
+	unsigned m_nQueueSize;
+	unsigned m_nNeedDataThreshold;
+
+	int m_nRangeMin;
+	int m_nRangeMax;
+	u8 m_NullFrame[SOUND_MAX_FRAME_SIZE];		// a null frame
+
+	TSoundFormat m_WriteFormat;
+	unsigned m_nWriteChannels;
+	unsigned m_nWriteSampleSize;
+	unsigned m_nWriteFrameSize;
+
+	u8 *m_pQueue;			// Ring buffer xzl: to be alloc (by #frames or time
+	unsigned m_nInPtr;
+	unsigned m_nOutPtr;
+
+	TSoundNeedDataCallback *m_pCallback;
+	void *m_pCallbackParam;
+
+	struct spinlock m_SpinLock;     // xzl: protect ring buf, etc. 
+
+    struct sound_dev dev; 
+}; 
+
+// 30-bit DMA-able memory 
+// per Circle "high memory region (memory >= 3 GB is not safe to be DMA-able and is not used)"
+// rpi3 (1GB of mem) seems fine
+static void* malloc_dma30(unsigned size) { 
+    return malloc(size); 
+} 
+
+// CPWMSoundBaseDevice::SetupDMAControlBlock
+static void setup_dma_control_block(struct sound_dev *dev, unsigned nID) {
+	assert (nID <= 1);
+
+	dev->m_pDMABuffer[nID] = malloc_dma30(dev->m_nChunkSize);
+	assert (dev->m_pDMABuffer[nID] != 0);
+
+	dev->m_pControlBlockBuffer[nID] = malloc_dma30(sizeof (struct TDMAControlBlock) + 31);
+	assert (dev->m_pControlBlockBuffer[nID] != 0);
+	dev->m_pControlBlock[nID] = 
+        (struct TDMAControlBlock *) (((uintptr) dev->m_pControlBlockBuffer[nID] + 31) & ~31);
+
+	dev->m_pControlBlock[nID]->nTransferInformation     =   (DREQ_SOURCE << TI_PERMAP_SHIFT)
+						         | (DEFAULT_BURST_LENGTH << TI_BURST_LENGTH_SHIFT)
+						         | TI_SRC_WIDTH
+						         | TI_SRC_INC
+						         | TI_DEST_DREQ
+						         | TI_WAIT_RESP
+						         | TI_INTEN;
+	dev->m_pControlBlock[nID]->nSourceAddress           = BUS_ADDRESS (VA2PA(dev->m_pDMABuffer[nID]));
+	dev->m_pControlBlock[nID]->nDestinationAddress      = (PWM_FIF1 & 0xFFFFFF) + GPU_IO_BASE;
+	dev->m_pControlBlock[nID]->n2DModeStride            = 0;
+	dev->m_pControlBlock[nID]->nReserved[0]	       = 0;
+	dev->m_pControlBlock[nID]->nReserved[1]	       = 0;
+}
+
+// a simple version of data load -- just load chunk from m_pSoundData (preloaded)
+// not streaming. does data conversion 
+// cf CPWMSoundDevice::GetChunk
+static unsigned get_chunk(struct sound_dev *dev, u32 *pBuffer, unsigned nChunkSize) {
+    assert(pBuffer != 0);
+    assert(nChunkSize > 0);
+    assert((nChunkSize & 1) == 0);
+
+    unsigned nResult = 0;
+
+    if (dev->m_nSamples == 0) {
+        return nResult;
+    }
+
+    assert(dev->m_pSoundData != 0);
+    assert(dev->m_nChannels == 1 || dev->m_nChannels == 2);
+    assert(dev->m_nBitsPerSample == 8 || dev->m_nBitsPerSample == 16);
+
+    for (unsigned nSample = 0; nSample < nChunkSize / 2;) // 2 channels on output
+    {
+        unsigned nValue = *dev->m_pSoundData++;
+        if (dev->m_nBitsPerSample > 8) {
+            nValue |= (unsigned)*dev->m_pSoundData++ << 8;
+            nValue = (nValue + 0x8000) & 0xFFFF; // signed -> unsigned (16 bit)
+        }
+
+        if (dev->m_nBitsPerSample >= dev->m_nRangeBits) {
+            nValue >>= dev->m_nBitsPerSample - dev->m_nRangeBits;
+        } else {
+            nValue <<= dev->m_nRangeBits - dev->m_nBitsPerSample;
+        }
+
+        unsigned nValue2 = nValue;
+        if (dev->m_nChannels == 2) {
+            nValue2 = *dev->m_pSoundData++;
+            if (dev->m_nBitsPerSample > 8) {
+                nValue2 |= (unsigned)*dev->m_pSoundData++ << 8;
+                nValue2 = (nValue2 + 0x8000) & 0xFFFF; // signed -> unsigned (16 bit)
+            }
+
+            if (dev->m_nBitsPerSample >= dev->m_nRangeBits) {
+                nValue2 >>= dev->m_nBitsPerSample - dev->m_nRangeBits;
+            } else {
+                nValue2 <<= dev->m_nRangeBits - dev->m_nBitsPerSample;
+            }
+        }
+
+        if (!dev->m_bChannelsSwapped) {
+            pBuffer[nSample++] = nValue;
+            pBuffer[nSample++] = nValue2;
+        } else {
+            pBuffer[nSample++] = nValue2;
+            pBuffer[nSample++] = nValue;
+        }
+
+        nResult += 2;
+
+        if (--dev->m_nSamples == 0) {
+            break;
+        }
+    }
+
+    return nResult;
+}
+
+// xzl: prep data for next xfer: load to dev's dma buffer, flush cache, flip buffer ptr
+// CPWMSoundBaseDevice::GetNextChunk
+static boolean GetNextChunk(struct sound_dev *dev) {
+    unsigned int next = dev->m_nNextBuffer; 
+
+    assert(dev->m_pDMABuffer[next] != 0);
+    unsigned nChunkSize = get_chunk(dev, dev->m_pDMABuffer[next], 
+        dev->m_nChunkSize); 
+    if (nChunkSize == 0) {
+        return FALSE;
+    }
+
+    unsigned nTransferLength = nChunkSize * sizeof(u32);
+    assert(nTransferLength <= TXFR_LEN_MAX_LITE);
+
+    assert(dev->m_pControlBlock[next] != 0);
+    dev->m_pControlBlock[next]->nTransferLength = nTransferLength;
+
+    W("GetNextChunk: nChunkSize %u nTransferLength %u", nChunkSize, nTransferLength); 
+
+    __asm_invalidate_dcache_range(dev->m_pDMABuffer[next], 
+        (char *)dev->m_pDMABuffer[next] + nTransferLength - 1);
+    __asm_invalidate_dcache_range(dev->m_pControlBlock[next],
+        (char *)dev->m_pControlBlock[next] + sizeof(struct TDMAControlBlock)-1);
+
+    dev->m_nNextBuffer ^= 1;
+
+    return TRUE;
+}
+
+// CPWMSoundBaseDevice::RunPWM
+static void RunPWM (struct sound_dev *dev) {    
+    int n = gpioclock_start_rate(&dev->m_Clock, CLOCK_RATE); BUG_ON(n==0); 
+    ms_delay(2); 
+
+	assert ((1 << 8) <= dev->m_nRange && dev->m_nRange < (1 << 16));
+	write32 (PWM_RNG1, dev->m_nRange);
+	write32 (PWM_RNG2, dev->m_nRange);
+
+	put32va (PWM_CTL,   ARM_PWM_CTL_PWEN1 | ARM_PWM_CTL_USEF1
+			  | ARM_PWM_CTL_PWEN2 | ARM_PWM_CTL_USEF2
+			  | ARM_PWM_CTL_CLRF1);
+	ms_delay(2);
+}
+
+// CPWMSoundBaseDevice::StopPWM
+static void StopPWM (struct sound_dev *dev)
+{
+	PeripheralEntry ();
+
+	write32 (PWM_DMAC, 0);
+	write32 (PWM_CTL, 0);			// disable PWM channel 0 and 1
+	ms_delay (2);
+
+	gpioclock_stop(&dev->m_Clock);
+	ms_delay (2);
+
+	PeripheralExit ();
+}
+
+static void do_dma_irq(void *para) {
+    struct sound_dev *dev = (struct sound_dev *)para; 
+
+    W("do_dma_irq");
+
+    // check channel 
+	assert (dev && dev->m_State != PWMSoundIdle);
+	assert (dev->m_nDMAChannel <= DMA_CHANNEL_MAX);
+
+	PeripheralEntry ();
+
+	u32 nIntStatus = read32 (ARM_DMA_INT_STATUS);
+	u32 nIntMask = 1 << dev->m_nDMAChannel;
+	assert (nIntStatus & nIntMask);
+	write32 (ARM_DMA_INT_STATUS, nIntMask);
+
+	u32 nCS = read32 (ARM_DMACHAN_CS (dev->m_nDMAChannel));
+	assert (nCS & CS_INT);
+	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel), nCS);	// reset CS_INT
+
+	PeripheralExit ();
+
+    if (nCS & CS_ERROR) {
+        dev->m_State = PWMSoundError;
+        return;
+    }
+
+    acquire(&dev->m_SpinLock); 
+
+	switch (dev->m_State)
+	{
+	case PWMSoundRunning:
+		if (GetNextChunk (dev))
+		{
+			break;
+		}
+		// fall through
+
+	case PWMSoundCancelled:
+		PeripheralEntry ();
+		write32 (ARM_DMACHAN_NEXTCONBK (dev->m_nDMAChannel), 0);
+		PeripheralExit ();
+
+		// avoid clicks
+		PeripheralEntry ();
+		write32 (PWM_CTL, read32 (PWM_CTL) | ARM_PWM_CTL_RPTL1 | ARM_PWM_CTL_RPTL2);
+		PeripheralExit ();
+
+		dev->m_State = PWMSoundTerminating;
+		break;
+
+	case PWMSoundTerminating:
+		dev->m_State = PWMSoundIdle;
+		break;
+
+	default:
+		assert (0);
+		break;
+	}
+	release(&dev->m_SpinLock); 
+}
+
+// CPWMSoundBaseDevice::Start
+static boolean sound_start(struct sound_dev *dev) {
+    assert(dev->m_State == PWMSoundIdle);
+
+    // fill buffer 0
+    dev->m_nNextBuffer = 0;
+
+    if (!GetNextChunk(dev)) {
+        return FALSE;
+    }
+
+    dev->m_State = PWMSoundRunning;
+
+    // connect IRQ
+    if (!dma_irq) { dma_irq = do_dma_irq; dma_irq_param = dev; }
+
+    assert(dev->m_nDMAChannel <= DMA_CHANNEL_MAX);
+
+    // enable PWM DMA operation
+    PeripheralEntry();
+	write32 (PWM_DMAC,   ARM_PWM_DMAC_ENAB
+			   | (7 << ARM_PWM_DMAC_PANIC__SHIFT)
+			   | (7 << ARM_PWM_DMAC_DREQ__SHIFT));
+
+    // switched this on when playback stops to avoid clicks, switch it off here
+    write32(PWM_CTL, read32(PWM_CTL) & ~(ARM_PWM_CTL_RPTL1 | ARM_PWM_CTL_RPTL2));
+
+    PeripheralExit();
+
+    // start DMA
+    PeripheralEntry();
+
+    assert(!(read32(ARM_DMACHAN_CS(dev->m_nDMAChannel)) & CS_INT));
+    assert(!(read32(ARM_DMA_INT_STATUS) & (1 << dev->m_nDMAChannel)));
+
+    // write dma control blk0 addr to reg 
+    assert(dev->m_pControlBlock[0] != 0);
+    write32(ARM_DMACHAN_CONBLK_AD(dev->m_nDMAChannel), 
+        BUS_ADDRESS((uintptr)dev->m_pControlBlock[0]));
+
+    // kick off dma 
+    W("kick dma ch %u", dev->m_nDMAChannel); 
+    
+	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel),   CS_WAIT_FOR_OUTSTANDING_WRITES
+					         | (DEFAULT_PANIC_PRIORITY << CS_PANIC_PRIORITY_SHIFT)
+					         | (DEFAULT_PRIORITY << CS_PRIORITY_SHIFT)
+					         | CS_ACTIVE);
+
+    PeripheralExit();
+
+    // fill buffer 1
+    if (!GetNextChunk(dev)) {
+        acquire(&dev->m_SpinLock); 
+
+        if (dev->m_State == PWMSoundRunning) {
+            PeripheralEntry();
+            write32(ARM_DMACHAN_NEXTCONBK(dev->m_nDMAChannel), 0);
+            PeripheralExit();
+
+            dev->m_State = PWMSoundTerminating;
+        }
+
+        release(&dev->m_SpinLock); 
+    }
+    return TRUE;
+}
+
+static int isactive (struct sound_dev *dev) {
+	return dev->m_State != PWMSoundIdle ? 1 : 0;
+}
+
+// xzl: called by app. load samples, .. then start() DMAs...
+// CPWMSoundDevice::Playback
+void sound_playback (struct sound_drv *drv, 
+            void	*pSoundData,		// sample rate 44100 Hz
+            unsigned  nSamples,		// for Stereo the L/R samples are count as one
+            unsigned  nChannels,		// 1 (Mono) or 2 (Stereo)
+            unsigned  nBitsPerSample) {	// 8 (unsigned sound data) or 16 (signed sound data)
+
+    struct sound_dev *dev =  &drv->dev; 
+    assert(!isactive(dev)); 
+	assert (pSoundData != 0);
+	assert (nChannels == 1 || nChannels == 2);
+	assert (nBitsPerSample == 8 || nBitsPerSample == 16);
+
+	dev->m_pSoundData	 = (u8 *) pSoundData;
+	dev->m_nSamples	 = nSamples;
+	dev->m_nChannels	 = nChannels;
+	dev->m_nBitsPerSample = nBitsPerSample;
+
+    sound_start(dev); 
+}
+
+// CPWMSoundDevice::PlaybackActive
+int sound_playback_active(struct sound_drv *drv) {
+    return isactive(&drv->dev); 
+}
+
+#define MAX_SOUND_DRV 1
+static int next_free = 0; 
+static struct sound_drv drvs[MAX_SOUND_DRV]; 
+
+// cal range, frame size, format etc.
+// CSoundBaseDevice::CSoundBaseDevice()
+static void sound_drv_init(struct sound_drv *this, TSoundFormat HWFormat,
+                           u32 nRange32, unsigned nSampleRate, boolean bSwapChannels) {
+
+    initlock(&this->m_SpinLock, "soundrv");
+
+    this->m_HWFormat = HWFormat;
+    this->m_nSampleRate = nSampleRate;
+    this->m_bSwapChannels = bSwapChannels;
+    this->m_nQueueSize = 0;
+    this->m_nNeedDataThreshold = 0;
+    this->m_WriteFormat = SoundFormatUnknown;
+    this->m_nWriteChannels = 0;
+    this->m_pQueue = 0;
+    this->m_nInPtr = 0;
+    this->m_nOutPtr = 0;
+    this->m_pCallback = 0;
+
+    memset(this->m_NullFrame, 0, sizeof this->m_NullFrame);
+
+    switch (this->m_HWFormat) {
+    case SoundFormatSigned16:
+        this->m_nHWSampleSize = sizeof(s16);
+        this->m_nRangeMin = -32768;
+        this->m_nRangeMax = 32767;
+        break;
+
+    case SoundFormatSigned24:
+        this->m_nHWSampleSize = sizeof(u32);
+        this->m_nRangeMin = -(1 << 23) + 1;
+        this->m_nRangeMax = (1 << 23) - 1;
+        break;
+
+    case SoundFormatUnsigned32: {
+        this->m_nHWSampleSize = sizeof(u32);
+        this->m_nRangeMin = 0;
+        this->m_nRangeMax = (int)(nRange32 - 1);
+        assert(this->m_nRangeMax > 0);
+
+        u32 *pSample32 = (u32 *)(this->m_NullFrame);
+        pSample32[0] = pSample32[1] = this->m_nRangeMax / 2;
+    } break;
+
+    default:
+        assert(0);
+        break;
+    }
+    this->m_nHWFrameSize = SOUND_HW_CHANNELS * this->m_nHWSampleSize;
+}
+
+
+// Playback works with 44100 Hz, Stereo only.
+// Other sound formats will be converted on the fly.
+#define SAMPLE_RATE		44100
+
+struct sound_drv * sound_init(unsigned nChunkSize)
+{   
+    struct sound_drv *drv; 
+    unsigned nSampleRate = SAMPLE_RATE; 
+
+    if (!nChunkSize) nChunkSize = 2048; 
+
+    int id = __atomic_fetch_add(&next_free, 1, __ATOMIC_SEQ_CST); 
+    if (id >= MAX_SOUND_DRV)    
+        return 0; 
+
+    drv = drvs + id; 
+    
+    // CSoundBaseDevice::CSoundBaseDevice()
+    sound_drv_init(drv, SoundFormatUnsigned32,
+			  (CLOCK_RATE + nSampleRate/2) / nSampleRate, nSampleRate, 
+              CMachineInfo_ArePWMChannelsSwapped()); 
+
+    // CPWMSoundBaseDevice::CPWMSoundBaseDevice
+    // hw specific
+    struct sound_dev *dev = &drv->dev; 
+    initlock(&dev->m_SpinLock, "soundev");
+
+	dev->m_nChunkSize = (nChunkSize);
+	dev->m_nRange = ((CLOCK_RATE + nSampleRate/2) / nSampleRate);
+
+    // CPWMSoundDevice::CPWMSoundDevice
+    dev->m_nRangeBits = 0; 
+    dev->m_bChannelsSwapped = drv->m_bSwapChannels;
+    dev->m_pSoundData = 0; 
+	// assert (GetRangeMin () == 0);
+    for (unsigned nBits = 2; nBits < 16; nBits++) {
+        if ((dev->m_nRange-1) < (1 << nBits)) {
+            dev->m_nRangeBits = nBits - 1;
+            break;
+        }
+    }
+    assert(dev->m_nRangeBits > 0);
+
+    // Ensure PWM1 is mapped to GPIO 40/41  Circle CMachineInfo::GetGPIOPin()
+    gpio_useAsAlt0(40); 
+    gpio_useAsAlt0(41);
+    ms_delay(2); 
+    gpioclock_init_desc(&dev->m_Clock, GPIOClockPWM); 
+	dev->m_State = PWMSoundIdle;
+	dev->m_nDMAChannel = CMachineInfo_AllocateDMAChannel(DMA_CHANNEL_LITE);
+
+	assert (dev->m_nChunkSize > 0);
+	assert ((dev->m_nChunkSize & 1) == 0);
+
+    // setup and concatenate DMA buffers and control blocks
+    setup_dma_control_block(dev, 0); 
+    setup_dma_control_block(dev, 1);
+	dev->m_pControlBlock[0]->nNextControlBlockAddress = 
+        BUS_ADDRESS ((uintptr) dev->m_pControlBlock[1]);
+	dev->m_pControlBlock[1]->nNextControlBlockAddress = 
+        BUS_ADDRESS ((uintptr) dev->m_pControlBlock[0]);
+
+    // start clock and PWM device
+    RunPWM(dev); 
+
+	// enable and reset DMA channel
+	PeripheralEntry ();
+
+	assert (dev->m_nDMAChannel <= DMA_CHANNEL_MAX);
+	write32 (ARM_DMA_ENABLE, read32 (ARM_DMA_ENABLE) | (1 << dev->m_nDMAChannel));
+	ms_delay(1);
+
+	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel), CS_RESET);
+	while (read32 (ARM_DMACHAN_CS (dev->m_nDMAChannel)) & CS_RESET)
+	{
+		// do nothing
+	}
+
+	PeripheralExit ();
+    W("audio init ok"); 
+    return drv; 
+}
+
+// CPWMSoundBaseDevice::~CPWMSoundBaseDevice
+void sound_fini(struct sound_drv *drv) {
+    struct sound_dev *dev = &drv->dev; 
+
+	assert (dev->m_State == PWMSoundIdle);
+
+	// stop PWM device and clock
+	StopPWM (dev);
+
+	// reset and disable DMA channel
+	PeripheralEntry ();
+
+	assert (dev->m_nDMAChannel <= DMA_CHANNEL_MAX);
+
+	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel), CS_RESET);
+	while (read32 (ARM_DMACHAN_CS (dev->m_nDMAChannel)) & CS_RESET)
+	{
+		// do nothing
+	}
+
+	write32 (ARM_DMA_ENABLE, read32 (ARM_DMA_ENABLE) & ~(1 << dev->m_nDMAChannel));
+
+	PeripheralExit ();
+
+	// disconnect IRQ
+	dma_irq = 0; 
+
+	// free DMA channel
+	CMachineInfo_FreeDMAChannel (dev->m_nDMAChannel);
+
+	// free buffers
+	dev->m_pControlBlock[0] = 0;
+	dev->m_pControlBlock[1] = 0;
+	free(dev->m_pControlBlockBuffer[0]);
+	dev->m_pControlBlockBuffer[0] = 0;
+	free(dev->m_pControlBlockBuffer[1]);
+	dev->m_pControlBlockBuffer[1] = 0;
+
+	free(dev->m_pDMABuffer[0]);
+	dev->m_pDMABuffer[0] = 0;
+	free(dev->m_pDMABuffer[1]);
+	dev->m_pDMABuffer[1] = 0;
+}
+
+//CPWMSoundBaseDevice::Cancel
+void sound_cancel(struct sound_dev *dev)
+{
+	acquire(&dev->m_SpinLock);
+    if (dev->m_State == PWMSoundRunning) {
+        dev->m_State = PWMSoundCancelled;
+    }
+    release(&dev->m_SpinLock); 
+}
