@@ -6,6 +6,7 @@ ARMGNU ?= aarch64-linux-gnu
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -Isrc \
 -Iaddon/usb/include\
+-Iaddon/sound/ampi\
 -mgeneral-regs-only \
 -g 
 
@@ -121,7 +122,9 @@ ifeq (${PLAT}, rpi3)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
 C_OBJS += $(BUILD_DIR)/uspibind_c.o		# usb glue
 C_OBJS += $(BUILD_DIR)/kb_c.o		# usb glue
+C_OBJS += $(BUILD_DIR)/ampibind_c.o		# sound(vchiq) glue
 BIN_OBJS += addon/usb/lib/libuspi.a		# usb lib
+# BIN_OBJS += addon/sound/ampi/libampi.a		# hdmi sound lib
 endif
 
 ifeq (${PLAT}, virt)

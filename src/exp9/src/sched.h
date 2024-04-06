@@ -33,6 +33,7 @@ extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
 // Contains values of all registers that might be different between the tasks.
+// x0-x7 func call arguments; x9-x15 caller saved; x19-x29 callee saved
 struct cpu_context {	
 	unsigned long x19;
 	unsigned long x20;

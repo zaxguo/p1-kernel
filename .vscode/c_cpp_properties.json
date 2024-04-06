@@ -8,6 +8,7 @@
                 "${workspaceFolder}/src/exp9",
                 "${workspaceFolder}/src/exp9/src",
                 "${workspaceFolder}/src/exp9/addon/usb/include",
+                "${workspaceFolder}/src/exp9/addon/sound/ampi",
             ],
             "defines": ["PLAT_RPI3", "AARCH64", "RASPPI=3"],
             "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",

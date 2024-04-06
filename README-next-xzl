@@ -174,6 +174,8 @@ added test for pipe3: two writers, one reader.
 [x] port litenes + mario. fixed the bug of not being able to handle x=-1 drawing
     cf: nes_flush_buf()
 
+[x] implemented fb flip for nes (mario)
+
     [ ]     add storage driver
     [ ]         usb storage r/w -- existing code no irq (otherwise FSM becomes messy)
                     ref: the C  version of circle usb stack
@@ -187,16 +189,47 @@ added test for pipe3: two writers, one reader.
 [ ]  add support for rpi3 hardware
     [ ] 
     [ ]     sound driver
-    ref: via HDMI 
+    rf: pwm (cpu or dma playback, via 3.5mm jack
+    
+    https://github.com/babbleberry/rpi4-osdev/tree/master/part9-sound
+
+
+    https://github.com/PeterLemon/RaspberryPi/tree/master/Sound/PWM/8BIT/48000Hz
+    
+    ref: via HDMI (seem to use DMA, not via firmware
         https://github.com/rsta2/circle/tree/master/sample/29-miniorgan
+        https://github.com/rsta2/circle/blob/master/sample/29-miniorgan/miniorgan.cpp
         https://github.com/rsta2/circle/tree/master/lib/sound
 
-        ported from  circle
+        ported from  circle (older veersion of circle? use vchiq firmware
+        (too bloaty ... tried but decided to go the DMA/PMW route first 
         https://github.com/ayuusweetfish/AMPi
 
         can via VCHQI
         https://forums.raspberrypi.com/viewtopic.php?t=306441
 
+        Apr 2024. tried and fixed some problems (e.g. arm32 insns in coroutines)
+    there likely to be more (e.g. assumption of identity va mapiping) but expected
+    to be fixable. 
+
+    the nice thing -- playback via hdmi 
+
+    the probmem; it is very much bloated. talking to a propritary firmwre just for
+    sound playback seems an overkill that most studenrts wont care to undrestand. 
+    it is also not a mainstream approach 
+
+    by comparison, using pwm to playback on 3.5mm jack is a much simpler, cleaner, 
+    and esier to understand solution. 
+
+    so gave up as of now. in favor of pwm. 
+
+
+[ ] multicore
+https://github.com/babbleberry/rpi4-osdev/tree/master/part10-multicore
+
+
+[ ] network, tcpip
+https://github.com/babbleberry/rpi4-osdev/tree/master/part15-tcpip-webserver
 
 
 ------------

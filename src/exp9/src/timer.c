@@ -178,8 +178,9 @@ static int adjust_sys_timer(void)
 	return 0; 
 }
 
-// return: timer id (>=0, <N_TIMERS) found. -1 on error
+// return: timer id (>=0, <N_TIMERS) allocated. -1 on error
 // the clock counter has 64bit, so we assume it won't wrap around
+// in the current impl, "handler" is called in irq context
 int ktimer_start(unsigned delayms, TKernelTimerHandler *handler, 
 		void *para, void *context) {
 	unsigned t; 
@@ -251,6 +252,8 @@ void sys_timer_irq(void)
 {
 	V("called");	
 
+	struct vtimer fired_timers[N_TIMERS];  int fired=0, fired_ids[N_TIMERS]; 
+
 	BUG_ON(!(get32va(TIMER_CS) & TIMER_CS_M1));  // timer1 must have pending match
 	put32va(TIMER_CS, TIMER_CS_M1);	// clear timer1 match
 
@@ -262,12 +265,20 @@ void sys_timer_irq(void)
 		if (h == 0) 
 			continue; 
 		if (timers[t].elapseat <= cur) { // should fire  
+			fired_ids[fired] = t; 
+			fired_timers[fired] = timers[t]; fired++;
 			timers[t].handler = 0; 
-			// TODO: do callback w/o holding timerlock...
-			(*h)(t, timers[t].param, timers[t].context); 
 		}		
 	}
 	adjust_sys_timer(); 
 	release(&timerlock);
+
+	// call handlers w/o timerlock, otherwise handlers starting a new timer
+	//		will deadlock
+	// TODO: call handlers in a kernel thread
+	for (int t = 0; t < fired; t++) {
+		TKernelTimerHandler *h = fired_timers[t].handler; 						
+		(*h)(fired_ids[t], fired_timers[t].param, fired_timers[t].context);
+	} 
 }
 #endif

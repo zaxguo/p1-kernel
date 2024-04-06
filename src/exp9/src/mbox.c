@@ -136,6 +136,9 @@ int mbox_call(unsigned char ch)
 #define PROPTAG_GET_EDID_BLOCK		0x00030020
 #define PROPTAG_GET_DISPLAY_DIMENSIONS	0x00040003
 #define PROPTAG_GET_COMMAND_LINE	0x00050001
+// undocumented. cf https://github.com/raspberrypi/firmware/issues/719
+// also sound/sample/env.c EnableVCHIQ
+#define PROPTAG_VCHIQ_INIT  	    0x48010 
 
 ///////////////////////////////////////////////////
 //  a simple framebuffer 
@@ -250,6 +253,9 @@ int fb_set_voffsets(int offsetx, int offsety) {
 /**
  * For mailbox property interface,
  * cf: https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
+ * 
+ * more undocumented cf: 
+ * https://github.com/raspberrypi/firmware/issues/719
  * 
  * below uses mbox "property channel". another way is to use the "fb" channel 
  * directly. cf: https://github.com/rsta2/circle/blob/master/lib/bcmframebuffer.cpp
@@ -624,7 +630,7 @@ int get_board_serial(unsigned long *s) {
     mbox[3] = 8;                    // buffer size
     mbox[4] = 8;
     mbox[5] = 0;                    // clear output buffer
-    mbox[6] = 0;
+    mbox[6] = 0;  // unused
 
     mbox[7] = MBOX_TAG_LAST;
 
@@ -638,4 +644,33 @@ int get_board_serial(unsigned long *s) {
         return -2; 
     }
 }
+
+// "p": argument to the cmd
+// return: 0 on ok 
+int enable_vchiq(unsigned buf /*arg*/, unsigned *resp) {
+
+    acquire(&mboxlock); 
+
+    mbox[0] = 8*4;                  // length of the message
+    mbox[1] = MBOX_REQUEST;         // this is a request message
+    
+    mbox[2] = PROPTAG_VCHIQ_INIT;   
+    mbox[3] = 8;                    // total buffer size
+    mbox[4] = 4;                    // req/resp size
+    mbox[5] = buf;                   
+    mbox[6] = 0;                //unused. ok       
+
+    mbox[7] = MBOX_TAG_LAST;
+
+    // send the message to the GPU and receive answer
+    if (mbox_call(MBOX_CH_PROP)) {      
+        release(&mboxlock);   
+        *resp = mbox[5]; 
+        return 0; 
+    } else {
+        release(&mboxlock); 
+        return -2; 
+    }    
+}
+
 

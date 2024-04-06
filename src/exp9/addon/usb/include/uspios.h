@@ -68,7 +68,6 @@ void usDelay (unsigned nMicroSeconds);
 typedef unsigned long TKernelTimerHandle;
 typedef void TKernelTimerHandler (TKernelTimerHandle hTimer, void *pParam, void *pContext);
 
-// xzl: similar to sleep() + kernel thread? 
 // returns the timer handle (hTimer); 0 on error
 unsigned StartKernelTimer (unsigned	        nHzDelay,	// in HZ units (see "system configuration" above)
 			   TKernelTimerHandler *pHandler,
@@ -89,8 +88,6 @@ void ConnectInterrupt (unsigned nIRQ, TInterruptHandler *pHandler, void *pParam)
 //
 // See: https://github.com/raspberrypi/firmware/wiki/Mailboxes
 //
-// xzl:  use its own impl (self contained)
-
 // returns 0 on failure, 1 on success
 int SetPowerStateOn (unsigned nDeviceId);	// "set power state" to "on", wait until completed
 

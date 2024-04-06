@@ -46,14 +46,17 @@ void CancelKernelTimer (unsigned hTimer) {
 }
 
 // irq.c
-extern TInterruptHandler *usb_irq; 
-extern void *usb_irq_param; 
+extern TInterruptHandler *usb_irq, *vchiq_irq; 
+extern void *usb_irq_param, *vchiq_irq_param; 
 
 void ConnectInterrupt (unsigned nIRQ, TInterruptHandler *pHandler, void *pParam)
 {
-	BUG_ON(nIRQ != 9); // only for USB
-	usb_irq = pHandler; 
-	usb_irq_param = pParam; 
+	if (nIRQ == 9) {  // USB
+		usb_irq = pHandler; usb_irq_param = pParam; 
+	} else if (nIRQ == 66) { // vchiq, sound 
+		vchiq_irq = pHandler; vchiq_irq_param = pParam;
+	} else 
+		BUG(); 	
 }
 
 int SetPowerStateOn (unsigned nDeviceId) {

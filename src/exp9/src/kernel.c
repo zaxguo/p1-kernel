@@ -15,6 +15,7 @@ extern void test_mbox();
 extern void test_usb_kb(); 
 extern void test_usb_storage(); 
 extern void test_fb(); 
+extern void test_sound(); 
 
 // 1st user process
 extern unsigned long user_begin;	// linker script
@@ -33,6 +34,7 @@ void kernel_process() {
 	// test_usb_kb(); while (1); 
 	// test_usb_storage(); while (1); 
 	// test_fb(); while (1); 
+	test_sound(); while (1); 
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);

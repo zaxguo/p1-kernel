@@ -128,6 +128,7 @@ void test_mbox() {
     printf("serial 0x%lx\n", s); 
 }
 
+/////// usb kb test 
 #include "uspios.h"
 #include "uspi.h"
 
@@ -304,4 +305,32 @@ void test_fb() {
         fb_set_voffsets(N,N);
         ms_delay(500); 
     }
+}
+
+///// sound driver test 
+#include <ampi.h>
+
+static unsigned synth(int16_t **buf, unsigned chunk_size) {
+    // W("called\n"); 
+    return chunk_size; 
+}
+
+#define DSB()	__asm volatile ("dsb sy" ::: "memory")
+#define DMB() 	__asm volatile ("dmb sy" ::: "memory")
+
+void test_sound() {
+	AMPiInitialize(44100, 4000);
+	AMPiSetChunkCallback(synth);
+
+    // Start playback
+	while (1) {
+		DSB();
+		AMPiStart();
+		while (AMPiIsActive()) { }
+		DMB();
+
+		DSB();
+		MsDelay(2000);
+		DMB();
+	}
 }
