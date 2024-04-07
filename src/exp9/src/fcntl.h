@@ -18,9 +18,11 @@ enum {
   FRAMEBUFFER,  // /dev/fb
   DEVNULL,  // /dev/null
   DEVZERO,     // /dev/zero
+  DEVSB,    // /dev/sb, sound buffer
   PROCFS_DISPINFO, 
   PROCFS_CPUINFO,
   PROCFS_MEMINFO, 
   PROCFS_FBCTL, 
+  PROCFS_SBCTL,   
   NDEV    // max
 };

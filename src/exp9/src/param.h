@@ -34,6 +34,12 @@
 // #define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 128MB user va
 
 
+// keep them here b/c needed by lots of files. moved from mmu.h. 
+#define VA_START 			0xffff000000000000
+#define VA2PA(x) ((unsigned long)x - VA_START)          // kernel va to pa
+#define PA2VA(x) ((void *)((unsigned long)x + VA_START))  // pa to kernel va
+
+#ifndef __ASSEMBLER__
 // keep xv6 code happy. TODO: separate them out...
 typedef unsigned int   uint;
 typedef unsigned short ushort;
@@ -43,3 +49,4 @@ typedef unsigned char uint8;
 typedef unsigned short uint16;
 typedef unsigned int  uint32;
 typedef unsigned long uint64;
+#endif

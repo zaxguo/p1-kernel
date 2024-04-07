@@ -271,10 +271,15 @@ void sound_playback (struct sound_drv *drv,
             unsigned  nChannels,		// 1 (Mono) or 2 (Stereo)
             unsigned  nBitsPerSample);
 int sound_playback_active(struct sound_drv *drv);
+int sound_write(struct sound_drv *drv, uint64 src, size_t nCount);
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)
 #define unlikely(exp)   __builtin_expect (!!(exp), 0)
+
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)((char *)__mptr - __builtin_offsetof(type,member));})
 
 static inline void warn_failed (const char *pExpr, const char *pFile, unsigned nLine) {
     printf("warning: %s at %s:%u\n", pExpr, pFile, nLine); 

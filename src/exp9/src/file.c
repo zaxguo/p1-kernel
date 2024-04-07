@@ -11,6 +11,7 @@
 #include "sched.h"
 #include "stat.h"
 #include "utils.h"
+#include "procfs.h"
 
 
 struct devsw devsw[NDEV]; // devices and their direct read/write funcs
@@ -57,6 +58,8 @@ filedup(struct file *f) {
 void fileclose(struct file *f) {
     struct file ff;
 
+    V("%s called", __func__);
+
     acquire(&ftable.lock);
     if (f->ref < 1)
         panic("fileclose");
@@ -64,10 +67,16 @@ void fileclose(struct file *f) {
         release(&ftable.lock);
         return;
     }
-    if (f->type == FD_PROCFS && f->content)
+    if (f->type == FD_PROCFS && f->content) {
+        procfs_parse_usercontent(f); 
         kfree(f->content); 
-    if (f->type == FD_DEVICE && f->major == FRAMEBUFFER && f->content)
-        ; // fb_fini(); 
+    } if (f->type == FD_DEVICE) {
+        if (f->major == FRAMEBUFFER && f->content)
+            ; // fb_fini(); // display will go black
+        else if (f->major == DEVSB && f->content) {
+            sound_fini((struct sound_drv *)f->content); 
+        }
+    }
     ff = *f;
     f->ref = 0;
     f->type = FD_NONE;
@@ -101,10 +110,11 @@ int filestat(struct file *f, uint64 addr) {
     return -1;
 }
 
-static int readprocfs(struct file *f, uint64 dst, uint n);
+static int procfs_read(struct file *f, uint64 dst, uint n);
 
 // Read from file f.
-// addr is a user virtual address.
+// addr is a user virtual address. 
+// return actual bytes read. -1 on error
 int fileread(struct file *f, uint64 addr, int n) {
     int r = 0;
 
@@ -116,17 +126,18 @@ int fileread(struct file *f, uint64 addr, int n) {
     } else if (f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
             return -1;
-        r = devsw[f->major].read(1, addr, 0/*off*/, n); // device read
+        r = devsw[f->major].read(1, addr, 0/*off*/, n, f->content); // device read
     } else if (f->type == FD_INODE) { // normal file
         ilock(f->ip);
         if ((r = readi(f->ip, 1, addr, f->off, n)) > 0) // fs read
             f->off += r;
         iunlock(f->ip);
     } else if (f->type == FD_PROCFS) {
-        // must maintain offset in procfs read, otherwise user don't know
-        //  if if reads all contents & should stop
-        if ((r = readprocfs(f, addr, n))>0)
-            f->off += r; // xzl: no need lock inode?
+        // cf file.h procfs_state comments
+        // procfs maintains offs for read/write separately. 
+        // so don't use f->off.
+        // ilock(f->ip); uint sz = f->ip->size; iunlock(f->ip);     
+        return procfs_read(f, addr, n);  // maintains read off within
     } else {
         panic("fileread");
     }
@@ -146,10 +157,11 @@ int filelseek(struct file *f, int offset, int whence) {
     if (f->type == FD_PIPE)     
         return -1;      
     if (f->type == FD_DEVICE) {
-        if (f->major < 0 || f->major >= NDEV)
+        if (f->major < 0 || f->major >= NDEV || f->major == DEVSB)
             return -1;        
     }
-
+    if (f->type == FD_PROCFS)  // ambiguous, as there are read/write offs
+        return -1; 
     if (f->type == FD_DEVICE && f->major == FRAMEBUFFER) {
         acquire(&mboxlock); 
         size = the_fb.size; 
@@ -186,7 +198,7 @@ int filelseek(struct file *f, int offset, int whence) {
     return newoff; 
 }
 
-static int writeprocfs(struct file *f, uint64 src, uint n); 
+static int procfs_write(struct file *f, uint64 src, uint n);
 
 // Write to file f.
 // addr is a user virtual address.
@@ -201,7 +213,7 @@ int filewrite(struct file *f, uint64 addr, int n) {
     } else if (f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
             return -1;
-        ret = devsw[f->major].write(1/*userdst*/, addr, f->off, n);
+        ret = devsw[f->major].write(1/*userdst*/, addr, f->off, n, f->content);
         if (ret>0 && f->major == FRAMEBUFFER)
             f->off += ret; 
     } else if (f->type == FD_INODE) {
@@ -233,7 +245,7 @@ int filewrite(struct file *f, uint64 addr, int n) {
         }
         ret = (i == n ? n : -1);
     } else if (f->type == FD_PROCFS) {
-        return writeprocfs(f, addr, n); 
+        return procfs_write(f, addr, n); 
     } else
         panic("filewrite");
 
@@ -241,15 +253,15 @@ int filewrite(struct file *f, uint64 addr, int n) {
 }
 
 ///////////// devfs
-int devnull_read(int user_dst, uint64 dst, int off, int n) {
+int devnull_read(int user_dst, uint64 dst, int off, int n, void *content) {
     return 0; 
 }
 
-int devnull_write(int user_src, uint64 src, int off, int n) {
+int devnull_write(int user_src, uint64 src, int off, int n, void *content) {
     return 0; 
 }
 
-int devzero_read(int user_dst, uint64 dst, int off, int n) {
+int devzero_read(int user_dst, uint64 dst, int off, int n, void *content) {
     char zeros[64]; memzero(zeros, 64); 
     int target=n;
     while (n>0) {
@@ -263,7 +275,7 @@ int devzero_read(int user_dst, uint64 dst, int off, int n) {
 }
 
 #include "fb.h"
-int devfb_write(int user_src, uint64 src, int off, int n) {
+int devfb_write(int user_src, uint64 src, int off, int n, void *content) {
     int ret = 0, len; 
     acquire(&mboxlock); 
     if (!the_fb.fb)
@@ -279,18 +291,29 @@ out:
     return ret; 
 }
 
-///////// procfs read handlers .... 
+int devsb_write(int user_src, uint64 src, int off, int n, void *content) {
+    return sound_write((struct sound_drv *)content, src, n); 
+}
+
+///////// procfs 
+
+void procfs_init_state(struct procfs_state *st) {
+    st->ksize = st->usize = 0; 
+    st->koff = st->uoff = 0; 
+}
+
+extern int procfs_sbctl_gen(char *txtbuf, int sz);  // sound.c 
 
 // return: len of content generated. can be multi lines.
 #define TXTSIZE  256 
-static int procfs_gen_content(int major, char *txtbuf) {
+int procfs_gen_content(int major, char *txtbuf, int sz) {
     int len; 
 
     switch (major)
     {
     case PROCFS_DISPINFO:
         acquire(&mboxlock);
-        len = snprintf(txtbuf, TXTSIZE, 
+        len = snprintf(txtbuf, sz, 
             "%6d %6d %6d %6d %6d %6d %6d %6d %6d\n"
             "%6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
             the_fb.width, the_fb.height, 
@@ -303,33 +326,37 @@ static int procfs_gen_content(int major, char *txtbuf) {
         break;    
     case PROCFS_FBCTL: 
         acquire(&mboxlock);
-        len = snprintf(txtbuf, TXTSIZE, 
+        len = snprintf(txtbuf, sz, 
             "format: %6s %6s %6s %6s [%6s] [%6s]\n"
             "ex1: echo 256-256-128-128 > /procfs/fbctl // will reinit fb \n"
             "ex2: echo 0-0-0-0-32-32 > /procfs/fbctl // won't init. only change offsets\n",
             "width","height","vwidth","vheigh", "offsetx", "offsety"); 
         release(&mboxlock); 
         break; 
+    case PROCFS_SBCTL: 
+        len = procfs_sbctl_gen(txtbuf, sz); 
+        break; 
     default:
-        len = snprintf(txtbuf, TXTSIZE, "%s\n", "TBD"); 
+        len = snprintf(txtbuf, sz, "%s\n", "TBD"); 
         break;
     }
-    BUG_ON(len<0||len>=TXTSIZE);
+    BUG_ON(len<0||len>=sz);
     return len; 
 }
 
-// must maintain offset in procfs read, otherwise user don't know
+// will maintain (read) offset, otherwise user don't know
 //        if reads all contents & should stop
-static int readprocfs(struct file *f, uint64 dst, uint n) {    
-    uint len, off = f->off;
-    char content[TXTSIZE];
-    // a hack: re-gen same content for each read(). 
-    procfs_gen_content(f->major, content); 
-    
-    len = MIN(n, strlen(content)-off); 
-    if (either_copyout(1/*userdst*/, dst, content+off, len) == -1) {
+// return: actual bytes read
+static int procfs_read(struct file *f, uint64 dst, uint n) {    
+    uint len, off, sz; 
+    char *buf; 
+    struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(!st);
+    off = st->koff; sz = st->ksize; buf = st->kbuf; BUG_ON(off > sz); 
+    len = MIN(n, sz-off); 
+    if (either_copyout(1/*userdst*/, dst, buf+off, len) == -1) {
         BUG(); return -1; 
     }
+    st->koff += len; 
     return len; 
 }
 
@@ -338,7 +365,7 @@ static int readprocfs(struct file *f, uint64 dst, uint n) {
 #define LINESIZE   32
 #define MAX_ARGS   8
 
-static int procfs_fbctl_w(int args[MAX_ARGS]) {    
+static int procfs_parse_fbctl(int args[MAX_ARGS]) {    
     if (args[0]>0 || args[1]>0 || args[2]>0 || args[3]>0) {
         fb_fini(); 
         acquire(&mboxlock); 
@@ -358,19 +385,36 @@ static int procfs_fbctl_w(int args[MAX_ARGS]) {
     return 0; 
 }
 
+// will maintain (write) offset 
+// return: actual bytes written; -1 on failure
+static int procfs_write(struct file *f, uint64 src, uint n) {
+    uint len, off; 
+    char *buf; 
+    struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(st);
+
+    off = st->uoff; buf = st->ubuf; 
+
+    len = MIN(n, MAX_PROCFS_SIZE - off); 
+    if (either_copyin(buf+off, 1, src, len) == -1) {
+        BUG(); return -1;
+    }
+    st->uoff += len; 
+    if (off+len > st->usize) st->usize = off+len; 
+    return len; 
+}
+
 // parse a line of write into a list of MAX_ARGS integers, and 
 //      call relevant subsystems
 // limit: only support dec integers
 // so far, procfs extracts a line from each write() 
 //           (not parsing a line across write()s
-// return 0 on failure
+// return # of args parsed. 0 on failure
 
-static int writeprocfs(struct file *f, uint64 src, uint n) {
-    char buf[LINESIZE], *s; 
+int procfs_parse_usercontent(struct file *f) {
+    struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(!st);
+    char *buf = st->ubuf, *s;  
+    uint len = st->usize, nargs = 0; 
     int args[MAX_ARGS]={0}; 
-    int len = MIN(n,LINESIZE), nargs = 0; 
-    if (either_copyin(buf, 1, src, len) == -1)
-        return 0; 
 
     // parse the 1st line of write to a list of int args... (ignore other lines
     for (s = buf; s < buf+len; s++) {
@@ -393,13 +437,12 @@ static int writeprocfs(struct file *f, uint64 src, uint n) {
     switch (f->major)
     {
     case PROCFS_FBCTL:
-        procfs_fbctl_w(args); 
+        procfs_parse_fbctl(args); 
         break;    
     default:
         break;
     }
-    // return (s-buf); 
-    return n; // as if all writes are done, so that user won't try again
+    return nargs; 
 }
 
 static void init_devfs() {
@@ -408,6 +451,9 @@ static void init_devfs() {
 
     devsw[DEVZERO].read = devzero_read;
     devsw[DEVZERO].write = 0; // nothing
+
+    devsw[DEVSB].read = 0; 
+    devsw[DEVSB].write = devsb_write; 
 
     devsw[FRAMEBUFFER].read = 0; // TBD (readback fb?
     devsw[FRAMEBUFFER].write = devfb_write; 

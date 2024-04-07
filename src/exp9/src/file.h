@@ -9,7 +9,12 @@ struct file {
   struct inode *ip;  // FD_INODE and FD_DEVICE (& FD_PROCFS)
   uint off;          // FD_INODE
   short major;       // FD_DEVICE (& FD_PROCFS)
-  unsigned char *content;    // FD_PROCFS, FD_DEVICE (backing content). not in use now
+
+  // kernel-side info associated with the file
+  // e.g. drv desc, procfs content. allocated & generated when the file is 
+  // open()'d; freed when the file is close()'d. 
+  // FD_PROCFS FD_DEVICE      1 PAGE 
+  void *content;     
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
@@ -35,9 +40,9 @@ struct inode {
 
 // map major device number to device functions.
 struct devsw {  
-  int (*read)(int /*usrdst?*/, uint64 /*usrptr*/, int /*off*/, int /*sz*/);
-  int (*write)(int, uint64, int, int);
+  int (*read)(int /*usrdst?*/, uint64 /*usrptr*/, 
+    int /*off*/, int /*sz*/, void *content /*file-specific info*/);
+  int (*write)(int, uint64, int, int, void *);
 };
 
 extern struct devsw devsw[];
-

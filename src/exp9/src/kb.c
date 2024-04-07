@@ -48,7 +48,7 @@ char key_states[NUM_SCANCODES] = {KEY_RELEASED}; // 0: keyup, 1: keydown
 // or kernel address.
 // "n": user buffer size
 // user_dst=1 means dst is user va
-int kb_read(int user_dst, uint64 dst, int off, int n) {
+int kb_read(int user_dst, uint64 dst, int off, int n, void *content) {
     uint target;
     struct kbevent ev;
 #define TXTSIZE 20     

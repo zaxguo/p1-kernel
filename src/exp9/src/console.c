@@ -53,7 +53,7 @@ struct {
 // user write()s to the console go here.
 // xzl: user_src=1 means src is user va
 int
-consolewrite(int user_src, uint64 src, int off, int n)
+consolewrite(int user_src, uint64 src, int off, int n, void *content)
 {
   int i;
 
@@ -75,7 +75,7 @@ consolewrite(int user_src, uint64 src, int off, int n)
 // or kernel address.
 // xzl: user_dst=1 means dst is user va
 int
-consoleread(int user_dst, uint64 dst, int off, int n)
+consoleread(int user_dst, uint64 dst, int off, int n, void *content)
 {
   uint target;
   int c;

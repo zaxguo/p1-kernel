@@ -1,3 +1,4 @@
+#include "param.h"
 #include "sysregs.h"
 #include "plat.h"
 #include "mmu.h"

@@ -145,15 +145,16 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
-
+// xzl: TODO
 const char *procfs_fnames[] = 
-    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl"};
+    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
 const char *dev_fnames[] = 
-    {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero"};
+    {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero", "/dev/sb"};
 const int majors[] = 
-    {KEYBOARD, FRAMEBUFFER, DEVNULL, DEVZERO};
+    {KEYBOARD, FRAMEBUFFER, DEVNULL, DEVZERO, DEVSB};
 
 // return 0 if ok
+__attribute__((unused))
 static int create_dev_procfs(void) {
   int fd; 
 
@@ -213,14 +214,19 @@ main(void)
   static char buf[100];
   int fd;
 
+  printf("entering sh ....\n"); 
+
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
+    printf("open console, fd %d ....\n", fd); 
     if(fd >= 3){
       close(fd);
       break;
     }
   }
-    
+  
+  printf(" dev/procfs entries ....\n"); 
+
   if (create_dev_procfs()==0)
     printf("created dev/procfs entries done\n"); 
   logo(); 

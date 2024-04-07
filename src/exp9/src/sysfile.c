@@ -17,6 +17,7 @@
 #include "fcntl.h"
 #include "sleeplock.h"
 #include "file.h"
+#include "procfs.h" 
 #include "fb.h" // for fb device
 
 // given fd, return the corresponding struct file.
@@ -269,9 +270,9 @@ create(char *path, short type, short major, short minor)
   // dirty hack for /procfs/XXX
   if (type == T_FILE) { 
     const char *procfs_fnames[] = 
-    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl"};
+    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
     const int majors[] = 
-    {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO, PROCFS_FBCTL};
+    {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO, PROCFS_FBCTL, PROCFS_SBCTL};
 
     for (int i = 0; i < sizeof(procfs_fnames)/sizeof(procfs_fnames[0]); i++) {
       if (strncmp(path, procfs_fnames[i], 40) == 0) { 
@@ -317,10 +318,12 @@ int sys_open(unsigned long upath, int omode) {
   struct inode *ip;
   int n;
 
-  V("%s called", __func__);
+  W("%s called", __func__);
 
   if((n = argstr(upath, path, MAXPATH)) < 0) 
     return -1;
+
+  V("%s called. path %s", __func__, path);
 
   begin_op();
 
@@ -374,13 +377,27 @@ int sys_open(unsigned long upath, int omode) {
         end_op();
         return -1;
       }
-#endif      
+#endif   
+    } else if (f->major == DEVSB) {
+        if ((f->content = sound_init(0/*default chunksize*/)) != 0) {
+           // as a streaming device w/o seek, no size, offset, etc. 
+           ;
+        } else {
+          fileclose(f);
+          iunlockput(ip);
+          end_op();
+          return -1;
+        }
     }
   } else if (ip->type == T_PROCFS) {
     f->type = FD_PROCFS;
     f->major = ip->major; // type of procfs entries
-    f->content = 0; 
-    f->off = 0;
+    f->off = 0;    // procfs does not use this
+    f->content = kalloc(); BUG_ON(!f->content); 
+    struct procfs_state * st = f->content; 
+    procfs_init_state(st);
+    if ((st->ksize = procfs_gen_content(f->major, st->kbuf, MAX_PROCFS_SIZE)) < 0)
+      BUG();
   } else {
     f->type = FD_INODE;
     f->off = 0;

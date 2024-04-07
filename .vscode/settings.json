@@ -67,7 +67,9 @@
         "optional": "c",
         "system_error": "c",
         "circle-glue.h": "c",
-        "sound-sample.h": "c"
+        "sound-sample.h": "c",
+        "procfs.h": "c",
+        "fb.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

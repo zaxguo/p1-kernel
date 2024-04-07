@@ -2,7 +2,8 @@
 #include "entry.h"
 #include "syscall.h"
 #include "plat.h"
-#include "mmu.h"
+#include "param.h"
+//#include "mmu.h"
 #include "sched.h"
 
 	.macro handle_invalid_entry el, type
