@@ -318,7 +318,7 @@ int sys_open(unsigned long upath, int omode) {
   struct inode *ip;
   int n;
 
-  W("%s called", __func__);
+  V("%s called", __func__);
 
   if((n = argstr(upath, path, MAXPATH)) < 0) 
     return -1;

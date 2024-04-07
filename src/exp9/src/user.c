@@ -109,7 +109,7 @@ void user_process() {
 
     
     // USER_PROGRAM1("/echo", "/echo", "aaa");    
-    // USER_PROGRAM1("/ls", "/ls", "/");    
+    USER_PROGRAM1("/ls", "/ls", "/");    
     // USER_PROGRAM1("/mkdir", "/mkdir", "ccc");    
     // USER_PROGRAM1("/forktest", "/forktest", "/");    
     // USER_PROGRAM1("/cat", "/cat", "/proc/dispinfo");
@@ -131,7 +131,7 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
     // USER_PROGRAM1("/usertests", "/usertests", "simplesleep");     // sleep & scheduling. ok
 
-    USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
+    // USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 
     char console[] = {"console"};     
     if (call_sys_open(console, O_RDWR) < 0) {

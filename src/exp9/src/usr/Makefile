@@ -31,10 +31,12 @@ mkfs: mkfs.c
 	gcc -Werror -Wall -I. -o $@ $^
 
 %.o: %.c
-	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+	@echo  USER CC $< "->" $@
+	@$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 %_s.o: %.S
-	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
+	@echo  USER AS $< "->" $@
+	@$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
 
 build/nes: 
 	cd LiteNES && $(MAKE)
@@ -46,8 +48,9 @@ build/nes:
 
 #%.elf: %.o $(ULIB)
 build/%: %.o $(ULIB)		
+	@echo  USER LD $< "->" $@
+	@$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
 	@mkdir -p build
-	$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
 	@$(ARMGNU)-objdump -S $@ > $*.asm
 	@$(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 

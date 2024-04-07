@@ -54,12 +54,14 @@ clean :
 
 # use -O0 only for user.c (launcher), for which -O2 emits references to kernel va and crashes things
 $(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
+	@echo  KERNEL CC $< "->" $@
 	@mkdir -p $(@D)
-	$(ARMGNU)-gcc $(COPS1) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc $(COPS1) -MMD -c $< -o $@
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
+	@echo  KERNEL CC $< "->" $@
 	@mkdir -p $(@D)
-	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 # font build rules. 
 # NB: the symbols in the binary will have prefix "_binary". 
@@ -74,7 +76,8 @@ $(BUILD_DIR)/%_bin.o: %.bin
 
 # asm rule 
 $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
-	$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
+	@echo  KERNEL AS $< "->" $@
+	@$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
 
 # generic kernel
 C_OBJS = $(BUILD_DIR)/bio_c.o
