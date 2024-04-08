@@ -390,7 +390,7 @@ static int procfs_parse_fbctl(int args[MAX_ARGS]) {
 static int procfs_write(struct file *f, uint64 src, uint n) {
     uint len, off; 
     char *buf; 
-    struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(st);
+    struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(!st);
 
     off = st->uoff; buf = st->ubuf; 
 
@@ -429,10 +429,10 @@ int procfs_parse_usercontent(struct file *f) {
         } 
     }
     
-    // V("args");
-    // for (int i = 0; i < MAX_ARGS; i++)
-    //     printf("%d ", args[i]); 
-    // printf("\n");
+    W("args");
+    for (int i = 0; i < MAX_ARGS; i++)
+        printf("%d ", args[i]); 
+    printf("\n");
 
     switch (f->major)
     {

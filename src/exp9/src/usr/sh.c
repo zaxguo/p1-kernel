@@ -145,40 +145,44 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
-// xzl: TODO
-const char *procfs_fnames[] = 
-    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
-const char *dev_fnames[] = 
-    {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero", "/dev/sb"};
-const int majors[] = 
-    {KEYBOARD, FRAMEBUFFER, DEVNULL, DEVZERO, DEVSB};
+
+PROC_DEV_TABLE
+
+// const char *procfs_fnames[] = 
+//     {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
+// const char *dev_fnames[] = 
+//     {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero", "/dev/sb"};
+// const int majors[] = 
+//     {KEYBOARD, FRAMEBUFFER, DEVNULL, DEVZERO, DEVSB};
 
 // return 0 if ok
-__attribute__((unused))
 static int create_dev_procfs(void) {
   int fd; 
 
+  // procfs 
   if (mkdir("/proc/") != 0) {
     printf("failed to create /proc"); 
     goto mkdev; 
   }
-
-  for (int i = 0; i < sizeof(procfs_fnames)/sizeof(procfs_fnames[0]); i++) {
-    const char *p = procfs_fnames[i]; 
-    if ((fd = open(p, O_RDONLY)) < 0 && (fd = open(p, O_CREATE)) < 0)
-      printf("failed to create %s\n", p); 
+  for (int i = 0; i < sizeof(pdi)/sizeof(pdi[0]); i++) {
+    struct proc_dev_info *p = pdi + i; 
+    if (p->type != TYPE_PROCFS) continue; 
+    if ((fd = open(p->path, O_RDONLY)) < 0 && (fd = open(p->path, O_CREATE)) < 0)
+      printf("failed to create %s\n", p->path); 
     else 
       close(fd); 
   }
 
-mkdev: 
+mkdev:    // devfs
   if (mkdir("/dev/") != 0) {
     printf("failed to create /dev"); 
     return -1; 
   }
-  for (int i = 0; i < sizeof(dev_fnames)/sizeof(dev_fnames[0]); i++) {
-    const char *p = dev_fnames[i];
-    if ((fd = open(p, O_RDONLY)) < 0 && (fd = mknod(p, majors[i], 0)) != 0) 
+  for (int i = 0; i < sizeof(pdi)/sizeof(pdi[0]); i++) {
+    struct proc_dev_info *p = pdi + i; 
+    if (p->type != TYPE_DEVFS) continue; 
+    if ((fd = open(p->path, O_RDONLY)) < 0 
+      && (fd = mknod(p->path, p->major, 0)) != 0) 
       printf("failed to create %s\n", p);  
     if (fd>0)
       close(fd); 

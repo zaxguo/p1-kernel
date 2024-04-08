@@ -235,6 +235,8 @@ bad:
   return -1;
 }
 
+PROC_DEV_TABLE    // fcntl.h
+
 // xzl: "type" depends on caller. mkdir, type==T_DIR; mknod, T_DEVICE;
 //    create, T_FILE
 static struct inode*
@@ -269,15 +271,16 @@ create(char *path, short type, short major, short minor)
   ip->nlink = 1;
   // dirty hack for /procfs/XXX
   if (type == T_FILE) { 
-    const char *procfs_fnames[] = 
-    {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
-    const int majors[] = 
-    {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO, PROCFS_FBCTL, PROCFS_SBCTL};
+    // const char *procfs_fnames[] = 
+    // {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
+    // const int majors[] = 
+    // {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO, PROCFS_FBCTL, PROCFS_SBCTL};
 
-    for (int i = 0; i < sizeof(procfs_fnames)/sizeof(procfs_fnames[0]); i++) {
-      if (strncmp(path, procfs_fnames[i], 40) == 0) { 
+    for (int i = 0; i < sizeof(pdi)/sizeof(pdi[0]); i++) {
+      struct proc_dev_info *p = pdi + i; 
+      if (p->type == TYPE_PROCFS && strncmp(path, p->path, 40) == 0) { 
         type = ip->type = T_PROCFS;
-        ip->major = majors[i]; // overwrite major num
+        ip->major = p->major; // overwrite major num
       }
     }
   }
