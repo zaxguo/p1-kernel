@@ -252,6 +252,44 @@ void sys_timer_irq(void)
 {
 	V("called");	
 
+	BUG_ON(!(get32va(TIMER_CS) & TIMER_CS_M1));  // timer1 must have pending match
+	put32va(TIMER_CS, TIMER_CS_M1);	// clear timer1 match
+
+	unsigned long cur = current_counter(); 
+
+	acquire(&timerlock); 
+	for (int t = 0; t < N_TIMERS; t++) {
+		TKernelTimerHandler *h = timers[t].handler; 
+		if (h == 0) 
+			continue; 
+		if (timers[t].elapseat <= cur) { // should fire  
+			// W("called, id %d h %lx", t, (unsigned long)timers[t].handler);	
+			timers[t].handler = 0; 
+			// TODO: do callback w/o holding timerlock... (see below)
+			(*h)(t, timers[t].param, timers[t].context); 			
+		}		
+	}
+	adjust_sys_timer(); 
+	release(&timerlock);
+}
+
+#if 0
+// the version below: attmept to collect fired timers to a list, and call 
+// them AFTER relasing the spinlock (in case the handlers take long to exec). 
+// howeever, memroy corruption will result (seeing random corruption like 
+// illegal inode ip->ref. and it's non determinstic. 
+// couldn't figure out why at this time (Apr 2024). maybe has something to do
+// with the handler, which is DWHCIDeviceTimerHandler (addon/usb/lib/dwhcidevice.c)
+// maybe it is doing something that has to be done from a critical section? 
+
+// if wants to do this timer feature again in the future (e.g. even calling 
+// handlers from a separate kernel thread), turn off USB and run unittest for 
+// the ktimers to locate the reason. 
+
+void sys_timer_irq(void) 
+{
+	V("called");	
+
 	struct vtimer fired_timers[N_TIMERS];  int fired=0, fired_ids[N_TIMERS]; 
 
 	BUG_ON(!(get32va(TIMER_CS) & TIMER_CS_M1));  // timer1 must have pending match
@@ -281,4 +319,6 @@ void sys_timer_irq(void)
 		(*h)(fired_ids[t], fired_timers[t].param, fired_timers[t].context);
 	} 
 }
+#endif
+
 #endif
