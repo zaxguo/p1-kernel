@@ -171,7 +171,7 @@ typedef enum TSoundFormat			/// All supported formats are interleaved little end
 	SoundFormatUnsigned8,		/// Not supported as hardware format
 	SoundFormatSigned16,
 	SoundFormatSigned24,
-	SoundFormatUnsigned32,		/// Not supported as write format
+	SoundFormatUnsigned32,		/// Not supported as write format  (xzl: why
 	SoundFormatUnknown
 } TSoundFormat;
 
@@ -474,6 +474,7 @@ static unsigned GetChunkFromQueue (struct sound_drv *drv,
 // a simple version of data load -- just load chunk from m_pSoundData (preloaded)
 // until exhausted
 // does data conversion. one shot playback.
+//      convert u8 or s16 to u32 (hw native) 
 // cf CPWMSoundDevice::GetChunk
 static unsigned GetChunkPreloaded(struct sound_dev *dev, u32 *pBuffer, unsigned nChunkSize) {
     assert(pBuffer != 0);
@@ -801,8 +802,11 @@ static void ConvertSoundFormat(struct sound_drv *drv, void *pTo,
 
 // write to drv ring buf. does NOT automatically start the device. 
 // return # of bytes actually written (enqueued). -1 on error
-// if no queue space, caller will sleep 
+// if there's some queue space, caller will write whatever is allowed and return
+// if there's 0 queue space, caller will sleep 
+// Circle CSoundBaseDevice::Write
 int sound_write(struct sound_drv *drv, uint64 src, size_t nCount) {
+    // W("drv->m_WriteFormat %d", drv->m_WriteFormat); 
     assert(drv->m_WriteFormat < SoundFormatUnknown);
     
     int nResult = 0;
@@ -813,6 +817,7 @@ int sound_write(struct sound_drv *drv, uint64 src, size_t nCount) {
     while ((nBytes = GetQueueBytesFree(drv)) == 0) // sleep until queue has room
         sleep(&drv->m_nNeedDataThreshold, &drv->m_SpinLock);
 
+    // xzl: but said "writeformat" cannot be u32? (only u8 s16)
     if (drv->m_HWFormat == drv->m_WriteFormat && 
         drv->m_nWriteChannels == SOUND_HW_CHANNELS && !drv->m_bSwapChannels) {
         // fast path for Stereo samples without bit depth conversion or channel swapping
@@ -827,30 +832,30 @@ int sound_write(struct sound_drv *drv, uint64 src, size_t nCount) {
         }
     } else { // convert one frame at a time... a cold path. right now we copy 
         // the samples twice. TODO: optimize (need overhaul ConvertSoundFormat)
-        u8 *pBuffer8 = malloc(nCount); assert(pBuffer8); 
+        u8 *p, *pBuffer8 = malloc(nCount); assert(pBuffer8); 
         if (either_copyin(pBuffer8, 1, src, nCount) == -1)
-            goto out; 
-
+            {free(pBuffer8); goto out;} 
+        p = pBuffer8; 
         while (nCount >= drv->m_nWriteFrameSize 
             && GetQueueBytesFree(drv) >= drv->m_nHWFrameSize) {
             u8 Frame[SOUND_MAX_FRAME_SIZE];
             if (!drv->m_bSwapChannels) {
-                ConvertSoundFormat(drv, Frame, pBuffer8);
-                pBuffer8 += drv->m_nWriteSampleSize;
+                ConvertSoundFormat(drv, Frame, p);
+                p += drv->m_nWriteSampleSize;
 
                 if (drv->m_nWriteChannels == 2) { // convert channel 2...
-                    ConvertSoundFormat(drv, Frame + drv->m_nHWSampleSize, pBuffer8);
-                    pBuffer8 += drv->m_nWriteSampleSize;
+                    ConvertSoundFormat(drv, Frame + drv->m_nHWSampleSize, p);
+                    p += drv->m_nWriteSampleSize;
                 } else { // xzl: only 1 ch, duplicate ch 1
                     memcpy(Frame + drv->m_nHWSampleSize, Frame, drv->m_nHWSampleSize);
                 }
             } else { // ditto
-                ConvertSoundFormat(drv, Frame + drv->m_nHWSampleSize, pBuffer8);
-                pBuffer8 += drv->m_nWriteSampleSize;
+                ConvertSoundFormat(drv, Frame + drv->m_nHWSampleSize, p);
+                p += drv->m_nWriteSampleSize;
 
                 if (drv->m_nWriteChannels == 2) {
-                    ConvertSoundFormat(drv, Frame, pBuffer8);
-                    pBuffer8 += drv->m_nWriteSampleSize;
+                    ConvertSoundFormat(drv, Frame, p);
+                    p += drv->m_nWriteSampleSize;
                 } else {
                     memcpy(Frame, Frame + drv->m_nHWSampleSize, drv->m_nHWSampleSize);
                 }
@@ -859,7 +864,7 @@ int sound_write(struct sound_drv *drv, uint64 src, size_t nCount) {
             nCount -= drv->m_nWriteFrameSize;
             nResult += drv->m_nWriteFrameSize;
         }
-        free(pBuffer8);
+        free(pBuffer8);        
     }
 
 out: 
@@ -869,14 +874,16 @@ out:
 }
 
 // CPWMSoundBaseDevice::Start
-static boolean Start(struct sound_dev *dev) {
+int sound_start(struct sound_drv *drv) {
+
+    struct sound_dev *dev = &(drv->dev); 
     assert(dev->m_State == PWMSoundIdle);
 
     // fill buffer 0
     dev->m_nNextBuffer = 0;
 
     if (!GetNextChunk(dev)) {
-        return FALSE;
+        return 0;
     }
 
     dev->m_State = PWMSoundRunning;
@@ -932,7 +939,7 @@ static boolean Start(struct sound_dev *dev) {
 
         release(&dev->m_SpinLock); 
     }
-    return TRUE;
+    return 1;
 }
 
 static int IsActive (struct sound_dev *dev) {
@@ -959,7 +966,7 @@ void sound_playback (struct sound_drv *drv,
 	dev->m_nChannels	 = nChannels;
 	dev->m_nBitsPerSample = nBitsPerSample;
 
-    Start(dev); 
+    sound_start(drv); 
 }
 
 // CPWMSoundDevice::PlaybackActive
@@ -968,8 +975,9 @@ int sound_playback_active(struct sound_drv *drv) {
 }
 
 //CPWMSoundBaseDevice::Cancel
-void sound_cancel(struct sound_dev *dev)
+void sound_cancel(struct sound_drv *drv)
 {
+    struct sound_dev *dev = &(drv->dev);
 	acquire(&dev->m_SpinLock);
     if (dev->m_State == PWMSoundRunning) {
         dev->m_State = PWMSoundCancelled;
@@ -1117,13 +1125,15 @@ struct sound_drv * sound_init(unsigned nChunkSize)
 		; // do nothing
 
 	PeripheralExit ();
-    W("audio init ok"); 
 
     // configuration, cf Circle 34-sounddevices.cpp
     if (!AllocateQueue(drv, 100 /*ms*/)) { BUG(); sound_fini(drv); return 0; }
 
     // can be changed later via /proc/sbctl
-    SetWriteFormat(drv, SoundFormatSigned16, 2 /*chs*/);
+    //  hw native: SoundFormatUnsigned32, 2 channels. 
+    SetWriteFormat(drv, SoundFormatUnsigned8, 1 /*chs*/); 
+
+    W("audio init ok"); 
 
     return drv; 
 }
@@ -1131,6 +1141,8 @@ struct sound_drv * sound_init(unsigned nChunkSize)
 // CPWMSoundBaseDevice::~CPWMSoundBaseDevice
 void sound_fini(struct sound_drv *drv) {
     struct sound_dev *dev = &drv->dev; 
+
+    W("sound fini"); 
 
 	assert (dev->m_State == PWMSoundIdle);
 
@@ -1181,7 +1193,7 @@ int procfs_sbctl_gen(char *txtbuf, int sz) {
     char line[TXTSIZE]; int len, len1; char *p = txtbuf; 
 
     len = snprintf(line, TXTSIZE, 
-        "%6s %6s %6s %6s %6s %6s %s\n",
+        "# %6s %6s %6s %6s %6s %6s %s\n",
         "id","HwFmt","SplRate","QSize", "BytesFree", "WrFmt", "WrChans"); 
     if (len > sz) return 0; 
     memmove(p, line, len);
@@ -1201,4 +1213,70 @@ int procfs_sbctl_gen(char *txtbuf, int sz) {
             break; 
     }
     return p-txtbuf; 
+}
+
+#include "fcntl.h"
+
+// format: command [drvid]
+// command: 0-fini, 1-init, 2-start, 3-cancel
+// return 0 on error 
+int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {  
+    int id = -1; 
+    int cmd = args[0]; 
+    int ret = 0; 
+
+    switch (cmd)
+    {
+    case 0: // fini
+        id = args[1]; 
+        if (id>=MAX_SOUND_DRV) return 0; 
+        if (!drvs[id].valid) return 0;    
+        acquire(&(drvs+id)->m_SpinLock); 
+        W("sound fini drv %d", id);
+        sound_fini(drvs+id); 
+        release(&(drvs+id)->m_SpinLock); 
+        ret = 2; 
+        break;
+    case 1: 
+        if (args[1] >= 0) {
+            W("sound init chunksize=%d", args[1]);
+            sound_init(args[1]);
+            ret = 1; 
+        }
+        break; 
+    case 2: 
+        id = args[1]; 
+        if (id>=MAX_SOUND_DRV) return 0; 
+        if (!drvs[id].valid) return 0;    
+        acquire(&(drvs+id)->m_SpinLock); 
+        W("sound_start drv %d", id);
+        sound_start(drvs+id);
+        release(&(drvs+id)->m_SpinLock); 
+        ret = 2; 
+        break; 
+    case 3:
+        id = args[1]; 
+        if (id>=MAX_SOUND_DRV) return 0; 
+        if (!drvs[id].valid) return 0;    
+        acquire(&(drvs+id)->m_SpinLock); 
+        W("sound_cancel drv %d", id);
+        sound_cancel(drvs+id);
+        release(&(drvs+id)->m_SpinLock); 
+        ret = 2; 
+        break; 
+    default:
+        W("unknown cmd %d", cmd); 
+        break;
+    }
+
+    return ret; 
+}
+
+int devsb_write(int user_src, uint64 src, int off, int n, void *content) {
+    short minor = (short)(unsigned long)content; 
+    if (minor >= MAX_SOUND_DRV) return -2;
+    struct sound_drv *drv = drvs + minor; 
+    if (!drv->valid) return -3; 
+
+    return sound_write(drv, src, n); 
 }

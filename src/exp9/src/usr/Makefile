@@ -16,6 +16,7 @@ UPROGS = \
 	build/rm	\
 	build/wc	\
 	build/slider	\
+	build/buzz	\
 	build/nes 
 
 sd.bin: $(UPROGS) mkfs	

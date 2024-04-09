@@ -1,6 +1,8 @@
+// display a sequence of slides (as bmps), controlled by usb keyboard
 // inspired by nslider 
-// self contained as much as possible, 
-//  but removed dep (newlib, minisdl, even sscanf)
+//
+// an example of self contained user app
+//  low dep (no newlib, minisdl, snprintf, sscanf)
 // as such, this file includes small implementation of common functions like atoi
 //  Mar 2024 xzl
 //

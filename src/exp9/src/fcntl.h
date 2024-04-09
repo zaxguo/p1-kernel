@@ -31,6 +31,7 @@ enum {
   NDEV    // max
 };
 
+// procfs, devfs
 struct proc_dev_info {
   char type;
 #define TYPE_DEVFS  0  
@@ -57,5 +58,8 @@ static struct proc_dev_info pdi[] =            \
   {.type = TYPE_PROCFS, .major = PROCFS_FBCTL, .path = "/proc/fbctl"},       \
   {.type = TYPE_PROCFS, .major = PROCFS_SBCTL, .path = "/proc/sbctl"},        \
 };
+
+// max # of args passed to the kernel, via writing to a procfs
+#define PROCFS_MAX_ARGS   8
 
 #endif

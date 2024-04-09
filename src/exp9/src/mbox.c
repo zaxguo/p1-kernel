@@ -670,4 +670,24 @@ int enable_vchiq(unsigned buf /*arg*/, unsigned *resp) {
     }    
 }
 
+#include "fcntl.h"
+int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]) {    
+    if (args[0]>0 || args[1]>0 || args[2]>0 || args[3]>0) {
+        fb_fini(); 
+        acquire(&mboxlock); 
+        the_fb.width = args[0];
+        the_fb.height = args[1];
+        the_fb.vwidth = args[2];
+        the_fb.vheight = args[3];
+        release(&mboxlock);      
+        fb_init(); 
+    }
+    
+    acquire(&mboxlock); 
+    if (fb_set_voffsets(args[4], args[5]) <0)
+        E("failed to set voffsets");
+    release(&mboxlock);      
+
+    return 0; 
+}
 

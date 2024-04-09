@@ -68,13 +68,16 @@ void fileclose(struct file *f) {
         return;
     }
     if (f->type == FD_PROCFS && f->content) {
-        procfs_parse_usercontent(f); 
+        struct procfs_state * st = (struct procfs_state *)(f->content);
+        if (st->usize)
+            procfs_parse_usercontent(f); 
         kfree(f->content); 
     } if (f->type == FD_DEVICE) {
         if (f->major == FRAMEBUFFER && f->content)
             ; // fb_fini(); // display will go black
         else if (f->major == DEVSB && f->content) {
-            sound_fini((struct sound_drv *)f->content); 
+            ; // sound_fini((struct sound_drv *)f->content); 
+            // do it upon writing of sbctl
         }
     }
     ff = *f;
@@ -291,10 +294,6 @@ out:
     return ret; 
 }
 
-int devsb_write(int user_src, uint64 src, int off, int n, void *content) {
-    return sound_write((struct sound_drv *)content, src, n); 
-}
-
 ///////// procfs 
 
 void procfs_init_state(struct procfs_state *st) {
@@ -315,7 +314,7 @@ int procfs_gen_content(int major, char *txtbuf, int sz) {
         acquire(&mboxlock);
         len = snprintf(txtbuf, sz, 
             "%6d %6d %6d %6d %6d %6d %6d %6d %6d\n"
-            "%6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
+            "# %6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
             the_fb.width, the_fb.height, 
             the_fb.vwidth, the_fb.vheight, 
             the_fb.scr_width, the_fb.scr_height, 
@@ -327,9 +326,9 @@ int procfs_gen_content(int major, char *txtbuf, int sz) {
     case PROCFS_FBCTL: 
         acquire(&mboxlock);
         len = snprintf(txtbuf, sz, 
-            "format: %6s %6s %6s %6s [%6s] [%6s]\n"
-            "ex1: echo 256-256-128-128 > /procfs/fbctl // will reinit fb \n"
-            "ex2: echo 0-0-0-0-32-32 > /procfs/fbctl // won't init. only change offsets\n",
+            "# format: %6s %6s %6s %6s [%6s] [%6s]\n"
+            "# ex1: echo 256-256-128-128 > /procfs/fbctl // will reinit fb \n"
+            "# ex2: echo 0-0-0-0-32-32 > /procfs/fbctl // won't init. only change offsets\n",
             "width","height","vwidth","vheigh", "offsetx", "offsety"); 
         release(&mboxlock); 
         break; 
@@ -361,29 +360,7 @@ static int procfs_read(struct file *f, uint64 dst, uint n) {
 }
 
 ////////// procfs write handlers....
-
 #define LINESIZE   32
-#define MAX_ARGS   8
-
-static int procfs_parse_fbctl(int args[MAX_ARGS]) {    
-    if (args[0]>0 || args[1]>0 || args[2]>0 || args[3]>0) {
-        fb_fini(); 
-        acquire(&mboxlock); 
-        the_fb.width = args[0];
-        the_fb.height = args[1];
-        the_fb.vwidth = args[2];
-        the_fb.vheight = args[3];
-        release(&mboxlock);      
-        fb_init(); 
-    }
-    
-    acquire(&mboxlock); 
-    if (fb_set_voffsets(args[4], args[5]) <0)
-        E("failed to set voffsets");
-    release(&mboxlock);      
-
-    return 0; 
-}
 
 // will maintain (write) offset 
 // return: actual bytes written; -1 on failure
@@ -410,11 +387,14 @@ static int procfs_write(struct file *f, uint64 src, uint n) {
 //           (not parsing a line across write()s
 // return # of args parsed. 0 on failure
 
+int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
+int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]); // sound.c
+
 int procfs_parse_usercontent(struct file *f) {
     struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(!st);
     char *buf = st->ubuf, *s;  
     uint len = st->usize, nargs = 0; 
-    int args[MAX_ARGS]={0}; 
+    int args[PROCFS_MAX_ARGS]={0}; 
 
     // parse the 1st line of write to a list of int args... (ignore other lines
     for (s = buf; s < buf+len; s++) {
@@ -424,13 +404,13 @@ int procfs_parse_usercontent(struct file *f) {
             args[nargs] = atoi(s); // W("got arg %d", args[nargs]);             
             while ('0' <= *s && *s <= '9' && s<buf+len) 
                 s++; 
-            if (nargs++ == MAX_ARGS)
+            if (nargs++ == PROCFS_MAX_ARGS)
                 break; 
         } 
     }
     
     W("args");
-    for (int i = 0; i < MAX_ARGS; i++)
+    for (int i = 0; i < PROCFS_MAX_ARGS; i++)
         printf("%d ", args[i]); 
     printf("\n");
 
@@ -439,11 +419,16 @@ int procfs_parse_usercontent(struct file *f) {
     case PROCFS_FBCTL:
         procfs_parse_fbctl(args); 
         break;    
+    case PROCFS_SBCTL: 
+        procfs_parse_sbctl(args); 
     default:
         break;
     }
     return nargs; 
 }
+
+extern 
+int devsb_write(int user_src, uint64 src, int off, int n, void *content);  // sound.c
 
 static void init_devfs() {
     devsw[DEVNULL].read = devnull_read;

@@ -382,6 +382,9 @@ int sys_open(unsigned long upath, int omode) {
       }
 #endif   
     } else if (f->major == DEVSB) {
+      // init sound dev only upon writing to /proc/sbctl
+      f->content = (void *)(unsigned long)(ip->minor);  // minor indicates sb dev id
+#if 0  
         if ((f->content = sound_init(0/*default chunksize*/)) != 0) {
            // as a streaming device w/o seek, no size, offset, etc. 
            ;
@@ -391,6 +394,7 @@ int sys_open(unsigned long upath, int omode) {
           end_op();
           return -1;
         }
+#endif         
     }
   } else if (ip->type == T_PROCFS) {
     f->type = FD_PROCFS;

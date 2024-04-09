@@ -243,6 +243,13 @@ added test for pipe3: two writers, one reader.
     xzl, Apr 2024
 
 
+[x] ktimer introduced a problem (in irq handler, callback out of holding spinlocks), which corrupted kernel memory randomly. why? couldnt' fig out
+foudn the problem via going back to github commits. 
+otherwise difficult to imagine!! 
+
+reverted to old ktimer code 
+
+polished procfs code
 
 good dma article on rpi3
 https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/

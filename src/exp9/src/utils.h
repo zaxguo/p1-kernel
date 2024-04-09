@@ -272,6 +272,9 @@ void sound_playback (struct sound_drv *drv,
             unsigned  nBitsPerSample);
 int sound_playback_active(struct sound_drv *drv);
 int sound_write(struct sound_drv *drv, uint64 src, size_t nCount);
+int sound_start(struct sound_drv *drv);
+void sound_cancel(struct sound_drv *drv);
+
 
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)
