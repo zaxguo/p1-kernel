@@ -8,6 +8,9 @@
 //   control-d -- end of file
 //   control-p -- print process list
 //
+// from xv6. a mini driver supports: concurrent users accesses, 
+// buffered user writes, concurrent syscall/irq (with locks)
+// it is decoupled with the uart hw (e.g. pl011.c, mini_uart.c)
 
 #include <stdarg.h>
 
@@ -39,7 +42,7 @@ consputc(int c)
 }
 
 struct {
-  struct spinlock lock;
+  struct spinlock lock;   // xzl: protects the buf
   
   // input
 #define INPUT_BUF_SIZE 128

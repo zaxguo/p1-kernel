@@ -5,8 +5,8 @@
     supports output buffer, rx/tx irqs, sleep/wake, thread safe
     
     cf: 
-    xv6 uart. c
-    https://github.com/RT-Thread/rt-thread/blob/master/bsp/qemu-virt64-aarch64/drivers/drv_uart.c
+    xv6 uart.c
+    also https://github.com/RT-Thread/rt-thread/blob/master/bsp/qemu-virt64-aarch64/drivers/drv_uart.c
 
 */
 
