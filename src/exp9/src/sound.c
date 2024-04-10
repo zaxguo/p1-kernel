@@ -5,6 +5,7 @@
 // ref: https://github.com/babbleberry/rpi4-osdev/blob/master/part9-sound/kernel.c
 //      this is for rpi4, but close enough 
 //      https://github.com/rsta2/circle/blob/master/lib/sound/pwmsoundbasedevice.cpp
+// app code: Circle 34-sounddevices.cpp
 
 #include "utils.h"
 #include "plat.h"
@@ -104,7 +105,8 @@ enum TDREQ
 //
 // DMA controller
 //
-#define ARM_DMACHAN_CS(chan)		(ARM_DMA_BASE + ((chan) * 0x100) + 0x00) // "Control and Status"
+// manual: "DMA Control And Status register"
+#define ARM_DMACHAN_CS(chan)		(ARM_DMA_BASE + ((chan) * 0x100) + 0x00) 
 	#define CS_RESET			(1 << 31)
 	#define CS_ABORT			(1 << 30)
 	#define CS_WAIT_FOR_OUTSTANDING_WRITES	(1 << 28)
@@ -113,6 +115,9 @@ enum TDREQ
 	#define CS_PRIORITY_SHIFT		16
 		#define DEFAULT_PRIORITY		1
 	#define CS_ERROR			(1 << 8)
+    #define CS_WAITING_FOR_OUTSTANDING_WRITES			(1 << 6)    // xzl
+    #define CS_DREQ_STOPS_DMA			(1 << 5)    // xzl
+    #define CS_PAUSED			(1 << 4)    // xzl
 	#define CS_INT				(1 << 2)
 	#define CS_END				(1 << 1)
 	#define CS_ACTIVE			(1 << 0)
@@ -271,7 +276,7 @@ static void* malloc_dma30(unsigned size) {
 static void setup_dma_control_block(struct sound_dev *dev, unsigned nID) {
 	assert (nID <= 1);
 
-	dev->m_pDMABuffer[nID] = malloc_dma30(dev->m_nChunkSize);
+	dev->m_pDMABuffer[nID] = malloc_dma30(dev->m_nChunkSize * sizeof(u32));
 	assert (dev->m_pDMABuffer[nID] != 0);
 
 	dev->m_pControlBlockBuffer[nID] = malloc_dma30(sizeof (struct TDMAControlBlock) + 31);
@@ -435,7 +440,8 @@ static unsigned GetQueueFramesAvail (struct sound_drv *drv) {
 #endif
 // dequeue a frame chunk from drv's ring buffer to device driver....
 //  wakeup users if remaining chunks below certain threshold
-// return # of bytes 
+//  return # of bytes (always == nChunkSize?? 
+// if sound samples less than a chunk, pad with null frames
 // CSoundBaseDevice::GetChunkInternal
 static unsigned GetChunkFromQueue (struct sound_drv *drv, 
     void *pBuffer, unsigned nChunkSize) {
@@ -557,6 +563,9 @@ static boolean GetNextChunk(struct sound_dev *dev) {
         struct sound_drv *drv = container_of(dev, struct sound_drv, dev);
         nChunkSize = GetChunkFromQueue(drv, dev->m_pDMABuffer[next], dev->m_nChunkSize); 
     }
+
+    V("GetNextChunk: nChunkSize %u", nChunkSize); 
+
     if (nChunkSize == 0)
         return FALSE;
 
@@ -566,8 +575,9 @@ static boolean GetNextChunk(struct sound_dev *dev) {
     assert(dev->m_pControlBlock[next] != 0);
     dev->m_pControlBlock[next]->nTransferLength = nTransferLength;
 
-    W("GetNextChunk: nChunkSize %u nTransferLength %u", nChunkSize, nTransferLength); 
+    V("GetNextChunk: nChunkSize %u nTransferLength %u", nChunkSize, nTransferLength); 
 
+    // xzl: not flush, but invalidate?? TODO
     __asm_invalidate_dcache_range(dev->m_pDMABuffer[next], 
         (char *)dev->m_pDMABuffer[next] + nTransferLength - 1);
     __asm_invalidate_dcache_range(dev->m_pControlBlock[next],
@@ -615,10 +625,19 @@ static unsigned GetQueueSizeFrames (struct sound_drv *drv) {
 }
 #endif
 
+static void dump_dmachan_status(int ch) {
+    u32 reg = read32(ARM_DMACHAN_CS (ch));
+    printf("%s: CS_ERROR %d CS_WAITING_FOR_OUTSTANDING_WRITES %d \n"
+    "CS_DREQ_STOPS_DMA %d CS_PAUSED %d CS_INT %d CS_END %d CS_ACTIVE %d\n",
+    __func__, !!(reg & CS_ERROR), !!(reg & CS_WAITING_FOR_OUTSTANDING_WRITES), 
+    !!(reg & CS_DREQ_STOPS_DMA), !!(reg & CS_PAUSED), !!(reg & CS_INT), 
+    !!(reg & CS_END), reg & CS_ACTIVE);
+}
+
 static void DoDMAIRQ(void *para) {
     struct sound_dev *dev = (struct sound_dev *)para; 
 
-    W("DoDMAIRQ");
+    V("DoDMAIRQ");
 
     // check channel 
 	assert (dev && dev->m_State != PWMSoundIdle);
@@ -628,7 +647,13 @@ static void DoDMAIRQ(void *para) {
 
 	u32 nIntStatus = read32 (ARM_DMA_INT_STATUS);
 	u32 nIntMask = 1 << dev->m_nDMAChannel;
-    W("nIntStatus %x nIntMask %x", nIntStatus, nIntMask);
+
+    if (!(nIntStatus & nIntMask)) {
+        W("nIntStatus %x nIntMask %x ARM_DMACHAN_CS %x", nIntStatus, nIntMask, 
+        read32 (ARM_DMACHAN_CS (dev->m_nDMAChannel)));
+        dump_dmachan_status(dev->m_nDMAChannel); 
+    }
+
 	assert (nIntStatus & nIntMask);
 	write32 (ARM_DMA_INT_STATUS, nIntMask);
 
@@ -652,7 +677,7 @@ static void DoDMAIRQ(void *para) {
 		{
 			break;
 		}
-		// fall through
+		// fall through  (fail to get chunk -- then cancel). 
 
 	case PWMSoundCancelled:
 		PeripheralEntry ();
@@ -978,6 +1003,10 @@ void sound_playback (struct sound_drv *drv,
 
     int ret = sound_start(drv); 
     W("sound_playback returns %d", ret); 
+    W("ARM_DMA_ENABLE %x PWM_DMAC %x", 
+        get32va(ARM_DMA_ENABLE),
+        get32va(PWM_DMAC));
+    // enable_irq();    // fixed
 }
 
 // CPWMSoundDevice::PlaybackActive
@@ -1123,6 +1152,12 @@ struct sound_drv * sound_init(unsigned nChunkSize)
 	dev->m_pControlBlock[1]->nNextControlBlockAddress = 
         BUS_ADDRESS ((uintptr) dev->m_pControlBlock[0]);
 
+    // xzl: needed???
+    __asm_flush_dcache_range(dev->m_pControlBlock[0], 
+        (char *)dev->m_pControlBlock[0] + sizeof (struct TDMAControlBlock) + 30); 
+    __asm_flush_dcache_range(dev->m_pControlBlock[1], 
+        (char *)dev->m_pControlBlock[1] + sizeof (struct TDMAControlBlock) + 30);
+
     // start clock and PWM device
     RunPWM(dev); 
 
@@ -1158,7 +1193,9 @@ void sound_fini(struct sound_drv *drv) {
     W("sound fini"); 
 
     acquire(&dev->m_SpinLock); 
-	assert (dev->m_State == PWMSoundIdle);
+	if (dev->m_State != PWMSoundIdle) {
+        E("dev->m_State %d, should be %d", dev->m_State, PWMSoundIdle);
+    }
 
 	// stop PWM device and clock
 	StopPWM (dev);
@@ -1238,19 +1275,21 @@ int procfs_sbctl_gen(char *txtbuf, int sz) {
 // cf Circle sample/12-pwmsound/kernel.cpp
 void test_sound() {
     struct sound_drv *p = sound_init(0);
-    W("sound_drv *p is %lx", (unsigned long)p); 
     sound_playback(p, Sound, SOUND_SAMPLES, SOUND_CHANNELS, SOUND_BITS);
-    
+
+// busy wait, may not work in syscall conext, as we may be holding spinlocks (
+// e.g. ftable's spinlock which turned off irq already
+#if 0 
 	for (unsigned nCount = 0; sound_playback_active(p); nCount++)
-		// W("count %d...", nCount);
         ;
     W("playback done"); 
-    sound_fini(p); 
+    sound_fini(p);  // it's a test, we can skip this
+#endif    
 }
 
 #include "fcntl.h"
 // format: command [drvid]
-// command: 0-fini, 1-init, 2-start, 3-cancel, 99-test
+// command: 0-fini, 1-init, 2-start, 3-cancel, 9-test
 // return 0 on error 
 int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {  
     int id = -1; 
@@ -1296,7 +1335,7 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
         break; 
-    case 99: 
+    case 9: 
         W("test sound");
         test_sound(); 
         break; 

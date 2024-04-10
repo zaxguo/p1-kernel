@@ -44,7 +44,7 @@ int main() {
         printf("init write failed with %d. shouldn't happen", len);
         exit(1);
     }
-    printf("written %d bytes", len);
+    printf("written %d bytes\n", len);
     total -= len;
     p += len;
 
@@ -53,12 +53,18 @@ int main() {
     while (total > 0) {
         if ((len = write(sb, p, total)) <= 0)
             break;
-        printf("written %d bytes", len);
+        printf("written %d bytes\n", len);
         total -= len;
         p += len;
     }
     printf("write ret %d. total %d", len, total);
+    sleep(100); // let playback finish
 
-    sbctl_cmd(sbctl, 2 /*fini*/, 0/*drv id*/);
+    // streaming play wont stop by itself (with pad null frames 
+    sbctl_cmd(sbctl, 3 /*cancel*/, 0/*drv id*/); 
+
+    sleep(100); // let playback finish
+    
+    sbctl_cmd(sbctl, 0 /*fini*/, 0/*drv id*/);
     return 0;
 }

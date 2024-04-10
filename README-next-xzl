@@ -259,7 +259,13 @@ the reason is ---
 // busy wait, may not work in syscall conext, as we may be holding spinlocks e.g. ftable's spinlock which turned off irq already....
 FIX: comemnt out the busy wait, just return from write() syscall, let the kernel play....
  
+[x] a good bug
+when porting code from cpp, new[] forgot to take intou accoutn the elment size (u32). 
+hence dma buf is 4x smaller than should be. when init dma transfer (with the right length), 
+only the 1st irq hits (wihtout any channel irq status set -- why???). then status 
+reg shows DMA xfer 'ends'. (prematurely?) 
 
+indeed weird behavior. but after allocating the right size, things work 
 
 good dma article on rpi3
 https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/
