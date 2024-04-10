@@ -248,8 +248,18 @@ foudn the problem via going back to github commits.
 otherwise difficult to imagine!! 
 
 reverted to old ktimer code 
-
 polished procfs code
+
+[x] a good bug      cf sound.c test_sound(); 
+test_sound() busy waits for sound playback to finish (driven by irqs)
+it works when it is called from kernel's process(), but 
+hangs (no irq whatsoever) when called from procfs's write() 
+function. 
+the reason is --- 
+// busy wait, may not work in syscall conext, as we may be holding spinlocks e.g. ftable's spinlock which turned off irq already....
+FIX: comemnt out the busy wait, just return from write() syscall, let the kernel play....
+ 
+
 
 good dma article on rpi3
 https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/

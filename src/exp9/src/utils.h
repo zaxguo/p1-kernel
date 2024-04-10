@@ -78,7 +78,7 @@ extern unsigned int ticks;
 // ------------------- irq ---------------------------- //
 void enable_interrupt_controller( void ); // irq.c 
 
-/* functions below defined in irq.S */
+// utils.S
 void irq_vector_init( void );    
 void enable_irq( void );         
 void disable_irq( void );

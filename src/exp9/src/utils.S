@@ -19,7 +19,7 @@ disable_irq:
 
 .global is_irq_masked
 is_irq_masked:
-	# xzl: which daifset/clr are lowest four bits, daif seems bit9--6
+	# xzl: whereas daifset/clr are lowest four bits, daif seems bit9--6
 	# https://developer.arm.com/documentation/ddi0601/2023-12/AArch64-Registers/DAIF--Interrupt-Mask-Bits
 	mrs x0, daif 
 	lsr x0, x0, #7 
