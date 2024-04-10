@@ -147,15 +147,15 @@ int main() {
   unsigned scancode; 
 
   int events = open("/dev/events", O_RDONLY); 
-  int dp = open("/proc/dispinfo", O_RDONLY); 
-  int fbctl = open("/proc/fbctl", O_RDWR); 
+  // int dp = open("/proc/dispinfo", O_RDONLY); 
+  // int fbctl = open("/proc/fbctl", O_RDWR); 
   fb = open("/dev/fb/", O_RDWR); //printf("fb is %d\n", fb); 
-  assert(fb>0 && events>0 && dispinfo>0 && fbctl>0); 
+  assert(fb>0 && events>0); 
 
   // config fb 
   // n = config_fbctl(fbctl, 1360, 768, W, H, 0, 0); assert(n==0); 
-  n = config_fbctl(fbctl, W, H, W, H, 0, 0); assert(n==0); 
-  close(fbctl); 
+  n = config_fbctl(W, H, W, H, 0, 0); assert(n==0); 
+  // close(fbctl); 
 
   // after config, read dispinfo again (GPU may specify different dims)
   // parse /proc/dispinfo into dispinfo[]
@@ -172,8 +172,7 @@ int main() {
   //             break; 
   //     } 
   // }
-  n = read_dispinfo(dp, dispinfo); assert(n==MAX_DISP_ARGS); 
-  close(dp);   
+  read_dispinfo(dispinfo, &n); assert(n>0);
   printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d\n", 
     dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH], dispinfo[PITCH]); 
 

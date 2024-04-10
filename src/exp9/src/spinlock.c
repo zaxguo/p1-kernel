@@ -28,7 +28,7 @@ acquire(struct spinlock *lk)
 {
   push_off(); // disable interrupts to avoid deadlock.
   if(!lk || holding(lk))
-    panic("acquire");
+    {printf("%s ", lk->name); panic("acquire");}
 
   while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
     ;

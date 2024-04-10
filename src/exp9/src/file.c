@@ -409,10 +409,10 @@ int procfs_parse_usercontent(struct file *f) {
         } 
     }
     
-    W("args");
-    for (int i = 0; i < PROCFS_MAX_ARGS; i++)
-        printf("%d ", args[i]); 
-    printf("\n");
+    // W("args");
+    // for (int i = 0; i < PROCFS_MAX_ARGS; i++)
+    //     printf("%d ", args[i]); 
+    // printf("\n");
 
     switch (f->major)
     {

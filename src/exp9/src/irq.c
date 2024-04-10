@@ -108,6 +108,7 @@ void handle_irq(void) {
         }
         for (int i = 0; i <= 12; i++) { // check 13 dma channels
             if (p1 & IRQ_PENDING_1_DMA(i)) {
+                W("IRQ_PENDING_1_DMA %d", i); 
                 if (dma_irq)
                     dma_irq(dma_irq_param); 
                 p1 &= (~IRQ_PENDING_1_DMA(i));

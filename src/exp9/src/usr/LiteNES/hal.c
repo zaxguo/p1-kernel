@@ -51,7 +51,7 @@ static char *vtx = 0;       // byte-to-byte mirror of hw fb (inc pitch)
 static int vtx_sz = 0;      // in bytes
 
 static int dispinfo[MAX_DISP_ARGS]={0};    // display config
-static int fb = 0, fbctl = 0;      // /dev/fb /proc/fbctl
+static int fb = 0;      // /dev/fb /proc/fbctl
 static int fds[2]; //pipes for exchanging events
 
 struct event {
@@ -220,13 +220,12 @@ void nes_hal_init() {
 
     //// config fb 
     fb = open("/dev/fb/", O_RDWR);
-    fbctl = open("/proc/fbctl", O_RDWR); 
-    int dp = open("/proc/dispinfo", O_RDONLY); 
-    assert(fb>0 && dispinfo>0 && fbctl>0); 
+    // fbctl = open("/proc/fbctl", O_RDWR); 
+    // int dp = open("/proc/dispinfo", O_RDONLY); 
+    assert(fb>0); 
     
     //      ask for a vframebuf that scales the native fce canvas by 2x
-    n = config_fbctl(fbctl, 
-        SCREEN_WIDTH, SCREEN_HEIGHT,    // desired viewport ("phys")
+    n = config_fbctl(SCREEN_WIDTH, SCREEN_HEIGHT,    // desired viewport ("phys")
 #ifdef FB_FLIP
         SCREEN_WIDTH, 2*SCREEN_HEIGHT,0,0);  // two fbs, each contig (can be write to /dev/fb in a shot
 #else        
@@ -234,8 +233,8 @@ void nes_hal_init() {
 #endif        
     assert(n==0); 
 
-    n = read_dispinfo(dp, dispinfo); assert(n==MAX_DISP_ARGS); 
-    close(dp); 
+    read_dispinfo(dispinfo, &n); assert(n>0); 
+    // close(dp); 
     printf("FB_FLIP=%d SCREEN_WIDTH=%d SCREEN_HEIGHT=%d\n ", FB_FLIP, SCREEN_WIDTH, SCREEN_HEIGHT); 
     printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d depth %d isrgb %d\n", 
     dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], dispinfo[PITCH], dispinfo[DEPTH], dispinfo[ISRGB]); 
@@ -264,8 +263,8 @@ void nes_flip_display()
             __func__, fb, sz, n); 
     }    
     // make the cur fb visible
-    assert(fbctl);
-    n = config_fbctl(fbctl,0,0,0,0/*dc*/, 0/*xoff*/, cur_id*SCREEN_HEIGHT/*yoff*/);
+    // assert(fbctl);
+    n = config_fbctl(0,0,0,0/*dc*/, 0/*xoff*/, cur_id*SCREEN_HEIGHT/*yoff*/);
     assert(n==0);     
     cur_id = 1-cur_id; 
 #else    

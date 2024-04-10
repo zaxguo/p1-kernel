@@ -307,20 +307,3 @@ void test_fb() {
     }
 }
 
-///// sound driver test 
-#include "sound-sample.h"
-
-#define SOUND_SAMPLES		(sizeof Sound / sizeof Sound[0] / SOUND_CHANNELS)
-
-// cf Circle sample/12-pwmsound/kernel.cpp
-void test_sound() {
-    struct sound_drv *p = sound_init(0);
-    sound_playback(p, Sound, SOUND_SAMPLES, SOUND_CHANNELS, SOUND_BITS);
-
-	for (unsigned nCount = 0; sound_playback_active(p); nCount++)
-		// W("count %d...", nCount);
-        ;
-    W("playback done"); 
-
-    sound_fini(p); 
-}
