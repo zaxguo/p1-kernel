@@ -17,7 +17,7 @@
 
 #define BUFSZ  ((MAXOPBLOCKS+2)*BSIZE)
 
-char buf[BUFSZ];
+char buf[BUFSZ];    // xzl: 12K
 
 //
 // Section with tests that run fairly quickly.  Use -q if you want to
@@ -1738,7 +1738,8 @@ bigwrite(char *s)
 void
 bigfile(char *s)
 {
-  enum { N = 20, SZ=600 };
+  // enum { N = 20, SZ=600 };
+  enum { N = 1024, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
   int fd, i, total, cc;
 
   unlink("bigfile.dat");
@@ -1755,6 +1756,7 @@ bigfile(char *s)
     }
   }
   close(fd);
+  printf("%s: write %d KB to file done \n", s, N*SZ/1024);  // xzl
 
   fd = open("bigfile.dat", 0);
   if(fd < 0){
@@ -1762,7 +1764,7 @@ bigfile(char *s)
     exit(1);
   }
   total = 0;
-  for(i = 0; ; i++){
+  for(i = 0; ; i++){    // xzl: each read SZ/2 bytes
     cc = read(fd, buf, SZ/2);
     if(cc < 0){
       printf("%s: read bigfile failed\n", s);
@@ -1775,16 +1777,19 @@ bigfile(char *s)
       exit(1);
     }
     if(buf[0] != i/2 || buf[SZ/2-1] != i/2){
-      printf("%s: read bigfile wrong data\n", s);
+      printf("%s: read bigfile wrong data. expect %d actual %d %d\n", s, i/2, buf[0], buf[SZ/2-1]);
       exit(1);
     }
     total += cc;
+    printf("%s: read %d KB of file done \n", s, total/1024);  // xzl
   }
   close(fd);
   if(total != N*SZ){
     printf("%s: read bigfile wrong total\n", s);
     exit(1);
   }
+  printf("%s: read %d KB of file done \n", s, N*SZ/1024);  // xzl
+
   unlink("bigfile.dat");
 }
 
@@ -2812,7 +2817,7 @@ struct test {
   {linkunlink, "linkunlink"},
   {subdir, "subdir"},
   {bigwrite, "bigwrite"},
-  {bigfile, "bigfile"},
+  {bigfile, "bigfile"},   // [ ]
   {fourteen, "fourteen"},
   {rmdot, "rmdot"},
   {dirfile, "dirfile"},
