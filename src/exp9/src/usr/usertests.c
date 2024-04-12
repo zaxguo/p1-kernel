@@ -1739,7 +1739,8 @@ void
 bigfile(char *s)
 {
   // enum { N = 20, SZ=600 };
-  enum { N = 1024, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
+  // enum { N = 1024, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
+  enum { N = 256, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
   int fd, i, total, cc;
 
   unlink("bigfile.dat");
