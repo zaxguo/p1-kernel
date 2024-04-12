@@ -1740,7 +1740,7 @@ bigfile(char *s)
 {
   // enum { N = 20, SZ=600 };
   // enum { N = 1024, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
-  enum { N = 256, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
+  enum { N = 260, SZ=1024 }; // xzl: test enlarged files (doubly indirect ptr in inode)
   int fd, i, total, cc;
 
   unlink("bigfile.dat");
@@ -1757,7 +1757,7 @@ bigfile(char *s)
     }
   }
   close(fd);
-  printf("%s: write %d KB to file done \n", s, N*SZ/1024);  // xzl
+  // printf("%s: write %d KB to file done \n", s, N*SZ/1024);  // xzl
 
   fd = open("bigfile.dat", 0);
   if(fd < 0){
