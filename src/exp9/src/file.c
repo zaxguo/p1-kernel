@@ -93,7 +93,6 @@ void fileclose(struct file *f) {
         iput(ff.ip);
         end_op();
     }
-    W("irq %d", intr_get());
 }
 
 // Get metadata about file f.

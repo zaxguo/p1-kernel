@@ -1,7 +1,7 @@
 #define K2_DEBUG_INFO 1
 
 // File system implementation.  Five layers:
-//   + Blocks: allocator for raw disk blocks.
+//   + Blocks: allocator for raw disk blocks.  
 //   + Log: crash recovery for multi-step updates.
 //   + Files: inode allocator, reading, writing, metadata.
 //   + Directories: inode with special contents (list of other inodes!)
@@ -11,7 +11,7 @@
 // routines.  The (higher-level) system call implementations
 // are in sysfile.c.
 
-// xzl: == vfs layer. almost no change. 
+// xzl: the actual fs implementation, with interfaces with disk. almost no change
 
 #include "utils.h"
 #include "stat.h"
@@ -47,6 +47,8 @@ fsinit(int dev) {
   initlog(dev, &sb);
   I("fsinit done");
 }
+
+//// xzl: block layer below
 
 // Zero a block.
 static void
@@ -146,7 +148,7 @@ bfree(int dev, uint b)
 //
 // * Locked: file system code may only examine and modify
 //   the information in an inode and its content if it
-//   has first locked the inode. xzl: locked means exclusive access?
+//   has first locked the inode.
 //
 // Thus a typical sequence is:
 //   ip = iget(dev, inum)
@@ -174,7 +176,7 @@ bfree(int dev, uint b)
 // An ip->lock sleep-lock protects all ip-> fields other than ref,
 // dev, and inum.  One must hold ip->lock in order to
 // read or write that inode's ip->valid, ip->size, ip->type, &c.
-
+// (xzl: above: good lock designs that can be used, e.g. for sound drivers
 struct {
   struct spinlock lock;
   struct inode inode[NINODE];
@@ -205,6 +207,7 @@ ialloc(uint dev, short type)
   struct dinode *dip;
 
     // xzl: read a block of inodes at a time, go through them all..
+    //    rely on lock inside bread()/brelse()
   for(inum = 1; inum < sb.ninodes; inum++){
     bp = bread(dev, IBLOCK(inum, sb));      
     dip = (struct dinode*)bp->data + inum%IPB;
@@ -419,8 +422,31 @@ bmap(struct inode *ip, uint bn)
         log_write(bp);
       }
     }
-    brelse(bp);
+    brelse(bp);  
+    
     return addr;
+  }
+  bn -= NINDIRECT; 
+
+  // doubly indirect ptr 
+  if (bn < DNINDIRECT) {
+      if ((addr = ip->addrs[NDIRECT + 1]) == 0) // locate lv1 indirect block
+          ip->addrs[NDIRECT + 1] = addr = balloc(ip->dev); // inode will be done by iwrite()
+      bp = bread(ip->dev, addr);
+      a = (uint *)bp->data;
+      if ((addr = a[bn / (NINDIRECT)]) == 0) {  // lv2 indirect block
+          a[(bn / NINDIRECT)] = addr = balloc(ip->dev); BUG_ON(!addr); 
+          log_write(bp);   // W("===> bn %u alloc blk %u", bn, addr);
+      }
+      brelse(bp);
+      bp = bread(ip->dev, addr);
+      a = (uint *)bp->data;
+      if ((addr = a[bn % (NINDIRECT)]) == 0) { // locate the data block 
+          a[(bn % NINDIRECT)] = addr = balloc(ip->dev);
+          log_write(bp);  // W("===> bn0 %u alloc data blk %u", bn0, addr);
+      } // else W("ok: bn %u found blk %u", bn, addr);
+      brelse(bp);
+      return addr;
   }
 
   panic("bmap: out of range");

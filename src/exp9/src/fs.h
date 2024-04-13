@@ -25,7 +25,10 @@ struct superblock {
 
 #define NDIRECT 12
 #define NINDIRECT (BSIZE / sizeof(uint))
-#define MAXFILE (NDIRECT + NINDIRECT)   // xzl: max # of blocks per file. ~270KB filesize limit
+#define DNINDIRECT (NINDIRECT * NINDIRECT)  // doubly indirect blocks
+#define MAXFILE (NDIRECT + NINDIRECT + DNINDIRECT)       
+// xzl: max # of blocks per file. ~270KB filesize limit with only 1 indirect ptr; 
+// ~16MB with an additional doubly indirect ptr
 
 // On-disk inode structure
 struct dinode {
@@ -34,8 +37,16 @@ struct dinode {
   short minor;          // Minor device number (T_DEVICE only)
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
-  uint addrs[NDIRECT+1];   // Data block addresses
-};
+  uint addrs[NDIRECT+2];   // Data block addresses, +1 indirect tpr, +1 doubly indirect ptr
+  // 68 bytes above, see below
+  char paddings[60]; 
+}; 
+
+// use this to check struct size at compile time
+// https://stackoverflow.com/questions/11770451/what-is-the-meaning-of-attribute-packed-aligned4
+// char (*__kaboom)[sizeof(struct dinode)] = 1; 
+
+_Static_assert(BSIZE % sizeof(struct dinode) == 0);  // xzl, as needed by mkfs
 
 // Inodes per block.
 #define IPB           (BSIZE / sizeof(struct dinode))
