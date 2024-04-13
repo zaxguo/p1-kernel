@@ -307,3 +307,40 @@ void test_fb() {
     }
 }
 
+// cf: https://github.com/bztsrc/raspi3-tutorial/blob/master/0B_readsector/main.c
+
+void test_sd() {
+    unsigned char *buf = kalloc();     BUG_ON(!buf);
+    TMasterBootRecord *mbr = (TMasterBootRecord *)buf; 
+
+    // initialize EMMC and detect SD card type
+    if(sd_init()==0) {
+        if(sd_readblock(0,buf,1)) {
+            // dump it to serial console
+
+            if (mbr->BootSignature != BOOT_SIGNATURE) {
+                W("Boot signature not found");
+                goto out; 
+            }
+
+            I("Dumping the partition table");
+            I("# Status Type  1stSector    Sectors");
+
+            // NB: partiion 1 could start from sector32. 
+            // cf: https://unix.stackexchange.com/questions/81556/area-on-disk-after-the-mbr-and-before-the-partition-start-point
+            // "The old 32KiB gap between MBR and first sector of file system is 
+            //  called DOS compatibility region or MBR gap, because DOS required 
+            //  that the partitions started at cylinder boundaries".
+            for (unsigned nPartition = 0; nPartition < 4; nPartition++) {
+                W("%u %02X     %02X   %10u %10u",
+                nPartition + 1,
+                (unsigned)mbr->Partition[nPartition].Status,
+                (unsigned)mbr->Partition[nPartition].Type,
+                mbr->Partition[nPartition].LBAFirstSector,
+                mbr->Partition[nPartition].NumberOfSectors);
+            }
+        }
+    }
+out:     
+    kfree(buf); 
+}

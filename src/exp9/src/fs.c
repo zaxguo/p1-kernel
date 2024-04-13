@@ -1,4 +1,4 @@
-#define K2_DEBUG_INFO 1
+#define K2_DEBUG_WARN
 
 // File system implementation.  Five layers:
 //   + Blocks: allocator for raw disk blocks.  

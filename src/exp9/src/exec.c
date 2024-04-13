@@ -1,3 +1,5 @@
+#define K2_DEBUG_WARN 
+
 #include "plat.h"
 #include "utils.h"
 #include "sched.h"

@@ -441,8 +441,6 @@ int sys_mknod(unsigned long upath, short major, short minor) {
   struct inode *ip;
   char path[MAXPATH];
 
-  printf("%s called\n", __func__);
-
   begin_op();
   if((argstr(upath, path, MAXPATH)) < 0 ||
      (ip = create(path, T_DEVICE, major, minor)) == 0){

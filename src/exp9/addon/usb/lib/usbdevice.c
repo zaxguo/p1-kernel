@@ -121,6 +121,7 @@ void _USBDevice (TUSBDevice *pThis)
 	_USBString (&pThis->m_ManufacturerString);
 }
 
+// xzl: called to init each "Device"
 boolean USBDeviceInitialize (TUSBDevice *pThis)
 {
 	assert (pThis != 0);
@@ -132,6 +133,9 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 	assert (pThis->m_pHost != 0);
 	assert (pThis->m_pEndpoint0 != 0);
 	
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+
+	// xzl: below will prep control msg, send to device...
 	assert (sizeof *pThis->m_pDeviceDesc >= USB_DEFAULT_MAX_PACKET_SIZE);
 	if (DWHCIDeviceGetDescriptor (pThis->m_pHost, pThis->m_pEndpoint0,
 				    DESCRIPTOR_DEVICE, DESCRIPTOR_INDEX_DEFAULT,
@@ -146,6 +150,8 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		return FALSE;
 	}
 
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+
 	if (   pThis->m_pDeviceDesc->bLength	     != sizeof *pThis->m_pDeviceDesc
 	    || pThis->m_pDeviceDesc->bDescriptorType != DESCRIPTOR_DEVICE)
 	{
@@ -157,6 +163,8 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		return FALSE;
 	}
 
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+	
 	USBEndpointSetMaxPacketSize (pThis->m_pEndpoint0, pThis->m_pDeviceDesc->bMaxPacketSize0);
 
 	if (DWHCIDeviceGetDescriptor (pThis->m_pHost, pThis->m_pEndpoint0,
@@ -171,6 +179,8 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 
 		return FALSE;
 	}
+
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK 2");
 
 #ifndef NDEBUG
 	//DebugHexdump (pThis->m_pDeviceDesc, sizeof *pThis->m_pDeviceDesc, FromDevice);
@@ -191,7 +201,11 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		return FALSE;
 	}
 	
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+
 	USBDeviceSetAddress (pThis, ucAddress);
+
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
 
 	if (   pThis->m_pDeviceDesc->iManufacturer != 0
 	    || pThis->m_pDeviceDesc->iProduct != 0)
@@ -211,6 +225,8 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		}
 	}
 
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+
 	assert (pThis->m_pConfigDesc == 0);
 	pThis->m_pConfigDesc = (TUSBConfigurationDescriptor *) malloc (sizeof (TUSBConfigurationDescriptor));
 	assert (pThis->m_pConfigDesc != 0);
@@ -227,6 +243,8 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 
 		return FALSE;
 	}
+
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
 
 	if (   pThis->m_pConfigDesc->bLength         != sizeof *pThis->m_pConfigDesc
 	    || pThis->m_pConfigDesc->bDescriptorType != DESCRIPTOR_CONFIGURATION
@@ -260,6 +278,8 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		return FALSE;
 	}
 
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+
 #ifndef NDEBUG
 	//DebugHexdump (pThis->m_pConfigDesc, nTotalLength, FromDevice);
 #endif
@@ -276,11 +296,15 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		return FALSE;
 	}
 
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
+
 	TString *pNames	= USBDeviceGetNames (pThis);
 	assert (pNames != 0);
-	USBDeviceLogWrite (pThis, LOG_NOTICE, "Device %s found", StringGet (pNames));
+	USBDeviceLogWrite (pThis, LOG_NOTICE, "Device %s found [from USBDeviceInitialize()]", StringGet (pNames));
 	_String (pNames);
 	 free (pNames);
+
+	// USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: OK %d", __LINE__);
 
 	unsigned nFunction = 0;
 	u8 ucInterfaceNumber = 0;

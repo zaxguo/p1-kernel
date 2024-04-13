@@ -43,7 +43,7 @@ unsigned int gpio_clear   (unsigned int pin_number, unsigned int value)
 // cf Circle void CGPIOPin::SetPullMode
 enum {
     Pull_None = 0,
-    Pull_Down = 1, // Are down and up the right way around?
+    Pull_Down = 1, 
     Pull_Up = 2
 };
 unsigned int gpio_pull (unsigned int pin_number, unsigned int mode) { 
@@ -130,8 +130,6 @@ static void gpioclock_start(struct gpioclock_dev *desc,
 
 	gpioclock_stop (desc);
 
-	// PeripheralEntry ();
-
 	put32va (nDivReg, ARM_CM_PASSWD | CLK_DIV_DIVI (nDivI) | CLK_DIV_DIVF (nDivF));
 	us_delay(10); 
 	assert (desc->source < GPIOClockSourceUnknown);
@@ -141,7 +139,7 @@ static void gpioclock_start(struct gpioclock_dev *desc,
 }
 
 // assigns clock source automatically
-// return 1 on ok 
+// return 1 on ok TODO move to MachineInfo
 int gpioclock_start_rate(struct gpioclock_dev *desc, unsigned nRateHZ) {
 	assert (nRateHZ > 0);
 	// xzl: iterate through all available clock sources, find one aivalable ....

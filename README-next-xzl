@@ -183,7 +183,7 @@ added test for pipe3: two writers, one reader.
     [ ] sd card driver    
     [ ]  port doom 
 
-    [ ]     add fat32 support
+    ~~~add fat32 support
         useful: https://cpl.li/posts/2019-03-12-mbrfat/
 
 [ ]  add support for rpi3 hardware
@@ -362,9 +362,21 @@ cf:
 https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libos/src/native.cpp#L207
 
 -------------
-minimum sd card driver
-from nctuos
+sd card driver
+
+rpi3 baremetal tutorial, sd read/write. busy wait for read/write
+(often the code style is good....
+https://github.com/bztsrc/raspi3-tutorial/blob/master/15_writesector/sd.c
+
+
+rtthread. code also clean. still, busy wait for read/write
+https://github.com/RT-Thread/rt-thread/blob/master/bsp/raspberry-pi/raspi3-64/driver/drv_sdio.c
+
+
+from nctuos. simple. but busy waiting, no irq
 https://github.com/GrassLab/osdi/blob/master/supplement/sdhost.c
+
+
 
 
 https://grasslab.github.io/osdi/zh_TW/labs/lab8.html

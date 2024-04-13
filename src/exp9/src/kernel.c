@@ -16,6 +16,7 @@ extern void test_usb_kb();
 extern void test_usb_storage(); 
 extern void test_fb(); 
 extern void test_sound(); 
+extern void test_sd(); 
 
 // 1st user process
 extern unsigned long user_begin;	// linker script
@@ -64,7 +65,6 @@ void kernel_main()
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
 	irq_vector_init();
-	W("here");
 	generic_timer_init(); 	// for sched ticks
 	sys_timer_init(); 		// for kernel timer
 	enable_interrupt_controller();

@@ -60,10 +60,10 @@
 #define ARM_GPIO_GPCLR0		(ARM_GPIO_BASE + 0x28)
 #define ARM_GPIO_GPLEV0		(ARM_GPIO_BASE + 0x34)
 #define ARM_GPIO_GPEDS0		(ARM_GPIO_BASE + 0x40)
-#define ARM_GPIO_GPREN0		(ARM_GPIO_BASE + 0x4C)
-#define ARM_GPIO_GPFEN0		(ARM_GPIO_BASE + 0x58)
-#define ARM_GPIO_GPHEN0		(ARM_GPIO_BASE + 0x64)
-#define ARM_GPIO_GPLEN0		(ARM_GPIO_BASE + 0x70)
+#define ARM_GPIO_GPREN0		(ARM_GPIO_BASE + 0x4C) // GPIO Pin Rising Edge Detect Enable
+#define ARM_GPIO_GPFEN0		(ARM_GPIO_BASE + 0x58) // GPIO Pin Falling Edge Detect Enable
+#define ARM_GPIO_GPHEN0		(ARM_GPIO_BASE + 0x64) // GPIO Pin High Detect Enable
+#define ARM_GPIO_GPLEN0		(ARM_GPIO_BASE + 0x70)  // GPIO Pin Low Detect Enable
 #define ARM_GPIO_GPAREN0	(ARM_GPIO_BASE + 0x7C)
 #define ARM_GPIO_GPAFEN0	(ARM_GPIO_BASE + 0x88)
 #if RASPPI <= 3

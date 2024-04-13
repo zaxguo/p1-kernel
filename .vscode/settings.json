@@ -70,7 +70,9 @@
         "sound-sample.h": "c",
         "procfs.h": "c",
         "fb.h": "c",
-        "rev_uva_logo_color3-resized.h": "c"
+        "rev_uva_logo_color3-resized.h": "c",
+        "usbstandardhub.h": "c",
+        "gpio.h": "c"
     },
     "files.exclude": {
         "docs/**": true,
@@ -82,8 +84,8 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
-        "src/exp9/addon/usb/**": true,  // usb 
-        "src/exp9/addon/sound/**": true,  // usb 
+        // "src/exp9/addon/usb/**": true,  // usb 
+        "src/exp9/addon/sound/**": true, 
         "src/experimental/**": true,
     }, 
     "search.exclude": {
@@ -96,7 +98,7 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
-        "src/exp9/addon/usb/**": true,  // usb 
+        // "src/exp9/addon/usb/**": true,  // usb 
         "src/exp9/addon/sound/**": true,  // usb 
         "src/experimental/**": true,        
         "*.asm": true,

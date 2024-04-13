@@ -7,7 +7,7 @@
             "includePath": [
                 "${workspaceFolder}/src/exp9",
                 "${workspaceFolder}/src/exp9/src",
-                // "${workspaceFolder}/src/exp9/addon/usb/include",
+                "${workspaceFolder}/src/exp9/addon/usb/include",
                 // "${workspaceFolder}/src/exp9/addon/sound/ampi",
                 // "${workspaceFolder}/src/exp9/addon/circle/include/"
             ],

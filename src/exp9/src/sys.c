@@ -1,5 +1,5 @@
 // #define K2_DEBUG_VERBOSE
-#define K2_DEBUG_WARNING
+#define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"

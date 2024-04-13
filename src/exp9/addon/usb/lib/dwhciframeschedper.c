@@ -166,7 +166,7 @@ void DWHCIFrameSchedulerPeriodicWaitForFrame (TDWHCIFrameScheduler *pBase)
 	if (pThis->m_nNextFrame == FRAME_UNSET)
 	{
 		// xzl: to undertsand - why only care 3 LSB
-		// is the following problematic???
+		// is the following problematic on qemu??? could miss frames?
 		pThis->m_nNextFrame = (DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) + 1) & 7;
 		if (pThis->m_nNextFrame == 6)
 		{
@@ -177,7 +177,7 @@ void DWHCIFrameSchedulerPeriodicWaitForFrame (TDWHCIFrameScheduler *pBase)
 	while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & 7) != pThis->m_nNextFrame)
 	{
 		// do nothing
-		LogWrite("xzl", LOG_ERROR, "wait..... %d", __LINE__);
+		// LogWrite("xzl", LOG_ERROR, "wait..... %d", __LINE__);
 	}
 
 	_DWHCIRegister (&FrameNumber);

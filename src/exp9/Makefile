@@ -128,6 +128,8 @@ BIN_OBJS += addon/usb/lib/libuspi.a
 C_OBJS += $(BUILD_DIR)/sound_c.o
 C_OBJS += $(BUILD_DIR)/gpio_c.o
 C_OBJS += $(BUILD_DIR)/machineinfo_c.o	
+# sd card
+C_OBJS += $(BUILD_DIR)/sd_c.o
 endif
 
 ifeq (${PLAT}, rpi3)
@@ -143,6 +145,8 @@ C_OBJS += $(BUILD_DIR)/machineinfo_c.o
 BIN_OBJS += addon/usb/lib/libuspi.a		
 # C_OBJS += $(BUILD_DIR)/ampibind_c.o		# sound(vchiq) glue
 # BIN_OBJS += addon/sound/ampi/libampi.a		# hdmi sound lib
+# sd card
+C_OBJS += $(BUILD_DIR)/sd_c.o
 endif
 
 ifeq (${PLAT}, virt)

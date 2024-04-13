@@ -218,7 +218,7 @@ main(void)
   static char buf[100];
   int fd;
 
-  printf("entering sh ....\n"); 
+  // printf("entering sh ....\n"); 
 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
@@ -229,10 +229,10 @@ main(void)
     }
   }
   
-  printf(" dev/procfs entries ....\n"); 
+  printf("To create dev/procfs entries ...."); 
 
   if (create_dev_procfs()==0)
-    printf("created dev/procfs entries done\n"); 
+    printf("OK\n"); 
   logo(); 
   // run_nes();    // xzl: hack
 
