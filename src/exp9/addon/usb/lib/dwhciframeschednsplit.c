@@ -69,13 +69,18 @@ void DWHCIFrameSchedulerNoSplitWaitForFrame (TDWHCIFrameScheduler *pBase)
 	TDWHCIRegister FrameNumber;
 	DWHCIRegister (&FrameNumber, DWHCI_HOST_FRM_NUM);
 
+	// xzl: below - tried to wait for the next frame 
+	// however, on qemu, the assumption that cpu runs much faster than io is broken. 
+	// cpu won't read continuous frame numbers
 	pThis->m_nNextFrame = (DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber))+1) & DWHCI_MAX_FRAME_NUMBER;
 
 	if (!pThis->m_bIsPeriodic)
 	{
-		while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) != pThis->m_nNextFrame)
+		
+		// while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) != pThis->m_nNextFrame)
+		while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) < pThis->m_nNextFrame)
 		{
-			// do nothing
+			// do nothing		
 		}
 	}
 

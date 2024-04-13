@@ -102,6 +102,7 @@ void handle_irq(void) {
             p1 &= (~SYSTEM_TIMER_IRQ_1);
         }
         if (p1 & IRQ_PENDING_1_USB) {
+            V("IRQ_PENDING_1_USB"); 
             BUG_ON(!usb_irq);   // usb irq fired. no usb isr though
             (*usb_irq)(usb_irq_param); 
             p1 &= (~IRQ_PENDING_1_USB); 

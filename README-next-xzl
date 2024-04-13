@@ -391,3 +391,35 @@ qemu hw emulated for rpi3
 https://www.qemu.org/docs/master/system/arm/raspi.html
 (systimer -- no irq still??
 
+
+
+--- 
+notes on USB lib init
+
+init log
+~~~~~~~~~
+uspi:Initializing USPi library 2.00
+usbdev0-1:Device ven424-9514, dev9-0-2 found        // from USBDeviceInitialize()
+usbdev0-1:Interface int9-0-1 found
+usbdev0-1:Function is not supported
+usbdev0-1:Interface int9-0-2 found
+usbdev:Using device/interface int9-0-2
+usbdev0-1:Device ven424-ec00 found
+usbdev:Using device/interface ven424-ec00
+usbdev1-3:Device ven413c-2113 found
+usbdev1-3:Interface int3-1-1 found
+usbdev:Using device/interface int3-1-1
+usbdev1-3:Interface int3-0-0 found
+usbdev:Using device/interface int3-0-0
+smsc951x:MAC address is B8:27:EB:A6:C7:D7
+usbhub:Port 1: Device configured
+usbhub:Port 3: Device configured
+dwroot:Device configured            // DWHCIRootPortInitialize() dwroot is configured at last????
+uspi:USPi library successfully initialized
+
+
+// device init generic func USBDeviceInitialize
+
+// not on our callchain?
+USBStandardHubConfigure()
+    will call USBStandardHubConfigure()....

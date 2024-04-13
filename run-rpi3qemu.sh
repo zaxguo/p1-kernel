@@ -21,8 +21,16 @@
 QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 ${QEMU} -M raspi3b \
 -kernel ./kernel8.img -serial null -serial mon:stdio \
--d int -D qemu.log
+-d int -D qemu.log \
+-usb -device usb-kbd
+
+# -nographic \
+
+
+# monitor
+# QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
+# ${QEMU} -M raspi3b \
+# -kernel ./kernel8.img -monitor stdio -serial null \
+# -d int -D qemu.log \
+# -nographic \
 # -usb -device usb-kbd
-# -usb -device usb-host,hostbus=0,hostaddr=4,id=keyboard,vendorid=0x04d9,productid=0x1702
-
-
