@@ -99,7 +99,7 @@ TUSBFunction *USBDeviceFactoryGetDevice (TUSBFunction *pParent, TString *pName)
 
 	if (pResult != 0)
 	{
-		LogWrite ("usbdev", LOG_NOTICE, "Using device/interface %s", StringGet (pName));
+		LogWrite ("usbdev USBDeviceFactoryGetDevice", LOG_NOTICE, "Using device/interface %s", StringGet (pName));
 	}
 	
 	_String (pName);

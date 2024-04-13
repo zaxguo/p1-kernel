@@ -77,7 +77,7 @@ void handle_generic_timer_irq( void )
 #define TICKPERUS (CLOCKHZ / 1000 / 1000)
 
 static inline unsigned long current_counter() {
-	// assume these two are consistent, since the clock is only 1MHz..
+	// assume these two are consistent, since the clock is only 1MHz...
 	return ((unsigned long) get32va(TIMER_CHI) << 32) | get32va(TIMER_CLO); 
 }
 
@@ -154,17 +154,24 @@ void sys_timer_init(void)
 // return 0 on success
 static int adjust_sys_timer(void)
 {
-	unsigned long next = 0xFFFFFFFFFFFFFFFF; // upcoming firing time
+	unsigned long next = (unsigned long)-1; // upcoming firing time
 
 	for (int tt = 0; tt < N_TIMERS; tt++) {
 		if (!timers[tt].handler)
 			continue; 
 		if (timers[tt].elapseat < next) {
-			next = timers[tt].elapseat;
+			// timer expired, but handler not called? this could happen on qemu
+			// when cpu is slow. call the handler here
+			if (timers[tt].elapseat < current_counter()) {
+				(*timers[tt].handler)(tt, timers[tt].param, timers[tt].context);
+				timers[tt].handler = 0; 
+			} else 
+				next = timers[tt].elapseat;
 		}
 	}
 
-	BUG_ON(current_counter() > next); // next in the past; shoulda fired already
+	// timer expired, but handler not called?? should we handle it?
+	BUG_ON(current_counter() > next); 
 
 	// if no valid handlers, we leave TIMER_C1 as is. it will trigger a timer
 	// irq when wrapping around (~4000 sec later). this is fine as our isr
