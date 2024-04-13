@@ -296,6 +296,9 @@ not amenable to port to xv6's internal inode-centric fs design (and block layer)
 
 therefore, decide to go with xv6's fs... and put it on the 2nd partition of micro sd card??
 
+[ ] overhaul makefile system 
+    PLAT=xxx has some bugs. sometimes not effective??
+    have a build dir, then separate dir for PLAT=virt PLAT=rpi3 etc. also different binary file names
 
 
 [ ] multicore
@@ -396,6 +399,9 @@ https://www.qemu.org/docs/master/system/arm/raspi.html
 --- 
 notes on USB lib init
 
+
+
+
 init log
 ~~~~~~~~~
 uspi:Initializing USPi library 2.00
@@ -417,9 +423,31 @@ usbhub:Port 3: Device configured
 dwroot:Device configured            // DWHCIRootPortInitialize() dwroot is configured at last????
 uspi:USPi library successfully initialized
 
-
-// device init generic func USBDeviceInitialize
-
-// not on our callchain?
-USBStandardHubConfigure()
-    will call USBStandardHubConfigure()....
+UPDATE 4/13 
+AFTER FIXING THE MAJOR ISSUE, THE SLOWDOWN
+BELOW SEEM TOERABLE. TO BE PURSUED LATER
+>>>>> qemu 
+usbdev0-1:Interface int9-0-0 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int9-0-0
+usbdev0-1:xzl: OK 136
+usbdev0-1:xzl: OK 153
+usbdev0-1:xzl: OK 166
+usbdev0-1:xzl: OK 2
+usbdev0-1:xzl: OK 204
+usbdev0-1:xzl: OK 208
+(sometimes slow here??)
+usbdev0-1:xzl: OK 228
+usbdev0-1:xzl: OK 247
+usbdev0-1:xzl: OK 281
+usbdev0-1:xzl: OK 299
+usbdev0-1:Device ven627-1 found [from USBDeviceInitialize()]
+usbdev0-1:xzl: OK 307
+usbdev0-1:Interface int3-1-1 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int3-1-1
+(... here, slow .... )
+usbhub:Port 1: Device configured
+dwroot:Device configured
+uspi:done ... initialize USB host controller interface
+uspi:done ... get storage
+uspi:done ... get eth
+uspi:USPi library successfully initialized
