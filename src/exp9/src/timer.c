@@ -62,7 +62,7 @@ void handle_generic_timer_irq( void )
 /* 
 	These are for Rpi3's "system Timer". Note the caveats:
 	Rpi3: System Timer works fine. Can generate intrerrupts and be used as a counter for timekeeping.
-	QEMU: System Timer can be used for timekeeping. Cannot generate interrupts. 
+	QEMU: System Timer can be used for timekeeping no interrupts (v5); + as well interrupts (v8.2)
 		You may want to adjust @interval as needed
 	cf: 
 	https://fxlin.github.io/p1-kernel/exp3/rpi-os/#fyi-other-timers-on-rpi3
@@ -87,6 +87,8 @@ static inline unsigned long current_counter() {
 static unsigned int cycles_per_ms = 602409; // measured values. before tuning
 static unsigned int cycles_per_us = 599; 
 
+// #ifdef PLAT_RPI3
+#if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU) 
 // use sys timer to measure: # of cpu cycles per ms 
 static void sys_timer_tune_delay() {
 	unsigned long cur0 = current_counter(), ms, us; 
@@ -99,6 +101,7 @@ static void sys_timer_tune_delay() {
 	cycles_per_ms = ncycles / ms; 
 	I("cycles_per_us %u cycles_per_ms %u", cycles_per_us, cycles_per_ms);
 }
+#endif
 
 void ms_delay(unsigned ms) {
 	BUG_ON(!cycles_per_ms);
@@ -120,8 +123,7 @@ void current_time(unsigned *sec, unsigned *msec) {
 
 #endif 
 
-
-#if defined(PLAT_RPI3)
+#if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU) 
 ////////////// virtual kernel timers 
 
 struct spinlock timerlock;

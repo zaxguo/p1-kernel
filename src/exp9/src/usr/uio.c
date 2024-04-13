@@ -15,7 +15,7 @@ int config_fbctl(int w, int d, int vw, int vh, int offx, int offy) {
 
     sprintf(buf, "%d %d %d %d %d %d\n", w, d, vw, vh, offx, offy); 
     n=write(fbctl,buf,strlen(buf)); 
-    printf("write returns %d\n", n);
+    // printf("write returns %d\n", n);
     close(fbctl);  // flush it 
     return !(n>0); 
 }

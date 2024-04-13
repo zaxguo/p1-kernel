@@ -4,7 +4,7 @@
 #include "fs.h"
 #include "buf.h"
 
-// assuming a sector is 512B
+// assuming a ramdisk "sector" is 512B
 
 // defined in linker.ld, kernel va
 extern char ramdisk_start, ramdisk_end; 
@@ -18,14 +18,18 @@ ramdisk_init(void) {
 
 void            
 ramdisk_rw(struct buf *b, int write) {
-    uint64 sector = b->blockno * (BSIZE / 512);
+    uint sec_no = b->blockno * (BSIZE / 512);
 
-    BUG_ON(&ramdisk_start + 512*sector > &ramdisk_end);
+    if (&ramdisk_start + 512*sec_no > &ramdisk_end) {
+        E("requesting sec %u, total sec %d", sec_no, 
+            (int)(&ramdisk_end - &ramdisk_start)/512);
+        BUG(); 
+    }
 
     acquire(&ramdisk_lock);
     if (write)
-        memmove(&ramdisk_start + 512*sector, b->data, BSIZE); 
+        memmove(&ramdisk_start + 512*sec_no, b->data, BSIZE); 
     else 
-        memmove(b->data, &ramdisk_start + 512*sector, BSIZE); 
+        memmove(b->data, &ramdisk_start + 512*sec_no, BSIZE); 
     release(&ramdisk_lock);
 }

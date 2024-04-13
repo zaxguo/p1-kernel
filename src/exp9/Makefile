@@ -1,4 +1,4 @@
-# PLAT ?= virt
+# PLAT = virt
 # PLAT ?= rpi3qemu
 PLAT ?= rpi3
 
@@ -61,7 +61,7 @@ $(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	@echo  KERNEL CC $< "->" $@
 	@mkdir -p $(@D)
-	@$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 # font build rules. 
 # NB: the symbols in the binary will have prefix "_binary". 
@@ -119,6 +119,15 @@ BIN_OBJS += $(BUILD_DIR)/font_psf.o
 # plat specific source 
 ifeq (${PLAT}, rpi3qemu)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
+# usb glue
+C_OBJS += $(BUILD_DIR)/uspibind_c.o		
+C_OBJS += $(BUILD_DIR)/kb_c.o
+# usb devices (kb, gamepad, etc
+BIN_OBJS += addon/usb/lib/libuspi.a		
+# sound 		
+C_OBJS += $(BUILD_DIR)/sound_c.o
+C_OBJS += $(BUILD_DIR)/gpio_c.o
+C_OBJS += $(BUILD_DIR)/machineinfo_c.o	
 endif
 
 ifeq (${PLAT}, rpi3)
@@ -130,7 +139,7 @@ C_OBJS += $(BUILD_DIR)/kb_c.o
 C_OBJS += $(BUILD_DIR)/sound_c.o
 C_OBJS += $(BUILD_DIR)/gpio_c.o
 C_OBJS += $(BUILD_DIR)/machineinfo_c.o	
-# usb lib	
+# usb devices (kb, gamepad, etc
 BIN_OBJS += addon/usb/lib/libuspi.a		
 # C_OBJS += $(BUILD_DIR)/ampibind_c.o		# sound(vchiq) glue
 # BIN_OBJS += addon/sound/ampi/libampi.a		# hdmi sound lib

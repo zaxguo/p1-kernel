@@ -96,8 +96,12 @@ struct task_struct {
   	char name[16];               // Process name (debugging)	
 };
 
+// use this to check struct size at compile time
+// https://stackoverflow.com/questions/11770451/what-is-the-meaning-of-attribute-packed-aligned4
+// char (*__kaboom)[sizeof(struct task_struct)] = 1; 
+
 // bottom half a page; make sure the top half enough space for ker stack...
-_Static_assert(sizeof(struct task_struct) < 2048);	
+_Static_assert(sizeof(struct task_struct) < 1200);	// 1408 seems too big, corrupt stack?
 
 // --------------- processor related ----------------------- // 
 // we only support 1 cpu (as of now), but xv6 code is around multicore so we keep the 

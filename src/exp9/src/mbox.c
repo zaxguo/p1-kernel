@@ -186,11 +186,14 @@ struct fb_struct the_fb = {
     .scr_width = 0,
     .scr_height = 0, 
     .depth = 32, 
-    .isrgb = 1, 
+    .isrgb = 0,     // see below 
     .offsetx = 0,
     .offsety = 0,
     .size = 0, 
 }; 
+// isrgb: whatever the doc says, 0 seems rgb; 1 seems bgr
+// rpi3 hw will return "0" even if we asks for "1"
+// qemu will do whatever we ask ("0" or "1"), but if "1", color channels are bgr
 
 // detect phys display optimal x/y, if unconfigured
 // caller must hold mboxlock
@@ -333,8 +336,9 @@ static int do_fb_init(struct fb_struct *fbs)
         if(fbs->pitch * fbs->vheight > mbox[29])  // possible that pitch*vheight < actual allocation
             {W("pitch %d x vheight %d!= mbox[29] %u", fbs->pitch, fbs->vheight, mbox[29]);BUG();}
         fbs->size = PGROUNDUP(fbs->pitch * fbs->vheight);  // roundup b/c we'll reserve pages for it
-        I("OK. fb pa: 0x%08x w %u h %u vw %u vh %u pitch %u", 
-            mbox[28], fbs->width, fbs->height, fbs->vwidth, fbs->vheight, fbs->pitch); 
+        I("OK. fb pa: 0x%08x w %u h %u vw %u vh %u pitch %u isrgb %u", 
+            mbox[28], fbs->width, fbs->height, fbs->vwidth, fbs->vheight, 
+                fbs->pitch, fbs->isrgb); 
     } else {
         E("Unable to set screen resolution to 1024x768x32\n");
         return -2; 
@@ -501,6 +505,11 @@ void lfb_proprint(int x, int y, char *s)
 #define IMG_DATA header_data      
 #define IMG_HEIGHT height
 #define IMG_WIDTH width
+
+// #include "rev_uva_logo_color3-resized.h"
+// #define IMG_DATA img_data      
+// #define IMG_HEIGHT img_height
+// #define IMG_WIDTH img_width
 void fb_showpicture()
 {
     int x,y;
@@ -520,6 +529,7 @@ void fb_showpicture()
             // the image is in RGB. So if we have an RGB framebuffer, we can copy the pixels
             // directly, but for BGR we must swap R (pixel[0]) and B (pixel[2]) channels.
             *((unsigned int*)ptr)=the_fb.isrgb ? *((unsigned int *)&pixel) : (unsigned int)(pixel[0]<<16 | pixel[1]<<8 | pixel[2]);
+            // *((unsigned int*)ptr)=(!the_fb.isrgb) ? *((unsigned int *)&pixel) : (unsigned int)(pixel[0]<<16 | pixel[1]<<8 | pixel[2]);
             ptr+=4;
         }
         ptr+=the_fb.pitch-img_fb_width*4;

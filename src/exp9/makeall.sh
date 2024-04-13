@@ -5,7 +5,7 @@
 
 pushd .
 cd src/usr/
-make clean && make -j20
+make clean && make PLAT=rpi3qemu -j20
 popd
 
-make clean && make -j20
+make clean && make PLAT=rpi3qemu -j20

@@ -69,7 +69,8 @@
         "circle-glue.h": "c",
         "sound-sample.h": "c",
         "procfs.h": "c",
-        "fb.h": "c"
+        "fb.h": "c",
+        "rev_uva_logo_color3-resized.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

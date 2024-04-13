@@ -42,8 +42,9 @@ struct BitmapHeader {
   uint32_t clrused, clrimportant;
 } __attribute__((packed));
 
-// load bmp file into a packed buf. expect 24bit color depth
-// return:  pixel buffer. 
+// load bmp file into a pixel buf. 
+// bmp file: each pixel 3 bytes (r/g/b) packed. 
+// return pixel buf: each pixel 4 bytes 0/r/g/b 
 // caller must free the buffer 
 void* BMP_Load(const char *filename, int *width, int *height) {
   int nread; 
@@ -66,7 +67,7 @@ void* BMP_Load(const char *filename, int *width, int *height) {
   for (int i = 0; i < h; i ++) {
     lseek(fd, hdr.offset + (h - 1 - i) * line_off, SEEK_SET);
     nread = read(fd, &pixels[w * i], 3*w);  assert(nread==3*w); // read a row
-    // reshape a row: from pixel r/g/b to 0/r/g/b 
+    // reshape a row (backward): from pixel r/g/b to 0/r/g/b 
     for (int j = w - 1; j >= 0; j --) {
       uint8_t b = *(((uint8_t*)&pixels[w * i]) + 3 * j);
       uint8_t g = *(((uint8_t*)&pixels[w * i]) + 3 * j + 1);
@@ -96,12 +97,38 @@ int dispinfo[MAX_DISP_ARGS]={0};
 static int cur = 1;   // cur slide num 
 static int fb = 0; 
 
+// fill the whole fb with given clr
+void set_bkgnd(unsigned int clr, int w, int h) {
+    unsigned int *p = (unsigned int *) malloc(w*h*PIXELSIZE);
+    assert(p); 
+    for (int i = 0; i < w*h; i++)
+      p[i] = clr; 
+    
+    int n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
+
+    if (write(fb, p, w*h*PIXELSIZE) < w*h*PIXELSIZE)
+      printf("failed to fb\n"); 
+    free(p);
+}
+
 void render() {
   char fname[256];
   int w, h; 
   sprintf(fname, (char *)path, cur);
   char *pixels = BMP_Load(fname, &w, &h); 
   if (!pixels) {printf("load from %s failed\n", fname); return;}
+
+#if 0
+  // test understanding of hw color. rewrite pixbuf with a single color (argb)
+  // esp: is r and b swapped??
+  {
+    char a=0xaa, r=0xff, g=0x00, b=0x00;
+    unsigned int *p = (unsigned int *)pixels; 
+    unsigned int clr = (a<<24) | (r<<16) | (g<<8) | b; 
+    for (int i = 0; i < w*h; i++)
+      p[i] = clr; 
+  }
+#endif
 
   // crop img data per the framebuf size  
   int vwidth= dispinfo[VWIDTH], vheight = dispinfo[VHEIGHT]; 
@@ -174,7 +201,11 @@ int main() {
   // }
   read_dispinfo(dispinfo, &n); assert(n>0);
   printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d\n", 
-    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH], dispinfo[PITCH]); 
+    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH], 
+    dispinfo[PITCH], dispinfo[DEPTH]); 
+
+  // rpi3 hw seems to clear fb with 0x0, while rpi3qemu does not 
+  set_bkgnd(0x00ffffff /*white*/, dispinfo[VWIDTH], dispinfo[VWIDTH]);
 
   render();
   

@@ -107,6 +107,23 @@ void _DWHCIDevice (TDWHCIDevice *pThis)
 
 // xzl: the main init sequence: 
 //		power on, init core, init host, enable root port, init root port
+// 		about dwc hw revison:
+//		https://elixir.bootlin.com/linux/latest/source/drivers/usb/dwc2/core.h
+
+/* DWC OTG HW Release versions */
+#define DWC2_CORE_REV_4_30a	0x4f54430a
+#define DWC2_CORE_REV_2_71a	0x4f54271a
+#define DWC2_CORE_REV_2_72a     0x4f54272a
+#define DWC2_CORE_REV_2_80a	0x4f54280a		// xzl: this is read from rpi3b hw
+#define DWC2_CORE_REV_2_90a	0x4f54290a
+#define DWC2_CORE_REV_2_91a	0x4f54291a
+#define DWC2_CORE_REV_2_92a	0x4f54292a
+#define DWC2_CORE_REV_2_94a	0x4f54294a		// xzl: read from qemu v8.2, -M raspi3b (hw/usb/hcd-dwc2.c) no particular reason?
+#define DWC2_CORE_REV_3_00a	0x4f54300a
+#define DWC2_CORE_REV_3_10a	0x4f54310a
+#define DWC2_CORE_REV_4_00a	0x4f54400a
+#define DWC2_CORE_REV_4_20a	0x4f54420a
+
 boolean DWHCIDeviceInitialize (TDWHCIDevice *pThis)
 {
 	assert (pThis != 0);
@@ -115,7 +132,8 @@ boolean DWHCIDeviceInitialize (TDWHCIDevice *pThis)
 
 	TDWHCIRegister VendorId;
 	DWHCIRegister (&VendorId, DWHCI_CORE_VENDOR_ID);
-	if (DWHCIRegisterRead (&VendorId) != 0x4F54280A)
+	if (DWHCIRegisterRead (&VendorId) != DWC2_CORE_REV_2_80a  && 
+		DWHCIRegisterRead (&VendorId) != DWC2_CORE_REV_2_94a)
 	{
 		LogWrite (FromDWHCI, LOG_ERROR, "Unknown vendor 0x%0X", DWHCIRegisterGet (&VendorId));
 		_DWHCIRegister (&VendorId);

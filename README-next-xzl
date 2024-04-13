@@ -267,8 +267,34 @@ reg shows DMA xfer 'ends'. (prematurely?)
 
 indeed weird behavior. but after allocating the right size, things work 
 
+[x] fix a bug that exists in the copied code (bigger xv6 files)
+    the erronoeous use of idx (the orginal authors didnt test thorougly
+
+more: now hit the ramkdisk capaicty --- panic. why???? 
+
 good dma article on rpi3
 https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/
+
+[x] extend xv6 filesystem. which has limited file size. 
+its a well known exercise. 
+https://github.com/himelbrand/xv6-fs/commit/c80d7d8e5101b8faef745a58611a3bd15113b4fe (has bug
+https://github.com/nxbyte/Advanced-xv6/blob/master/6%20-%20Filesystem%20-%20Triply%20Indirect/fs.c (btter, also has a small bug)
+    ^^ also contains impl for triple indirect ptrs
+
+
+fixed some bugs from public code. also fixed issues in usertests
+
+in the future, cmdline flash to sd card: 
+C:\Program Files (x86)\Raspberry Pi Imager>rpi-imager-cli.cmd
+Usage: --cli [--disable-verify] [--sha256 <expected hash> [--cache-file <cache file>]] [--first-run-script <script>] [--debug] [--quiet] <image file to write> <destination drive device>
+
+considered fat32 solution (opensource, elmfs or called ChaN fat32), used by 
+rtthread OS and Circle. it's mature but complex (6ksloc). it's also very self contained, 
+exposing high level, syscall-like interface. no inode concept. any on-disk data 
+structures are encapsulated and not exposed. 
+not amenable to port to xv6's internal inode-centric fs design (and block layer). 
+
+therefore, decide to go with xv6's fs... and put it on the 2nd partition of micro sd card??
 
 
 
@@ -358,4 +384,10 @@ src/mini_uart.c (removed)
 
 added
 src/pl011.c
+
+
+------
+qemu hw emulated for rpi3
+https://www.qemu.org/docs/master/system/arm/raspi.html
+(systimer -- no irq still??
 

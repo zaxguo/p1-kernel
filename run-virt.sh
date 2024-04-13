@@ -6,4 +6,7 @@
 -drive if=none,file=sd.bin,format=raw,id=blk0 -device virtio-blk-device,drive=blk0,bus=virtio-mmio-bus.0 \
 -d int,trace:virtio_blk*,trace:virtio_mmio_setting_irq -D qemu.log 
 
+# also for rpi3 qemu: 
+#  https://github.com/RT-Thread/rt-thread/blob/master/bsp/raspberry-pi/raspi3-64/qemu-64.sh
+# no much info
 
