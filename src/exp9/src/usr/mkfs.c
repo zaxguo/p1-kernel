@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <assert.h>
 
+// xzl: very simple. only make files, no dirs
+
 #define stat xv6_stat  // avoid clash with host struct stat
 
 #include "../param.h"
@@ -30,7 +32,7 @@ int fsfd;
 struct superblock sb;
 char zeroes[BSIZE];
 uint freeinode = 1;
-uint freeblock;
+uint freeblock;   // current freeblock id, seq allocation
 
 
 void balloc(int);
@@ -90,7 +92,7 @@ main(int argc, char *argv[])
     die(argv[1]);
 
   // 1 fs block = 1 disk sector
-  nmeta = 2 + nlog + ninodeblocks + nbitmap;
+  nmeta = 2 + nlog + ninodeblocks + nbitmap;  // xzl:# of "meta" blocks
   nblocks = FSSIZE - nmeta;
 
   sb.magic = FSMAGIC;
@@ -114,6 +116,7 @@ main(int argc, char *argv[])
   memmove(buf, &sb, sizeof(sb));
   wsect(1, buf);
 
+  // xzl: create rootdir .. 
   rootino = ialloc(T_DIR);
   assert(rootino == ROOTINO);
 
@@ -127,7 +130,8 @@ main(int argc, char *argv[])
   strcpy(de.name, "..");
   iappend(rootino, &de, sizeof(de));
 
-  for(i = 2; i < argc; i++){  // xzl: go through all files passed in
+  // xzl: create all files passed in
+  for(i = 2; i < argc; i++){  
     // get rid of "user/"
     char *shortname;
     if(strncmp(argv[i], "user/", 5) == 0)
@@ -181,7 +185,7 @@ wsect(uint sec, void *buf)
     die("write");
 }
 
-void
+void  // xzl: write inode
 winode(uint inum, struct dinode *ip)
 {
   char buf[BSIZE];
@@ -195,7 +199,7 @@ winode(uint inum, struct dinode *ip)
   wsect(bn, buf);
 }
 
-void
+void  // xzl: read from inode
 rinode(uint inum, struct dinode *ip)
 {
   char buf[BSIZE];
@@ -208,8 +212,8 @@ rinode(uint inum, struct dinode *ip)
   *ip = *dip;
 }
 
-void
-rsect(uint sec, void *buf)        // xzl: read from a sector?
+void    // xzl: read from a sector
+rsect(uint sec, void *buf)        
 {
   if(lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
     die("lseek");
@@ -217,7 +221,7 @@ rsect(uint sec, void *buf)        // xzl: read from a sector?
     die("read");  // xzl: this failed, why (reports "Success"
 }
 
-uint
+uint    // xzl: alloc inode and zero fill
 ialloc(ushort type)
 {
   uint inum = freeinode++;
@@ -249,28 +253,31 @@ balloc(int used)
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-void
+void        // xzl: append data (xp, bytes: n) to inode
 iappend(uint inum, void *xp, int n)
 {
   char *p = (char*)xp;
   uint fbn, off, n1;
   struct dinode din;
   char buf[BSIZE];
-  uint indirect[NINDIRECT];
+  uint indirect[NINDIRECT], indirect2[NINDIRECT];;
   uint x;
 
   rinode(inum, &din);
-  off = xint(din.size);
+  off = xint(din.size); // write offset. 
+  
+  // NB: the 1st/last block can be a fraction of blk.
+
   // printf("append inum %d at off %d sz %d\n", inum, off, n);
-  while(n > 0){
-    fbn = off / BSIZE;    // xzl: file block num?
+  while(n > 0){   // n: # remaining bytes to write
+    fbn = off / BSIZE;    // fbn: current blk to alloc/append
     assert(fbn < MAXFILE);  // xzl: ~270KB filesize limit..
     if(fbn < NDIRECT){
       if(xint(din.addrs[fbn]) == 0){
-        din.addrs[fbn] = xint(freeblock++);
+        din.addrs[fbn] = xint(freeblock++); // alloc & link free blk
       }
-      x = xint(din.addrs[fbn]);
-    } else {
+      x = xint(din.addrs[fbn]);  // x: blk addr
+    } else if (fbn < NDIRECT + NINDIRECT) {  // indirect 
       if(xint(din.addrs[NDIRECT]) == 0){
         din.addrs[NDIRECT] = xint(freeblock++);
       }
@@ -280,8 +287,28 @@ iappend(uint inum, void *xp, int n)
         wsect(xint(din.addrs[NDIRECT]), (char*)indirect);
       }
       x = xint(indirect[fbn-NDIRECT]);
+    } else {    // doubly indirect
+      if(xint(din.addrs[NDIRECT+1]) == 0){  // lv1 ptr (on inode) == 0
+        din.addrs[NDIRECT+1] = xint(freeblock++);
+      }
+      rsect(xint(din.addrs[NDIRECT+1]), (char*)indirect);
+      int idx = (fbn - NDIRECT - NINDIRECT) / NINDIRECT;  // idx: for lv2 ptr
+      if (indirect[idx] == 0) { 
+        indirect[idx] = xint(freeblock++); 
+        wsect(xint(din.addrs[NDIRECT+1]), (char*)indirect); // write back
+      }
+      rsect(xint(indirect[idx]), (char*)indirect2);
+
+      int idx2 = (fbn - NDIRECT - NINDIRECT) % NINDIRECT;  // idx2: for lv3 ptr
+      if (indirect2[idx2] == 0) {
+        indirect2[idx2] = xint(freeblock++); 
+        wsect(xint(indirect[idx]), (char*)indirect2); // write back
+      }
+      x = xint(indirect2[idx2]);
+      // printf("alloc fbn %u idx %d idx2 %d baddr %u\n", fbn, idx, idx2, x);
     }
-    n1 = min(n, (fbn + 1) * BSIZE - off);
+    // n1: bytes to write == min(n, remainder of the current block)
+    n1 = min(n, (fbn + 1) * BSIZE - off);   
     rsect(x, buf);
     bcopy(p, buf + off - (fbn * BSIZE), n1);
     wsect(x, buf);

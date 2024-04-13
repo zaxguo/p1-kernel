@@ -85,12 +85,14 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 //// main loop
 
 // will be used as virt fb size
-#define W 400
-#define H 300
+// #define W 400
+// #define H 300
+#define W 960
+#define H 720
 
 const int N = 10; // max slide num 
 // slides path pattern (starts from 1, per pptx export naming convention)
-const char *path = "/Slide%d.bmp";
+const char *path = "/Slide%d.BMP";
 
 int dispinfo[MAX_DISP_ARGS]={0};
 

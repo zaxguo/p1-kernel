@@ -17,6 +17,8 @@
 #     (note - color depth: 24bit; resize by filesize: 200KB
 # then manual rename 
 
+
+# below are old commands for ref
 convert slides.pdf \
   -sharpen "0x1.0" \
   -type truecolor -resize 400x300\! slides-%3d.bmp

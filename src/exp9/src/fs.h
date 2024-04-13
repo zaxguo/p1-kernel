@@ -25,8 +25,7 @@ struct superblock {
 
 #define NDIRECT 12
 #define NINDIRECT (BSIZE / sizeof(uint))
-#define DNINDIRECT (NINDIRECT * NINDIRECT)  // doubly indirect blocks
-#define MAXFILE (NDIRECT + NINDIRECT + DNINDIRECT)       
+#define MAXFILE (NDIRECT + NINDIRECT + NINDIRECT*NINDIRECT)       
 // xzl: max # of blocks per file. ~270KB filesize limit with only 1 indirect ptr; 
 // ~16MB with an additional doubly indirect ptr
 

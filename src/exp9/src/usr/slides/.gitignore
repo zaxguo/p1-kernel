@@ -1,3 +1,4 @@
 !convert.sh
 *.bmp
 *.pdf
+**/*.bmp

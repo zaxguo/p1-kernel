@@ -429,7 +429,7 @@ bmap(struct inode *ip, uint bn)
   bn -= NINDIRECT; 
 
   // doubly indirect ptr 
-  if (bn < DNINDIRECT) {
+  if (bn < NINDIRECT * NINDIRECT) {
       if ((addr = ip->addrs[NDIRECT + 1]) == 0) // locate lv1 indirect block
           ip->addrs[NDIRECT + 1] = addr = balloc(ip->dev); // inode will be done by iwrite()
       bp = bread(ip->dev, addr);

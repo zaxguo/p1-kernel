@@ -36,7 +36,7 @@ void kernel_process() {
 	// test_usb_storage(); while (1); 
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
-	test_sd(); while (1); 
+	// test_sd(); while (1); 
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
