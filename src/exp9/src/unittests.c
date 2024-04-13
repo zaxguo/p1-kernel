@@ -312,11 +312,15 @@ void test_fb() {
 void test_sd() {
     unsigned char *buf = kalloc();     BUG_ON(!buf);
     TMasterBootRecord *mbr = (TMasterBootRecord *)buf; 
+    unsigned sec, msec, sec1, msec1; 
 
     // initialize EMMC and detect SD card type
     if(sd_init()==0) {
-        if(sd_readblock(0,buf,1)) {
-            // dump it to serial console
+        current_time(&sec, &msec);
+        // read from block 0 and parse MBR
+        if(sd_readblock(0,buf,1)) {            
+            current_time(&sec1, &msec1);
+            W("read 1 blk takes: %u ms", sec1*1000+msec1-sec*1000-msec); // 1-7ms on rpi3
 
             if (mbr->BootSignature != BOOT_SIGNATURE) {
                 W("Boot signature not found");
@@ -332,7 +336,7 @@ void test_sd() {
             //  called DOS compatibility region or MBR gap, because DOS required 
             //  that the partitions started at cylinder boundaries".
             for (unsigned nPartition = 0; nPartition < 4; nPartition++) {
-                W("%u %02X     %02X   %10u %10u",
+                I("%u %02X     %02X   %10u %10u",
                 nPartition + 1,
                 (unsigned)mbr->Partition[nPartition].Status,
                 (unsigned)mbr->Partition[nPartition].Type,
@@ -340,6 +344,19 @@ void test_sd() {
                 mbr->Partition[nPartition].NumberOfSectors);
             }
         }
+        // write to block 1 as "boot counter"
+        // rationale: https://github.com/bztsrc/raspi3-tutorial/tree/master/15_writesector
+        if(sd_readblock(1,buf,1)) {            
+            // use the last 4 bytes on the second sector as a boot counter
+            unsigned int *counter = (unsigned int*)(buf + 508);
+            I("read cur boot counter: %u", *counter); (*counter)++; 
+
+            current_time(&sec, &msec);
+            if (sd_writeblock(buf,1/*block no*/, 1/*cnt*/) == 512) {
+                current_time(&sec1, &msec1);
+                W("written 1 blk takes: %u ms", sec1*1000+msec1-sec*1000-msec); // ~2-3ms on rpi3
+            } else E("write blk err");
+        } else E("read blk err");
     }
 out:     
     kfree(buf); 

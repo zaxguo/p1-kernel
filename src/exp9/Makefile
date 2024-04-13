@@ -40,9 +40,11 @@ endif
 
 ##### the flags for certain .c files that must use -O0
 COPS1 = $(COPS)
-COPS1 += -O0
-#COPS += -O2
-COPS += -O0
+COPS1 += -O0 	
+
+# generic
+COPS += -O2
+# COPS += -O0
 
 BUILD_DIR = build
 SRC_DIR = src

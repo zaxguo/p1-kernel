@@ -31,7 +31,7 @@ struct sound_dev;
 
 // ------------------- misc ----------------------------- //
 
-extern void delay (unsigned long cycles);   // utils.S 
+extern void delay (unsigned long cycles);   // utils.S
 // extern void put32 ( unsigned long, unsigned int );
 // extern unsigned int get32 ( unsigned long );
 extern void put32(unsigned int *addr, unsigned int v);
@@ -274,6 +274,14 @@ int sound_playback_active(struct sound_drv *drv);
 int sound_write(struct sound_drv *drv, uint64 src, size_t nCount);
 int sound_start(struct sound_drv *drv);
 void sound_cancel(struct sound_drv *drv);
+
+// sd.c
+#define SD_OK                0
+#define SD_TIMEOUT          -1
+#define SD_ERROR            -2
+int sd_init();
+int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num);
+int sd_writeblock(unsigned char *buffer, unsigned int lba, unsigned int num);
 
 
 // linux
