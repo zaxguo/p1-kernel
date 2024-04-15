@@ -57,6 +57,19 @@ fdalloc(struct file *f)
   return -1;
 }
 
+// http://elm-chan.org/fsw/ff/doc/filename.html
+static int is_fatpath(const char *path) {
+  return (strncmp(path, "/d/", 3) == 0); 
+}
+
+// path is like "/d/file.txt", whereas
+// ffs expects a path name like: "2:file.txt" where 2 is the volume id (i.e.
+// our dev id) used in f_mount()
+// pathout must be preallocated
+static int to_fatpath(const char *path, char *fatpath, int dev) {
+  return snprintf(fatpath, MAXPATH, "%d:%s", dev, path+2/*skip*/); 
+}
+
 int sys_dup(int fd) {
   struct file *f;
   int fd1;
@@ -190,6 +203,17 @@ int sys_unlink(unsigned long upath /*user va*/) {
   if(fetchstr(upath, path, MAXPATH) < 0)
     return -1;
 
+#ifdef CONFIG_FAT
+  if (is_fatpath(path)) {
+     char fatpath[MAXPATH]; // too much on stack?
+     to_fatpath(path, fatpath, SECONDDEV);
+     if ((f_unlink(fatpath) == FR_OK))
+      return 0; 
+    else 
+      return -1; 
+  }
+#endif
+
   begin_op();
   if((dp = nameiparent(path, name)) == 0){
     end_op();
@@ -202,7 +226,7 @@ int sys_unlink(unsigned long upath /*user va*/) {
   if(namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
     goto bad;
 
-  // xzl: dp-parent inode; ip-this inode
+  // xzl: dp:parent inode; ip:this inode
   if((ip = dirlookup(dp, name, &off)) == 0)
     goto bad;
   ilock(ip);
@@ -317,19 +341,6 @@ create(char *path, short type, short major, short minor)
   iunlockput(ip);
   iunlockput(dp);
   return 0;
-}
-
-// http://elm-chan.org/fsw/ff/doc/filename.html
-static int is_fatpath(const char *path) {
-  return (strncmp(path, "/d/", 3) == 0); 
-}
-
-// path is like "/d/file.txt", whereas
-// ffs expects a path name like: "2:file.txt" where 2 is the volume id (i.e.
-// our dev id) used in f_mount()
-// pathout must be preallocated
-static int to_fatpath(const char *path, char *fatpath, int dev) {
-  return snprintf(fatpath, MAXPATH, "%d:%s", dev, path+2/*skip*/); 
 }
 
 extern struct inode* fat_open(const char *path, int omode);  // fs.c

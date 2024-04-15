@@ -629,10 +629,10 @@ writetestfat(char *s)  // xzl: fat version of above
   }
   close(fd);
 
-  // if(unlink("small") < 0){
-  //   printf("%s: unlink small failed\n", s);
-  //   exit(1);
-  // }
+  if(unlink("/d/small") < 0){
+    printf("%s: unlink small failed\n", s);
+    exit(1);
+  }
 }
 
 
