@@ -182,6 +182,7 @@ struct inode*   ialloc(uint, short);
 struct inode*   idup(struct inode*);
 void            iinit();
 void            ilock(struct inode*);
+void            ilock_fat(struct inode*);
 void            iput(struct inode*);
 void            iunlock(struct inode*);
 void            iunlockput(struct inode*);
@@ -203,6 +204,7 @@ int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
 int atoi(const char *s); 
+char* strchr(const char *s, char c);
 
 //sys.c 
 int             fetchstr(uint64, char*, int);
@@ -280,8 +282,18 @@ void sound_cancel(struct sound_drv *drv);
 #define SD_TIMEOUT          -1
 #define SD_ERROR            -2
 int sd_init();
+// read/write of whole sd card, no lock so mostly for testing
 int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num);
 int sd_writeblock(unsigned char *buffer, unsigned int lba, unsigned int num);
+// //  read/write of a sd "dev" (partition) (e.g. dev=SD_DEV0...)
+// int sd_dev_readblock(int dev,
+//     unsigned int lba, unsigned char *buffer, unsigned int num);
+// int sd_part_writeblock(int dev, 
+//     unsigned char *buffer, unsigned int lba, unsigned int num);
+unsigned long sd_dev_get_sect_count(int dev);
+int sd_dev_to_part(int dev); 
+
+unsigned long sd_get_sect_size();
 
 
 // linux

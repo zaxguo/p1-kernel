@@ -2,6 +2,9 @@
 # PLAT ?= rpi3qemu
 PLAT ?= rpi3
 
+# support for fat32 fs
+CONFIG_FAT ?= 1
+
 ARMGNU ?= aarch64-linux-gnu
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -Isrc \
@@ -36,15 +39,21 @@ COPS += -DPLAT_RPI3 -mcpu=cortex-a53+fp+simd -mstrict-align
 ASMOPS += -DPLAT_RPI3
 LINKSCR = $(SRC_DIR)/linker-rpi3.ld
 endif
+
+##### feature specific flags ####
+ifeq (${CONFIG_FAT}, 1)
+COPS += -DCONFIG_FAT
+endif
 #################################
 
 ##### the flags for certain .c files that must use -O0
 COPS1 = $(COPS)
 COPS1 += -O0 	
+#################################
 
 # generic
-COPS += -O2
-# COPS += -O0
+# COPS += -O2
+COPS += -O0
 
 BUILD_DIR = build
 SRC_DIR = src
@@ -155,6 +164,12 @@ ifeq (${PLAT}, virt)
 C_OBJS += $(BUILD_DIR)/pl011_c.o
 C_OBJS += $(BUILD_DIR)/virtio_disk_c.o
 endif
+
+##### feature specific source ####
+ifeq (${CONFIG_FAT}, 1)
+C_OBJS += $(BUILD_DIR)/ff_c.o
+endif
+#################################
 
 DEP_FILES = $(C_OBJS:%.o=%.d)
 -include $(DEP_FILES)

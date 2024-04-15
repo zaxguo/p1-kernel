@@ -13,6 +13,9 @@
 #include "utils.h"
 #include "procfs.h"
 
+#ifdef CONFIG_FAT
+#include "ff.h"
+#endif
 
 struct devsw devsw[NDEV]; // devices and their direct read/write funcs
 struct {
@@ -85,6 +88,14 @@ void fileclose(struct file *f) {
     f->type = FD_NONE;
     release(&ftable.lock);
 
+#ifdef CONFIG_FAT
+    // close file here, dont have to wait until iput() below, which will just free
+    // inode for us
+    if (ff.ip->type == FD_INODE_FAT)  {
+        f_close(ff.ip->fatfp); free(ff.ip->fatfp); 
+    }
+#endif
+
     if (ff.type == FD_PIPE) {
         pipeclose(ff.pipe, ff.writable);
     } else if (ff.type == FD_INODE || ff.type == FD_DEVICE 
@@ -117,7 +128,7 @@ static int procfs_read(struct file *f, uint64 dst, uint n);
 
 // Read from file f.
 // addr is a user virtual address. 
-// return actual bytes read. -1 on error
+// return actual bytes read. <0 on error
 int fileread(struct file *f, uint64 addr, int n) {
     int r = 0;
 
@@ -135,7 +146,24 @@ int fileread(struct file *f, uint64 addr, int n) {
         if ((r = readi(f->ip, 1, addr, f->off, n)) > 0) // fs read
             f->off += r;
         iunlock(f->ip);
-    } else if (f->type == FD_PROCFS) {
+    } 
+#ifdef CONFIG_FAT    
+    else if (f->type == FD_INODE_FAT) { 
+        //  alloc a kernel buf as large as n, and read in. 
+        //  TODO optimize: kalloc() one page only, and read in one page at a time
+        char *buf = malloc(n); if (!buf) {return -2;}
+        unsigned n1; 
+        ilock_fat(f->ip);            
+        if (f_read(f->ip->fatfp, buf, n, &n1) == FR_OK &&
+            either_copyout(1/*usrdst*/, addr, buf, n1) == 0)
+            r = (int)n1;
+        else 
+            {r = -1; BUG();}
+        iunlock(f->ip);
+        free(buf); 
+    } 
+#endif                    
+    else if (f->type == FD_PROCFS) {
         // cf file.h procfs_state comments
         // procfs maintains offs for read/write separately. 
         // so don't use f->off.
@@ -247,7 +275,24 @@ int filewrite(struct file *f, uint64 addr, int n) {
             i += r;
         }
         ret = (i == n ? n : -1);
-    } else if (f->type == FD_PROCFS) {
+    } 
+#ifdef CONFIG_FAT    
+    else if (f->type == FD_INODE_FAT) { 
+            //  alloc a kernel buf as large as n, and write. 
+            //  TODO optimize: kalloc() one page only, and read in one page at a time
+            char *buf = malloc(n); if (!buf) {return -2;}
+            unsigned n1; 
+            ilock_fat(f->ip);
+            if (either_copyin(buf, 1/*usrdst*/, addr, n) == 0 &&
+                f_write(f->ip->fatfp, buf, n, &n1) == FR_OK)
+                ret = (int)n1;
+            else 
+                {ret = -1; BUG();}
+            iunlock(f->ip);
+            free(buf); 
+    } 
+#endif               
+    else if (f->type == FD_PROCFS) {
         return procfs_write(f, addr, n); 
     } else
         panic("filewrite");

@@ -121,6 +121,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
     fsinit(ROOTDEV);
+	fsinit(SECONDDEV); // fat
 	
 	return 0;
 }

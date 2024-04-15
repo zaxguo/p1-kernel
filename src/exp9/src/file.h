@@ -1,7 +1,7 @@
 // from xv6-riscv 
 // a vfs layer
 struct file {
-  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE, FD_PROCFS } type;
+  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE, FD_PROCFS, FD_INODE_FAT } type; 
   int ref; // reference count
   char readable;
   char writable;
@@ -21,20 +21,34 @@ struct file {
 #define minor(dev)  ((dev) & 0xFFFF)
 #define	mkdev(m,n)  ((uint)((m)<<16| (n)))
 
+#ifdef CONFIG_FAT
+struct FIL;
+typedef struct FIL FIL;
+#endif
+
 // in-memory copy of an inode
+// xzl: NB inode has "dev", so inum is per-device; 
 struct inode {
-  uint dev;           // Device number   xzl: ROOTDEV=1, but not major/minor for which CONSOLE=1.
-  uint inum;          // Inode number
+  uint dev;           // Device number  (xzl: disk no, cf ROOTDEV, not major/minor num)
+  uint inum;          // Inode number  (xzl: idx of on-disk inode array, not in-mem
   int ref;            // Reference count
   struct sleeplock lock; // protects everything below here (xzl: above protected by itable spinlock)
   int valid;          // inode has been read from disk?
+
+#ifdef CONFIG_FAT
+  // #define INUM_INVALID  (uint)(-1)  
+  FIL *fatfp;
+  // a dirty hack, b/c fp will be kernel va (linear mapping), so we are fine <4GB
+  // XXX should use filename instead???
+  // #define fp_to_inum(fp) (uint)(fp)  
+#endif  
 
   // copy of disk inode 
   short type;         // cf stat.h
   short major;
   short minor;
   short nlink;
-  uint size;
+  uint size;    // unused for fat.
   uint addrs[NDIRECT+2]; 
 };
 

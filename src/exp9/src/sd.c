@@ -26,12 +26,14 @@
 
 #include "utils.h"
 #include "plat.h"
+#include "spinlock.h"
+#include "sleeplock.h"
 
 // xzl: api commpatibility 
 static void wait_cycles(unsigned int n) {delay(n);}
 static void wait_msec(unsigned int n) {ms_delay(n);}
 
-#if K2_ACTUAL_DEBUG_LEVEL <= 20     // "V"
+#if K2_ACTUAL_DEBUG_LEVEL <= 40     // "V"
 void uart_puts(char *s) {printf("%s", s);}
 void uart_hex(unsigned int d) {printf("0x%x", d);}
 #else
@@ -142,9 +144,9 @@ void uart_hex(unsigned int d) {}
 #define HOST_SPEC_V2        1
 #define HOST_SPEC_V1        0
 
-// SCR flags
+// SCR flags            xzl: scr sd card reader? 
 #define SCR_SD_BUS_WIDTH_4  0x00000400
-#define SCR_SUPP_SET_BLKCNT 0x02000000
+#define SCR_SUPP_SET_BLKCNT 0x02000000         // xzl: support r/w multi blocks in a cmd?
 // added by my driver
 #define SCR_SUPP_CCS        0x00000001
 
@@ -288,7 +290,7 @@ int sd_writeblock(unsigned char *buffer, unsigned int lba, unsigned int num)
 /**
  * set SD clock to frequency in Hz
  */
-int sd_clk(unsigned int f)
+static int sd_clk(unsigned int f)
 {
     unsigned int d,c=41666666/f,x,s=32,h=0;
     int cnt = 100000;
@@ -321,6 +323,75 @@ int sd_clk(unsigned int f)
         return SD_ERROR;
     }
     return SD_OK;
+}
+
+// for MBR, cf: https://wiki.osdev.org/MBR_(x86)
+//      illustration: https://cpl.li/posts/2019-03-12-mbrfat/
+//          ("MBR, LBA, FAT32" by Alexandru-Paul Copil)
+#define PACKED		__attribute__ ((packed))
+typedef struct TCHSAddress {
+    unsigned char Head;
+    unsigned char Sector : 6,
+        CylinderHigh : 2;
+    unsigned char CylinderLow;
+} PACKED TCHSAddress;    // CHS: cylinder-head-sector addressing. mandatory
+
+// "Partition table entry format"
+typedef struct TPartitionEntry {
+    unsigned char Status;       // Drive attributes (bit 7 set = active or bootable)
+    TCHSAddress FirstSector;
+    unsigned char Type;         // https://en.wikipedia.org/wiki/Partition_type
+    TCHSAddress LastSector;
+    unsigned LBAFirstSector;  // LBA: Logical Block Allocation (linear, simple addressing)
+    unsigned NumberOfSectors;
+} PACKED TPartitionEntry;
+
+typedef struct TMasterBootRecord {
+    unsigned char BootCode[0x1BE];
+    TPartitionEntry Partition[4];
+    unsigned short BootSignature;
+#define BOOT_SIGNATURE 0xAA55
+} PACKED TMasterBootRecord;
+
+static TMasterBootRecord the_mbr; 
+static char is_part_valid[4]={0};  // 1=valid. for quick access
+static struct spinlock sd_lock = {.locked=0, .cpu=0, .name="sd_lock"};
+
+// return 0 on success
+static int parse_mbr(TMasterBootRecord *pmbr, char isvalid[4]) {
+    unsigned char *buf = kalloc();
+    BUG_ON(!buf);
+    TMasterBootRecord *mbr = (TMasterBootRecord *)buf;
+    int ret = -1;
+    // read from block 0 and parse MBR
+    if (sd_readblock(0, buf, 1)) {
+        if (mbr->BootSignature != BOOT_SIGNATURE) {
+            W("Boot signature not found");
+            goto out;
+        }
+        // NB: partiion 1 could start from sector32 (in fact, anywhere artibrary)
+        // cf: https://unix.stackexchange.com/questions/81556/area-on-disk-after-the-mbr-and-before-the-partition-start-point
+        // "The old 32KiB gap between MBR and first sector of file system is
+        //  called DOS compatibility region or MBR gap, because DOS required
+        //  that the partitions started at cylinder boundaries".
+        I("# Status Type  1stSector    Sectors");
+        for (unsigned n = 0; n < 4; n++) {
+            I("%u %02X     %02X   %10u %10u",
+              n + 1,
+              (unsigned)mbr->Partition[n].Status,
+              (unsigned)mbr->Partition[n].Type,
+              mbr->Partition[n].LBAFirstSector,
+              mbr->Partition[n].NumberOfSectors);
+            if (mbr->Partition[n].NumberOfSectors)
+                isvalid[n] = 1;
+            else
+                isvalid[n] = 0;
+        }
+        memmove(pmbr, buf, sizeof(TMasterBootRecord));
+    }
+out:
+    kfree(buf);
+    return ret;
 }
 
 /**
@@ -435,5 +506,69 @@ int sd_init()
     uart_puts("\n");
     sd_scr[0]&=~SCR_SUPP_CCS;
     sd_scr[0]|=ccs;
-    return SD_OK;
+
+    if (parse_mbr(&the_mbr, is_part_valid) == 0)
+        return SD_OK;
+    else 
+        return SD_ERROR; 
+}
+
+// dev as defined in param.h, e.g. DEV_SD0
+int sd_dev_to_part(int dev) {
+    BUG_ON(!is_sddev(dev)); return (dev-DEV_SD0); 
+}
+
+unsigned long sd_dev_get_sect_count(int dev) {
+    int part = sd_dev_to_part(dev); 
+    if (!is_part_valid[part]) return 0;
+    return the_mbr.Partition[part].NumberOfSectors;
+}
+
+unsigned long sd_get_sect_size() {
+    return 512; 
+}
+
+static int sd_part_writeblock(int part, 
+    unsigned char *buffer, unsigned int lba, unsigned int num) {
+
+    if (!is_part_valid[part]) return 0;
+
+    // check boundary 
+    if (lba+num > the_mbr.Partition[part].NumberOfSectors)
+        return 0;
+
+    return  sd_writeblock(buffer, lba+the_mbr.Partition[part].LBAFirstSector,
+        num); 
+}
+
+static int sd_part_readblock(int part,
+    unsigned int lba, unsigned char *buffer, unsigned int num) {
+    if (!is_part_valid[part]) return 0;
+
+    // check boundary 
+    if (lba+num > the_mbr.Partition[part].NumberOfSectors)
+        return 0;
+
+    return sd_readblock(lba+the_mbr.Partition[part].LBAFirstSector, buffer, num);
+}
+
+#include "fs.h"
+#include "buf.h"
+// needed by bio.c
+// only r/w 1 block at a time (per bio interface)
+void sd_part_rw(int part, struct buf *b, int write) {
+    uint sec_no = b->blockno; 
+    int ret; 
+
+    // optimize: right now sd write/read busy waits (1 block r/w takes ~1ms), 
+    // change to irq driven and take sleeplock() instead
+    acquire(&sd_lock); 
+    if (write)
+        ret = sd_part_writeblock(part, b->data, sec_no, 1); 
+    else 
+        ret = sd_part_readblock(part, sec_no, b->data, 1);  
+    release(&sd_lock); 
+    if (!ret) {
+        E("sd_part_rw failed sec_no %u write %d", sec_no, write); BUG(); 
+    }
 }

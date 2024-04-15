@@ -296,9 +296,44 @@ not amenable to port to xv6's internal inode-centric fs design (and block layer)
 
 therefore, decide to go with xv6's fs... and put it on the 2nd partition of micro sd card??
 
+extended xv6 filesize limit (both kernel and mkfs) with doubly indirect pointers. 
+doubly indirect in itrunc - TBD. 
+
+also mkfs.c balloc() can only handle on bitmap block at most. 
+    fine if block size is lareg (1024) and few loaded files. 
+    but fail with smaller block size (512) and more loaded files...
+[x]    so improved balloc() 
+
+the problem is: xv6 fs lacks of inter operatibility. 
+
+how to put xv6 fs on a sd card? 
+    we may flash fs img to teh 2nd partition of sd card (1st partition is fat32 needed for boot)
+    however it requires windows/macos programs that accesses raw sd card, 
+    parses MBR and does the writing....
+
+    or, we creaet a large img with multipelt parittions. then flash the whole img 
+    to sd card (using pi imager, eg)
+    however it is non trivial to create an sd card image from cmd line, that can boot rpi3. 
+    (has some reqwuirement on mbr record, partition size (?) etc )
+    it can be done. just take time.     
+    also, flash the whole sd card every time ... to update kernel or any user program 
+    is tedous...
+
+try a new approach: have fat32 as a secondary fs within xv6 
+    xv6 fs ... for rootfs (ramdisk, core programs 
+    sd card ... for large data, programs, music, etc. 
+
+[x] ported sd driver from "baremetal tutorial". polling, no irq driven. 
+read/write one block takes ~1ms
+
+[x] fix usb driver bug that caues qemu boot very slow
+
+
+
 [ ] overhaul makefile system 
-    PLAT=xxx has some bugs. sometimes not effective??
+    PLAT=xxx has some bugs. sometimes not effective?? (fixed)
     have a build dir, then separate dir for PLAT=virt PLAT=rpi3 etc. also different binary file names
+
 
 
 [ ] multicore
@@ -412,8 +447,6 @@ https://www.qemu.org/docs/master/system/arm/raspi.html
 notes on USB lib init
 
 
-
-
 init log
 ~~~~~~~~~
 uspi:Initializing USPi library 2.00
@@ -463,3 +496,166 @@ uspi:done ... initialize USB host controller interface
 uspi:done ... get storage
 uspi:done ... get eth
 uspi:USPi library successfully initialized
+
+
+~~~~~~~~~~~~~~~~~ 
+fat32 consideration
+
+filename format: 
+http://elm-chan.org/fsw/ff/doc/filename.html
+
+
+readi/writei wont be changed for fat32, which has its own impl 
+
+how about dir? also give it an inode...(as it can be opened for long)
+
+BSIZE ... isnt' is easier 1024 --> 512???
+    (sd card is 512, ramdisk 512, ...
+    used to be a limiter of filesize w/o lv2 indirect links, but 
+    w/ it, we should be fine???
+
+[x] sys_open()
+
+
+[x] fileclose()
+
+[x] fileread .. to check
+[ ] filewrite 
+
+
+bio interface. 
+    bwrite() never exposed to fs.c b/c the idoim for inode writei is: 
+        bread() lock & read buf, then mod buf, then log_write() which writes bwrite, then rls
+    
+    but since we are doing raw sect acess, we need to bget then bwrite
+
+^^ coiuld be good exercise for porting FAT fs...
+
+FRESULT f_stat (const TCHAR* path, FILINFO* fno);		
+unlijke stat() which takes a fd (already has file* and inode), and calls filestat() to relaize locking ...then stati()
+
+this fat's stat takes a path. to ensure locking (b/c our lock is at inode level), 
+the right impl seems to opoen() the path, has file and inode, then 
+call f_stat internally.... 
+TBD
+~~~~~~~~~~~~~~~~~ 
+parted 
+(+script) can be useful 
+
+~~~~~~~~~~~~~~~~~ 
+mmls 
+list partitions of an image. useful
+
+xl6yq@granger1 (next)[exp9]$ mmls smallfat.bin
+DOS Partition Table
+Offset Sector: 0
+Units are in 512-byte sectors
+
+      Slot      Start        End          Length       Description
+000:  Meta      0000000000   0000000000   0000000001   Primary Table (#0)
+001:  -------   0000000000   0000002047   0000002048   Unallocated
+002:  000:000   0000002048   0000004095   0000002048   Linux (0x83)
+003:  -------   0000004096   0000004176   0000000081   Unallocated
+004:  000:001   0000004177   0000008191   0000004015   Linux (0x83)
+
+
+~~~~~~~~~~~~~~~~~ 
+fat32 mtool
+https://wiki.osdev.org/MTools
+
+NB: "::" SEEMS NOT WORKING FOR MTOOLS THAT COME WITH UBUNTU 
+
+has to specify ~/.mtoolsrc
+
+mtools_skip_check=1
+drive x: file="/u/xl6yq/p1-kernel-next/src/exp9/smallfat.bin" exclusive partition=1
+
+then: 
+xl6yq@granger1 (next)[exp9]$ mdir -i smallfat.bin x:
+ Volume in drive X has no label
+ Volume Serial Number is 145D-9448
+Directory for X:/
+
+SMALL             2000 2024-01-01   0:00
+        1 file                2 000 bytes
+                          1 026 048 bytes free
+
+also can do:
+mcopy -i smallfat.bin x:/SMALL /tmp/
+
+https://unix.stackexchange.com/questions/629492/create-and-populate-fat32-filesystem-without-mounting-it
+# Create a 2 MB file
+dd if=/dev/zero of=disk.img bs=1M count=2
+
+# Put a FAT filesystem on it (use -F for FAT32, otherwise it's automatic)
+mformat -i disk.img ::
+
+# Add a file to it
+mcopy -i disk.img example.txt ::
+
+# List files
+mdir -i disk.img ::
+
+# Extract a file
+mcopy -i disk.img ::/example.txt extracted.txt
+
+
+~~~~~~~~~~~~~~~~~ 
+
+qemu's virtual fat filesystem (vvfat)
+"Virtual FAT disk images"
+https://www.qemu.org/docs/master/system/qemu-block-drivers.html
+
+can be usefl 
+    QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
+    .img -serial null -serial mon:stdio \
+    -d int -D qemu.log \
+    -nographic \
+    -drive file=fat:rw:/tmp/testdir,if=sd,format=rawxl6yq@granger1 (next)[exp9]$ ${QEMU} -M raspi3b \
+    > -kernel ./kernel8.img -serial null -serial mon:stdio \
+    > -d int -D qemu.log \
+    > -nographic \
+    > -drive file=fat:rw:/tmp/testdir,if=sd,format=raw
+
+but SD card driver seems expect certain disk size
+    qemu-system-aarch64: Invalid SD card size: 504 MiB
+    SD card size has to be a power of 2, e.g. 512 MiB.
+    You can resize disk images with 'qemu-img resize <imagefile> <new-size>'
+    (note that this will lose data if you make the image smaller than it currently is).
+searched online, no doc on how to specify disk size for vvfat....
+(give up as of now...)
+
+
+
+
+
+
+
+
+
+~~~~~~~~~~~~~~~~~ 
+
+sd card emmc boot log
+
+EMMC: GPIO set up
+EMMC: reset OK
+sd_clk divisor 0x68, shift 0x6
+EMMC: Sending command 0x0 arg 0x0
+EMMC: Sending command 0x8020000 arg 0x1aa
+EMMC: Sending command 0x37000000 arg 0x0
+EMMC: Sending command 0x29020000 arg 0x51ff8000
+EMMC: CMD_SEND_OP_COND returned VOLTAGE 0x00xf98000
+EMMC: Sending command 0x37000000 arg 0x0
+EMMC: Sending command 0x29020000 arg 0x51ff8000
+EMMC: CMD_SEND_OP_COND returned COMPLETE VOLTAGE CCS 0xffffffff0xc1f98000
+EMMC: Sending command 0x2010000 arg 0x0
+EMMC: Sending command 0x3020000 arg 0x0
+EMMC: CMD_SEND_REL_ADDR returned 0x00x50480000
+sd_clk divisor 0x2, shift 0x0
+EMMC: Sending command 0x7030000 arg 0x50480000
+EMMC: Sending command 0x37020000 arg 0x50480000
+EMMC: Sending command 0x33220010 arg 0x0
+EMMC: Sending command 0x37020000 arg 0x50480000
+EMMC: Sending command 0x6020000 arg 0x50480002
+EMMC: supports SET_BLKCNT CCS
+sd_readblock lba 0x0 num 0x1

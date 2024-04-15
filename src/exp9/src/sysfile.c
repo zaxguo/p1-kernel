@@ -19,6 +19,9 @@
 #include "file.h"
 #include "procfs.h" 
 #include "fb.h" // for fb device
+#ifdef CONFIG_FAT
+#include "ff.h"
+#endif
 
 // given fd, return the corresponding struct file.
 // return 0 on success
@@ -38,7 +41,7 @@ argfd(int fd, struct file **pf)
 
 // Allocate a file descriptor for the given file.
 // Takes over file reference from caller on success. 
-// xzl: reference meaning what
+// xzl: meaning refcnt passed from *f to this fd? 
 static int
 fdalloc(struct file *f)
 {
@@ -237,7 +240,9 @@ bad:
 
 PROC_DEV_TABLE    // fcntl.h
 
-// xzl: "type" depends on caller. mkdir, type==T_DIR; mknod, T_DEVICE;
+// xzl: cr inode, given path (take care of path resolution, dinode read etc...)
+//  also cr dir if needed
+//  "type" depends on caller. mkdir, type==T_DIR; mknod, T_DEVICE;
 //    create, T_FILE
 static struct inode*
 create(char *path, short type, short major, short minor)
@@ -314,6 +319,21 @@ create(char *path, short type, short major, short minor)
   return 0;
 }
 
+// http://elm-chan.org/fsw/ff/doc/filename.html
+static int is_fatpath(const char *path) {
+  return (strncmp(path, "/d/", 3) == 0); 
+}
+
+// path is like "/d/file.txt", whereas
+// ffs expects a path name like: "2:file.txt" where 2 is the volume id (i.e.
+// our dev id) used in f_mount()
+// pathout must be preallocated
+static int to_fatpath(const char *path, char *fatpath, int dev) {
+  return snprintf(fatpath, MAXPATH, "%d:%s", dev, path+2/*skip*/); 
+}
+
+extern struct inode* fat_open(const char *path, int omode);  // fs.c
+
 int sys_open(unsigned long upath, int omode) {
   char path[MAXPATH];
   int fd;
@@ -329,6 +349,17 @@ int sys_open(unsigned long upath, int omode) {
   V("%s called. path %s", __func__, path);
 
   begin_op();
+
+#ifdef CONFIG_FAT  
+  if (is_fatpath(path)) {
+     char fatpath[MAXPATH]; // too much on stack?
+     to_fatpath(path, fatpath, SECONDDEV);
+     if ((ip = fat_open(fatpath, omode)))
+      goto prepfile;
+    else 
+      {end_op(); return -1;}
+  }
+#endif
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
@@ -355,6 +386,8 @@ int sys_open(unsigned long upath, int omode) {
     return -1;
   }
 
+prepfile: 
+  // populate file struct (for kernel); fd (for user)
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
     if(f)
       fileclose(f);
@@ -362,7 +395,8 @@ int sys_open(unsigned long upath, int omode) {
     end_op();
     return -1;
   }
-  // map inode's state (type,major,etc) to file desc
+
+  // map inode's state (type,major,etc) to file*
   if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;
     f->major = ip->major;
@@ -405,7 +439,13 @@ int sys_open(unsigned long upath, int omode) {
     procfs_init_state(st);
     if ((st->ksize = procfs_gen_content(f->major, st->kbuf, MAX_PROCFS_SIZE)) < 0)
       BUG();
-  } else {
+  } 
+#ifdef CONFIG_FAT 
+  else if (ip->type == T_FILE_FAT || ip->type == T_DIR_FAT) {
+    f->type = FD_INODE_FAT; 
+  } 
+#endif
+  else {
     f->type = FD_INODE;
     f->off = 0;
   }
@@ -414,10 +454,11 @@ int sys_open(unsigned long upath, int omode) {
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
 
   if((omode & O_TRUNC) && ip->type == T_FILE){
-    itrunc(ip);
+    itrunc(ip);  // TODO impl for fat
   }
 
-  iunlock(ip);
+  if (f->type != FD_INODE_FAT) // fat already did ilock()/iunlock within fat_open()
+    iunlock(ip);
   end_op();
 
   return fd;

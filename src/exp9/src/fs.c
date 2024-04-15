@@ -22,6 +22,11 @@
 #include "file.h"
 #include "sched.h"
 
+#ifdef CONFIG_FAT
+#include "ff.h"
+static FATFS fatfs; 
+#endif
+
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
 // only one device
@@ -41,14 +46,24 @@ readsb(int dev, struct superblock *sb)
 // Init fs
 void
 fsinit(int dev) {
+#ifdef CONFIG_FAT
+  // cf: http://elm-chan.org/fsw/ff/doc/filename.html
+  char devstr[32]; int ret; 
+  if (dev == SECONDDEV) {
+    snprintf(devstr, 32, "%d:", dev); 
+    if ((ret=f_mount(&fatfs, devstr, 1 /*mount now*/)) != FR_OK)
+      {E("devstr %s ret val %d", devstr, ret); BUG();}
+    return; 
+  }
+#endif
   readsb(dev, &sb);
   if(sb.magic != FSMAGIC)
     panic("invalid file system");
-  initlog(dev, &sb);
+  initlog(dev, &sb);  
   I("fsinit done");
 }
 
-//// xzl: block layer below
+//// xzl: block mgmt (see bio.c for buffer cache
 
 // Zero a block.
 static void
@@ -199,13 +214,16 @@ static struct inode* iget(uint dev, uint inum);
 // Mark it as allocated by  giving it type type.
 // Returns an unlocked but allocated and referenced inode,
 // or NULL if there is no free inode.
+// xzl: type is T_xx (T_DIR, T_FILE.. cf stat.h)
 struct inode*
 ialloc(uint dev, short type)
 {
   int inum;
   struct buf *bp;
   struct dinode *dip;
-
+  
+  BUG_ON(is_fattype(type));   // fat wont have disk inodes
+  
     // xzl: read a block of inodes at a time, go through them all..
     //    rely on lock inside bread()/brelse()
   for(inum = 1; inum < sb.ninodes; inum++){
@@ -233,6 +251,8 @@ iupdate(struct inode *ip)
 {
   struct buf *bp;
   struct dinode *dip;
+
+  BUG_ON(is_fattype(ip->type));   // fat wont have disk inodes
 
   bp = bread(ip->dev, IBLOCK(ip->inum, sb));
   dip = (struct dinode*)bp->data + ip->inum%IPB;
@@ -271,7 +291,7 @@ iget(uint dev, uint inum)
 
   // Recycle an inode entry. 
   // xzl: only fill in basic info of the in-mem inode. wont read from disk, which is 
-  // don by ilock()
+  // done by ilock()
   if(empty == 0)
     panic("iget: no inodes");
 
@@ -296,8 +316,10 @@ idup(struct inode *ip)
   return ip;
 }
 
-// Lock the given inode.    xzl: "lock" really means grab a sleep lock
+// Lock the given inode.    
 // Reads the inode from disk if necessary.
+// xzl: grab a sleep lock. wont incre refcnt (which is just for in-mem inode slot mgmt)
+//  this serializes concurrent access to a file (i.e. inode). therefore needed by iread/iwrite/etc
 void
 ilock(struct inode *ip)
 {
@@ -310,9 +332,9 @@ ilock(struct inode *ip)
   acquiresleep(&ip->lock);
 
   if(ip->valid == 0){
-    bp = bread(ip->dev, IBLOCK(ip->inum, sb));
+    bp = bread(ip->dev, IBLOCK(ip->inum, sb));  // xzl: map inum to disk inode
     dip = (struct dinode*)bp->data + ip->inum%IPB;
-    ip->type = dip->type;
+    ip->type = dip->type;   // xzl: map to in-mem inode
     ip->major = dip->major;
     ip->minor = dip->minor;
     ip->nlink = dip->nlink;
@@ -324,6 +346,23 @@ ilock(struct inode *ip)
       panic("ilock: no type");
   }
 }
+
+#ifdef CONFIG_FAT
+void ilock_fat(struct inode *ip)
+{
+  if(ip == 0 || ip->ref < 1)
+    panic("ilock");
+
+  acquiresleep(&ip->lock);
+
+  if(ip->valid == 0) {  
+    ip->type = T_FILE_FAT;  
+    ip->nlink = 1; 
+    // ip->size = f_size(ip->fatfp);    // no needed. & we may haven't open() the file yet
+    ip->valid = 1;
+  }
+}
+#endif
 
 // Unlock the given inode.
 void
@@ -349,6 +388,11 @@ iput(struct inode *ip)
 
   if(ip->ref == 1 && ip->valid && ip->nlink == 0){
     // inode has no links and no other references: truncate and free.
+
+    // fat cannot do auto truncate/free, nlink wont reach 0
+    // the actual file will be f_close() before last iput() was called. 
+    // so only recycle inode (by dec ip->ref below)
+    BUG_ON(is_fattype(ip->type));  
 
     // ip->ref == 1 means no other process can have ip locked, (xzl: otherwise ref>1)
     // so this acquiresleep() won't block (or deadlock).
@@ -388,6 +432,7 @@ iunlockput(struct inode *ip)
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
 // returns 0 if out of disk space.
+// (unused by fat)
 static uint
 bmap(struct inode *ip, uint bn)
 {
@@ -455,6 +500,7 @@ bmap(struct inode *ip, uint bn)
 
 // Truncate inode (discard contents). xzl: also free all data blocks
 // Caller must hold ip->lock.
+// (unused by fat)
 void
 itrunc(struct inode *ip)
 {
@@ -480,7 +526,8 @@ itrunc(struct inode *ip)
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
   }
-
+  // xzl: TODO deal with doubly indirect
+  // cf https://github.com/nxbyte/Advanced-xv6/blob/master/6%20-%20Filesystem%20-%20Triply%20Indirect/fs.c#L476
   ip->size = 0;
   iupdate(ip);
 }
@@ -550,7 +597,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
     uint addr = bmap(ip, off/BSIZE);
     if(addr == 0)
       break;
-    bp = bread(ip->dev, addr);
+    bp = bread(ip->dev, addr); //xzl: read back then write. never called bwrite() directly
     m = min(n - tot, BSIZE - off%BSIZE);
     if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
       brelse(bp);
@@ -592,7 +639,7 @@ dirlookup(struct inode *dp, char *name, uint *poff)
     panic("dirlookup not DIR");
 
   for(off = 0; off < dp->size; off += sizeof(de)){
-    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de)) // xzl: NB bcache underneath
+    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
       panic("dirlookup read");
     if(de.inum == 0)
       continue;
@@ -688,11 +735,16 @@ namex(char *path, int nameiparent, char *name)
   struct inode *ip, *next;
 
   // xzl: traverse from '/'. there's a default inode in mem. 
-  //  the first we ilock() it, the root inode will be loaded from disk, which 
+  //  first time we ilock() it, the root inode will be loaded from disk, which 
   //  goes to fs then block driver... 
   V("namex path %s", path);
+
+#ifdef CONFIG_FAT
+  if(strncmp(path, "/d/", 3) == 0)
+    ip = iget(SECONDDEV, ROOTINO); else
+#endif
   if(*path == '/')
-    ip = iget(ROOTDEV, ROOTINO);
+    ip = iget(ROOTDEV, ROOTINO);    // xzl: hardcoded
   else {
     ip = idup(myproc()->cwd);
     // V("cwd is %lx", (unsigned long)(myproc()->cwd));
@@ -738,3 +790,54 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+// fat glue, etc
+
+
+#ifdef CONFIG_FAT
+// http://www.cse.yorku.ca/~oz/hash.html
+static unsigned int path_to_inum(const char *str) {
+    unsigned hash = 5381;
+    int c;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+    return hash;
+}
+
+#include <fcntl.h>
+// on success, return inode. will take a inode ref
+// will lock then unlock inode
+// path: abs path for fatfs, e.g. "/myfile"
+struct inode* fat_open(const char *path, int omode) {
+  struct inode* ip = 0;
+  int flag = 0; 
+  FRESULT ret; 
+
+  W("%s got path %s", __func__, path); 
+
+  if (omode == O_RDONLY)
+    flag |= FA_READ; 
+  else if (omode & O_WRONLY || omode & O_RDWR) 
+    flag |= FA_WRITE; 
+  if (omode & O_CREATE)
+    flag |= FA_CREATE_ALWAYS;  // xzl: is this right?
+  if (omode & O_TRUNC) {
+    E("tbd"); BUG(); 
+  }
+  // gen a pseudo inum, which is used idx in itable
+  ip = iget(SECONDDEV, path_to_inum(path)); 
+  ilock_fat(ip);
+  if (!(ip->fatfp = malloc(sizeof(FIL)))) {
+    BUG(); // TODO iunlock, clean up... 
+  }
+  if ((ret=f_open(ip->fatfp, path, flag))!=FR_OK) {
+    W("f_open failed with ret %d", ret); 
+    iunlockput(ip); 
+    return 0; 
+  }
+  iunlock(ip);     
+  return ip; 
+}
+
+
+#endif  

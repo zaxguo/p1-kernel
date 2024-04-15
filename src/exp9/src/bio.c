@@ -94,6 +94,8 @@ bget(uint dev, uint blockno)
   return 0; 
 }
 
+extern void sd_part_rw(int part, struct buf *b, int write); // sd.c
+
 // Return a locked buf with the contents of the indicated block.
 struct buf*
 bread(uint dev, uint blockno)
@@ -107,7 +109,10 @@ bread(uint dev, uint blockno)
 #ifdef PLAT_VIRT      
     else if (dev == DEV_VIRTDISK)
       virtio_disk_rw(b, 0);
-#endif      
+#endif
+    else if (is_sddev(dev)) {
+      sd_part_rw(sd_dev_to_part(dev), b, 0); 
+    }
     else 
       BUG(); 
     b->valid = 1;
@@ -127,6 +132,9 @@ bwrite(struct buf *b)
   else if (b->dev == DEV_VIRTDISK)
     virtio_disk_rw(b, 1);
 #endif    
+  else if (is_sddev(b->dev)) {
+    sd_part_rw(sd_dev_to_part(b->dev), b, 1);
+  }
   else
     BUG(); 
 }
@@ -171,3 +179,87 @@ bunpin(struct buf *b) {
 }
 
 
+// diskop as needed by fat32. instead of giving it disk driver, we
+// make it read/write of buffer cache
+#ifdef CONFIG_FAT
+
+#include "ffconf.h"
+#include "ff.h"
+#include "diskio-ff.h"
+
+/* Initialize a Drive */
+extern int sd_init(); 
+DSTATUS disk_initialize(BYTE drv)
+{
+    W("disk_initialize, drv %u", drv); 
+    return 0;
+}
+
+/* Return Disk Status */
+DSTATUS disk_status(BYTE drv)
+{
+    return 0;
+}
+
+_Static_assert(BSIZE == FF_MAX_SS);
+_Static_assert(BSIZE == FF_MIN_SS);
+
+/* Read Sector(s) */
+DRESULT disk_read(BYTE drv, BYTE *buff, DWORD sector, UINT count)
+{
+    struct buf *bp; 
+    uint dev = drv; 
+    for (unsigned int i = 0; i < count; i++) {
+      if (!(bp = bread(dev, sector + i))) {
+          return RES_ERROR; 
+      }
+      memmove(buff+i*BSIZE, bp->data, BSIZE);
+      brelse(bp);
+    }
+    return RES_OK; 
+}
+
+/* Write Sector(s) */
+DRESULT disk_write(BYTE drv, const BYTE *buff, DWORD sector, UINT count)
+{
+    struct buf *bp; 
+    uint dev = drv; 
+    unsigned int i; 
+    for (i = 0; i < count; i++) {
+      if ((bp = bget(dev, sector + i))) {
+        memmove(bp->data, buff+i*BSIZE, BSIZE);
+        bwrite(bp); 
+        brelse(bp); 
+      } else 
+        break;         
+    }
+    if (i == count) return RES_OK;
+    return RES_ERROR;      
+}
+
+/* Miscellaneous Functions */
+extern unsigned long sd_dev_get_sect_count(int dev);   // sd.c
+extern unsigned long sd_get_sect_size();
+DRESULT disk_ioctl(BYTE drv, BYTE ctrl, void *buff)
+{
+    if (ctrl == GET_SECTOR_COUNT)
+    {
+        *(DWORD *)buff = sd_dev_get_sect_count(drv);
+    }
+    else if (ctrl == GET_SECTOR_SIZE)
+    {
+        *(DWORD *)buff = sd_get_sect_size(); 
+    }
+    else if (ctrl == GET_BLOCK_SIZE) /* Get erase block size in unit of sectors (DWORD) */
+    {
+        *(DWORD *)buff = sd_get_sect_size(); 
+    }
+    else if (ctrl == CTRL_SYNC)
+    {
+    }
+    else if (ctrl == CTRL_TRIM)
+    {
+    }
+    return RES_OK;
+}
+#endif // #ifdef CONFIG_FAT

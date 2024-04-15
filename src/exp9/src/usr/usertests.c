@@ -536,6 +536,24 @@ opentest(char *s)
 }
 
 void
+opentestfat(char *s)  // fat version of above
+{
+  int fd;
+
+  fd = open("/d/logo.txt", 0);
+  if(fd < 0){
+    printf("%s: open logo.txt failed!\n", s);
+    exit(1);
+  }
+  close(fd);
+  fd = open("/d/doesnotexist", 0);
+  if(fd >= 0){
+    printf("%s: open doesnotexist succeeded!\n", s);
+    exit(1);
+  }
+}
+
+void
 writetest(char *s)
 {
   int fd;
@@ -575,6 +593,48 @@ writetest(char *s)
     exit(1);
   }
 }
+
+void
+writetestfat(char *s)  // xzl: fat version of above
+{
+  int fd;
+  int i, ret;
+  enum { N=100, SZ=10 };
+  
+  fd = open("/d/small", O_CREATE|O_RDWR);
+  if(fd < 0){
+    printf("%s: error: creat small failed!\n", s);
+    exit(1);
+  }
+  for(i = 0; i < N; i++){
+    if((ret=write(fd, "aaaaaaaaaa", SZ)) != SZ){
+      printf("%s: error: write aa %d new file failed. ret %d\n", s, i, ret);
+      exit(1);
+    }
+    if(write(fd, "bbbbbbbbbb", SZ) != SZ){
+      printf("%s: error: write bb %d new file failed\n", s, i);
+      exit(1);
+    }
+  }
+  close(fd);
+  fd = open("/d/small", O_RDONLY);
+  if(fd < 0){
+    printf("%s: error: open small failed!\n", s);
+    exit(1);
+  }
+  i = read(fd, buf, N*SZ*2);
+  if(i != N*SZ*2){
+    printf("%s: read failed\n", s);
+    exit(1);
+  }
+  close(fd);
+
+  // if(unlink("small") < 0){
+  //   printf("%s: unlink small failed\n", s);
+  //   exit(1);
+  // }
+}
+
 
 void
 writebig(char *s)
@@ -2794,7 +2854,9 @@ struct test {
   {exitiputtest, "exitiput"},
   {iputtest, "iput"},
   {opentest, "opentest"},
+  {opentestfat, "opentestfat"},     // xzl
   {writetest, "writetest"},
+  {writetestfat, "writetestfat"},   // xzl
   {writebig, "writebig"},
   {createtest, "createtest"},
   {dirtest, "dirtest"},
@@ -2818,7 +2880,7 @@ struct test {
   {linkunlink, "linkunlink"},
   {subdir, "subdir"},
   {bigwrite, "bigwrite"},
-  {bigfile, "bigfile"},   // [ ]
+  {bigfile, "bigfile"},   // [x]  even bigger, for 2x indirect ptr
   {fourteen, "fourteen"},
   {rmdot, "rmdot"},
   {dirfile, "dirfile"},
@@ -2842,10 +2904,10 @@ struct test {
   {sbrk8000, "sbrk8000"},
   {badarg, "badarg" },
   /* xzladd */
-  {simplesleep, "simplesleep"},
+  {simplesleep, "simplesleep"}, // [x]
   {fbstatic, "fb"},
   {seektest, "seek"},
-  {pipe3, "pipe3"},
+  {pipe3, "pipe3"},  // [x]  
   { 0, 0},
 };
 

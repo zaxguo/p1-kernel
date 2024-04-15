@@ -117,3 +117,12 @@ int atoi(const char *s) {
     n = n*10 + *s++ - '0';
   return n;
 }
+
+//ff.c wants it
+char* strchr(const char *s, char c)
+{
+  for(; *s; s++)
+    if(*s == c)
+      return (char*)s;
+  return 0;
+}

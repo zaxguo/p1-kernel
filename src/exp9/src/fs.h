@@ -2,7 +2,12 @@
 // Both the kernel and user programs use this header file.
 
 #define ROOTINO  1   // root i-number
-#define BSIZE 1024  // block size
+
+// #define BSIZE 1024  // block size
+#define BSIZE 512  // block size
+// xzl: sd card is 512, ramdisk 512, ... so code would be cleaner
+// used to be a limiter of filesize w/o lv2 indirect links, but 
+// w/ it, it's not longer a concern. 
 
 // Disk layout:
 // [ boot block | super block | log | inode blocks |

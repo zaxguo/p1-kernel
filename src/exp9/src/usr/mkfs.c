@@ -22,7 +22,7 @@
 // Disk layout:
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 
-int nbitmap = FSSIZE/(BSIZE*8) + 1;
+int nbitmap = FSSIZE/(BSIZE*8) + 1;  // # of bitmap blocks
 int ninodeblocks = NINODES / IPB + 1;
 int nlog = LOGSIZE;
 int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
@@ -235,8 +235,9 @@ ialloc(ushort type)
   return inum;
 }
 
+#if 0 
 void
-balloc(int used)
+balloc(int used)   
 {
   uchar buf[BSIZE];
   int i;
@@ -250,8 +251,33 @@ balloc(int used)
   printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
   wsect(sb.bmapstart, buf);
 }
+#endif 
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
+
+// xzl: in bitmap, mark [0,used) blocks to be in use
+// above: orig design, can only handle one bitmap block ... 
+void
+balloc(int used)   
+{
+  uchar buf[BSIZE];
+  int i, k = 0;
+
+  printf("balloc: first %d blocks have been allocated\n", used);
+
+  int left = used; 
+  while (left > 0) {
+    int len = min(left, BSIZE*8); 
+    bzero(buf, BSIZE);
+    for(i = 0; i < len; i++){
+      buf[i/8] = buf[i/8] | (0x1 << (i%8));
+    }
+    left -= len;
+    printf("balloc: write bitmap block at sector %d\n", sb.bmapstart+k);
+    wsect(sb.bmapstart+k, buf);
+    k++; 
+  }
+}
 
 void        // xzl: append data (xp, bytes: n) to inode
 iappend(uint inum, void *xp, int n)

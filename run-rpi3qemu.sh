@@ -11,23 +11,35 @@
 # -kernel ./kernel8.img -serial null -serial mon:stdio -nographic \
 # -d int -D qemu.log 
 
-# qemu v8, console only
+#### qemu v8, console only
 # QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 # ${QEMU} -M raspi3b \
 # -kernel ./kernel8.img -serial null -serial mon:stdio -nographic \
 # -d int -D qemu.log 
 
-# qemu v8, grahpics (as referenec)
+### qemu v8, no grahpics, no kb (as referenec)
 QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 ${QEMU} -M raspi3b \
 -kernel ./kernel8.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
--usb -device usb-kbd
+-nographic \
+-drive file=smallfat.bin,if=sd,format=raw
 
+# -sd smallfat.bin
+# -usb -device usb-kbd \
+
+### qemu v8, no gfx, no kb, virtual fat
+# cannot make it work as sd driver expects certain
+# disk size. cannot fig out how to speicfy 
+# QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
+# ${QEMU} -M raspi3b \
+# -kernel ./kernel8.img -serial null -serial mon:stdio \
+# -d int -D qemu.log \
 # -nographic \
+# -drive file=fat:rw:/tmp/testdir,if=sd,format=raw
 
 
-# monitor
+##### qemuv8 monitor
 # QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 # ${QEMU} -M raspi3b \
 # -kernel ./kernel8.img -monitor stdio -serial null \

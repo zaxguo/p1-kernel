@@ -36,7 +36,7 @@ void kernel_process() {
 	// test_usb_storage(); while (1); 
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
-	// test_sd(); while (1); 
+	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
@@ -65,6 +65,7 @@ void kernel_main()
 #ifdef PLAT_VIRT	
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
+	if (sd_init()!=0) E("sd init failed");
 	irq_vector_init();
 	generic_timer_init(); 	// for sched ticks
 	sys_timer_init(); 		// for kernel timer

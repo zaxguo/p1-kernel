@@ -15,25 +15,33 @@
 
 // 1-ramdisk, 2-virt_disk
 #define DEV_RAMDISK     1
-#define DEV_VIRTDISK    2
-#define ROOTDEV       DEV_RAMDISK  // device number of file system root disk xzl: block disk id, not major/minor
+#define DEV_VIRTDISK    2       // qemu's virtio
+// sd card (phys or qemu's)
+#define DEV_SD0          3       // partition0
+#define DEV_SD1          4       // partition1
+#define DEV_SD2          5       // partition2
+#define DEV_SD3          6       // partition3
+#define is_sddev(dev) (dev>=DEV_SD0 && dev<=DEV_SD3)
+
+// device number of file system root disk NB: this is block disk id, not major/minor
+#define ROOTDEV       DEV_RAMDISK  
+#define SECONDDEV     DEV_SD0       // secondary dev to mount under /d/
     
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define FSSIZE       8000 // 2000  // size of file system in blocks
 // (32 * 1024)  ok, but results in a very large ramdisk...
 
 // Large user vm, works, but usertests slow b/c freecount()
-#define USER_VA_END         (128 * 1024 * 1024) // == user stack top, 128MB user va
-#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
-#define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-#define MAX_TASK_KER_PAGES       96      //max kernel pages per task. (128 seems to corrupt kernel stack
-
-// Small user vm (simple tests, slider - ok; too small for liteNes)
-// #define USER_VA_END         (4 * 1024 * 1024) // == user stack top, 128MB user va
+// #define USER_VA_END         (128 * 1024 * 1024) // == user stack top, 128MB user va
 // #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
 // #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-// #define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 
+// #define MAX_TASK_KER_PAGES       96      //max kernel pages per task. (128 seems to corrupt kernel stack
 
+// Small user vm (simple tests, slider - ok; too small for liteNes)
+#define USER_VA_END         (4 * 1024 * 1024) // == user stack top, 128MB user va
+#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
+#define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
+#define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 
 
 // keep them here b/c needed by lots of files. moved from mmu.h. 
 #define VA_START 			0xffff000000000000

@@ -72,7 +72,11 @@
         "fb.h": "c",
         "rev_uva_logo_color3-resized.h": "c",
         "usbstandardhub.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "ffconf.h": "c",
+        "ff.h": "c",
+        "string.h": "c",
+        "diskio-ff.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

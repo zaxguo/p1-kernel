@@ -11,7 +11,7 @@
                 // "${workspaceFolder}/src/exp9/addon/sound/ampi",
                 // "${workspaceFolder}/src/exp9/addon/circle/include/"
             ],
-            "defines": ["PLAT_RPI3", "AARCH64", "RASPPI=3"],
+            "defines": ["PLAT_RPI3", "AARCH64", "RASPPI=3", "CONFIG_FAT=1"],
             "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
             "cStandard": "c11",
             "cppStandard": "gnu++14",
