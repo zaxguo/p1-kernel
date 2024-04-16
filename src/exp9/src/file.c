@@ -164,18 +164,26 @@ int fileread(struct file *f, uint64 addr, int n) {
             iunlock(f->ip);
             free(buf); 
         } else if (f->ip->type == T_DIR_FAT) {
-            // read one entry at a time
+            // read one entry at a time            
             int sz = sizeof (FILINFO); 
             if (n < sz) 
                 r=-1;
             else {
                 FILINFO fno; 
                 if (!f->ip->fatdir) BUG();
-                if (f_readdir(f->ip->fatdir, &fno) == FR_OK &&
-                    either_copyout(1/*userdst*/, addr, &fno, sz)==0)
-                    r = sz;
-                else 
-                    {r = -1; BUG();}
+                if (f_readdir(f->ip->fatdir, &fno) == FR_OK) {
+                    // http://elm-chan.org/fsw/ff/doc/readdir.html
+                    // "When all items in the directory have been read and no item to 
+                    // read, a null string is stored into the fno->fname[] without an error"                    
+                    if (fno.fname) {
+                        if (either_copyout(1/*userdst*/, addr, &fno, sz)==0)
+                            {W("f_readdir ok"); r = sz;}
+                        else 
+                            {r=-1;BUG();}
+                    } else 
+                        r = 0; // no more dir entries
+                } else 
+                    {W("f_readdir failed"); r=-1;}
             }
         } else BUG(); 
     } 

@@ -2,6 +2,7 @@
 #include "../stat.h"
 #include "../fcntl.h"
 #include "../fs.h"
+#include "../ff.h"  // fix this later
 #include "user.h"
 
 char*
@@ -30,6 +31,7 @@ ls(char *path)
   int fd;
   struct dirent de;
   struct stat st;
+  FILINFO info; // fat
 
   if((fd = open(path, 0)) < 0){
     fprintf(2, "ls: cannot open %s\n", path);
@@ -45,6 +47,7 @@ ls(char *path)
   switch(st.type){
   case T_DEVICE:
   case T_FILE:
+  case T_FILE_FAT:
     printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
     break;
 
@@ -70,7 +73,10 @@ ls(char *path)
     break;
 
   case T_DIR_FAT:
-    printf("ls: tbd");
+    printf("--- FAT dir --- \n");
+    while (read(fd, &info, sizeof(info)) == sizeof(info)) {
+      printf("%s %d %d\n", info.fname, info.fattrib, info.fsize);
+    }
     break;    
   }
 

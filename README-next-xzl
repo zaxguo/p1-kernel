@@ -537,7 +537,10 @@ unlijke stat() which takes a fd (already has file* and inode), and calls filesta
 this fat's stat takes a path. to ensure locking (b/c our lock is at inode level), 
 the right impl seems to opoen() the path, has file and inode, then 
 call f_stat internally.... 
+
 TBD
+[ ] ls readdir cannot stop by itself???
+
 ~~~~~~~~~~~~~~~~~ 
 parted 
 (+script) can be useful 
@@ -566,7 +569,6 @@ https://wiki.osdev.org/MTools
 NB: "::" SEEMS NOT WORKING FOR MTOOLS THAT COME WITH UBUNTU 
 
 has to specify ~/.mtoolsrc
-
 mtools_skip_check=1
 drive x: file="/u/xl6yq/p1-kernel-next/src/exp9/smallfat.bin" exclusive partition=1
 
@@ -624,11 +626,6 @@ but SD card driver seems expect certain disk size
     (note that this will lose data if you make the image smaller than it currently is).
 searched online, no doc on how to specify disk size for vvfat....
 (give up as of now...)
-
-
-
-
-
 
 
 
