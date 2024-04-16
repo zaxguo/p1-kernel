@@ -33,7 +33,7 @@
 static void wait_cycles(unsigned int n) {delay(n);}
 static void wait_msec(unsigned int n) {ms_delay(n);}
 
-#if K2_ACTUAL_DEBUG_LEVEL <= 40     // "V"
+#if K2_ACTUAL_DEBUG_LEVEL <= 20     // "V"
 void uart_puts(char *s) {printf("%s", s);}
 void uart_hex(unsigned int d) {printf("0x%x", d);}
 #else

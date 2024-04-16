@@ -539,7 +539,9 @@ the right impl seems to opoen() the path, has file and inode, then
 call f_stat internally.... 
 
 TBD
-[ ] ls readdir cannot stop by itself???
+[x] ls readdir cannot stop by itself??? -- fixed. bug. 
+
+
 
 ~~~~~~~~~~~~~~~~~ 
 parted 
