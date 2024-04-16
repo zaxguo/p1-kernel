@@ -736,6 +736,34 @@ void dirtest(char *s)
   }
 }
 
+void dirtestfat(char *s)
+{
+  if(mkdir("/d/dir0") < 0){
+    printf("%s: mkdir failed\n", s);
+    exit(1);
+  }
+
+  if(chdir("/d/dir0") < 0){
+    printf("%s: chdir dir0 failed\n", s);
+    exit(1);
+  }
+
+  if(chdir(".") < 0){
+    printf("%s: chdir . failed\n", s);
+    exit(1);
+  }
+
+  if(chdir("..") < 0){
+    printf("%s: chdir .. failed\n", s);
+    exit(1);
+  }
+
+  if(unlink("dir0") < 0){
+    printf("%s: unlink dir0 failed\n", s);
+    exit(1);
+  }
+}
+
 void
 exectest(char *s)
 {
@@ -2860,6 +2888,7 @@ struct test {
   {writebig, "writebig"},
   {createtest, "createtest"},
   {dirtest, "dirtest"},
+  {dirtestfat, "dirtestfat"},     // xzl
   {exectest, "exectest"},
   {pipe1, "pipe1"},
   {killstatus, "killstatus"}, // [x]

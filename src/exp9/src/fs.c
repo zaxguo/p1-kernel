@@ -53,6 +53,8 @@ fsinit(int dev) {
     snprintf(devstr, 32, "%d:", dev); 
     if ((ret=f_mount(&fatfs, devstr, 1 /*mount now*/)) != FR_OK)
       {E("devstr %s ret val %d", devstr, ret); BUG();}
+    if ((ret=f_chdrive(devstr)) != FR_OK) // must do this, otherwise f_chdir(..) default to vol 0
+      {E("f_chdrive failed"); BUG();}
     return; 
   }
 #endif
@@ -726,9 +728,11 @@ skipelem(char *path, char *name)
 }
 
 // Look up and return the inode for a path name.
-// If parent != 0 (xzl:nameiparent), return the inode for the parent and copy the final
+// If nameiparent != 0, return the inode for the parent and copy the final
 // path element into "name", which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
+// xzl: needed by sys_chdir() exec() etc. too tightly coupled with xv6fs path 
+// resolution, don't implement fat logic here (better in its callers)
 static struct inode*
 namex(char *path, int nameiparent, char *name)
 {
@@ -739,16 +743,12 @@ namex(char *path, int nameiparent, char *name)
   //  goes to fs then block driver... 
   V("namex path %s", path);
 
-#ifdef CONFIG_FAT
-  if(strncmp(path, "/d/", 3) == 0)
-    ip = iget(SECONDDEV, ROOTINO); else
-#endif
   if(*path == '/')
     ip = iget(ROOTDEV, ROOTINO);    // xzl: hardcoded
   else {
     ip = idup(myproc()->cwd);
     // V("cwd is %lx", (unsigned long)(myproc()->cwd));
-  } 
+  }
   BUG_ON(!ip); 
 
   // xzl: traverse... from cwd
@@ -781,14 +781,14 @@ struct inode*
 namei(char *path)
 {
   char name[DIRSIZ];
-  return namex(path, 0, name);
+  return namex(path, 0 /*need inode for path, not its parent*/, name);
 }
 
 // xzl: return inode for parent
 struct inode*
 nameiparent(char *path, char *name)
 {
-  return namex(path, 1, name);
+  return namex(path, 1 /*need parent inode*/, name);
 }
 
 // fat glue, etc
@@ -796,18 +796,26 @@ nameiparent(char *path, char *name)
 
 #ifdef CONFIG_FAT
 // http://www.cse.yorku.ca/~oz/hash.html
-static unsigned int path_to_inum(const char *str) {
+// fatpath: native, abs path for fatfs, e.g. "3:/myfile"
+static unsigned int fatpath_to_inum(const char *fatpath) {
     unsigned hash = 5381;
     int c;
-    while ((c = *str++))
+    while ((c = *fatpath++))
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
     return hash;
+}
+
+// only make an inode, no need to open file/dir etc, b/c we may be 
+// just doing f_chdir() etc.
+// fatpath: a native fatpath
+struct inode* namei_fat(char *fatpath) {
+  return iget(SECONDDEV, fatpath_to_inum(fatpath)); 
 }
 
 #include <fcntl.h>
 // on success, return inode. will take a inode ref
 // will lock then unlock inode
-// path: abs path for fatfs, e.g. "/myfile"
+// path: native, abs path for fatfs, e.g. "3:/myfile"
 struct inode* fat_open(const char *path, int omode) {
   struct inode* ip = 0;
   int flag = 0; 
@@ -825,7 +833,7 @@ struct inode* fat_open(const char *path, int omode) {
     E("tbd"); BUG(); 
   }
   // gen a pseudo inum, which is used idx in itable
-  ip = iget(SECONDDEV, path_to_inum(path)); 
+  ip = iget(SECONDDEV, fatpath_to_inum(path)); 
   ilock_fat(ip);
   if (!(ip->fatfp = malloc(sizeof(FIL)))) {
     BUG(); // TODO iunlock, clean up... 
@@ -839,5 +847,17 @@ struct inode* fat_open(const char *path, int omode) {
   return ip; 
 }
 
+// http://elm-chan.org/fsw/ff/doc/filename.html
+int in_fatmount(const char *path) {
+  return (strncmp(path, "/d/", 3) == 0); 
+}
+
+// path is like "/d/file.txt", whereas
+// ffs expects a path name like: "2:file.txt" where 2 is the volume id (i.e.
+// our dev id) used in f_mount()
+// pathout must be preallocated
+int to_fatpath(const char *path, char *fatpath, int dev) {
+  return snprintf(fatpath, MAXPATH, "%d:%s", dev, path+2/*skip*/); 
+}
 
 #endif  

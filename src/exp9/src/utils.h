@@ -189,11 +189,15 @@ void            iunlockput(struct inode*);
 void            iupdate(struct inode*);
 int             namecmp(const char*, const char*);
 struct inode*   namei(char*);
+struct inode*   namei_fat(char*);
 struct inode*   nameiparent(char*, char*);
 int             readi(struct inode* ip, int usr_dst, uint64 dst, uint off, uint n);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
+// path ex: /d/myfile   fatpath ex: 3:/myfile
+int in_fatmount(const char *path);
+int to_fatpath(const char *path, char *fatpath, int dev);
 
 // string.c
 int             memcmp(const void*, const void*, uint);

@@ -130,8 +130,9 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "forkforkfork");      // nested forking, also test sleep. partially works. cf its source
     // USER_PROGRAM1("/usertests", "/usertests", "forktest");    
     // USER_PROGRAM1("/usertests", "/usertests", "simplesleep");     // sleep & scheduling. ok
-    USER_PROGRAM1("/usertests", "/usertests", "writetestfat");    
+    // USER_PROGRAM1("/usertests", "/usertests", "writetestfat");    
     // USER_PROGRAM1("/usertests", "/usertests", "opentestfat");    
+    USER_PROGRAM1("/usertests", "/usertests", "dirtestfat");    
 
     // USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
 

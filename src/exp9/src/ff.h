@@ -321,7 +321,7 @@ FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new);	/* Rename/Move 
 FRESULT f_stat (const TCHAR* path, FILINFO* fno);					/* Get file status */
 FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
 FRESULT f_utime (const TCHAR* path, const FILINFO* fno);			/* Change timestamp of a file/dir */
-FRESULT f_chdir (const TCHAR* path);								/* Change current directory */
+FRESULT f_chdir (const TCHAR* path);								/* Change current directory */ // xzl: should f_chdrive() first
 FRESULT f_chdrive (const TCHAR* path);								/* Change current drive */
 FRESULT f_getcwd (TCHAR* buff, UINT len);							/* Get current directory */
 FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);	/* Get number of free clusters on the drive */

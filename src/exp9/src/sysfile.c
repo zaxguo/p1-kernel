@@ -57,18 +57,48 @@ fdalloc(struct file *f)
   return -1;
 }
 
-// http://elm-chan.org/fsw/ff/doc/filename.html
-static int is_fatpath(const char *path) {
-  return (strncmp(path, "/d/", 3) == 0); 
+#ifdef CONFIG_FAT
+// return 0 if "path" points to a fat path
+// this happens: 
+// 0. cwd is under fat and path is relative. fat_rela set to 1. fatpath untouched
+// 1. path points to an abs path via fat mount point
+//    if so, save the fat native path to fatpath (if it's not null). 
+//    fat_abs set to 1
+// if fatpath !=null, its len must be at least MAXPATH
+// limitation: relative path cannot go in/out fat mount point,
+//  e.g. cd /d/; cd ../otherdir/
+// NB: for fat API (f_XXX) to accept relative path, its CurrVol must be explictly
+// set via f_chdrive() otherwise vol 0 will be used.
+static int redirect_fatpath(const char *path /*in*/, char *fatpath /*out*/, 
+  int *fat_rela /*out*/, int *fat_abs /*out*/) {
+  struct task_struct *p = myproc();
+  int fa = 0; 
+
+  *fat_rela = *fat_abs = 0; 
+
+  if (!p->cwd) return -1; 
+
+  acquiresleep(&p->cwd->lock);
+  if (p->cwd->type == T_DIR_FAT)
+    fa = 1; 
+  releasesleep(&p->cwd->lock);
+  
+  W("redirect_fatpath: cwd is fat? %d", fa); 
+
+  if (fa && path[0] != '/') 
+    {*fat_rela = 1; return 0;}
+
+  if (in_fatmount(path)) { // an abs path via fatfs mount
+    if (fatpath) 
+      to_fatpath(path, fatpath, SECONDDEV);
+    *fat_abs = 1; 
+    return 0; 
+  }
+  return -1; 
 }
 
-// path is like "/d/file.txt", whereas
-// ffs expects a path name like: "2:file.txt" where 2 is the volume id (i.e.
-// our dev id) used in f_mount()
-// pathout must be preallocated
-static int to_fatpath(const char *path, char *fatpath, int dev) {
-  return snprintf(fatpath, MAXPATH, "%d:%s", dev, path+2/*skip*/); 
-}
+#endif
+
 
 int sys_dup(int fd) {
   struct file *f;
@@ -204,14 +234,15 @@ int sys_unlink(unsigned long upath /*user va*/) {
     return -1;
 
 #ifdef CONFIG_FAT
-  if (is_fatpath(path)) {
-     char fatpath[MAXPATH]; // too much on stack?
-     to_fatpath(path, fatpath, SECONDDEV);
-     if ((f_unlink(fatpath) == FR_OK))
-      return 0; 
-    else 
-      return -1; 
-  }
+  int fat_rela = 0, fat_abs = 0; 
+  char fatpath[MAXPATH]; 
+  if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
+    if (fat_abs) 
+      return f_unlink(fatpath) == FR_OK ? 0:-1;
+    else if (fat_rela)
+      return f_unlink(path) == FR_OK ? 0:-1; 
+    else BUG(); 
+  }  
 #endif
 
   begin_op();
@@ -267,7 +298,8 @@ PROC_DEV_TABLE    // fcntl.h
 // xzl: cr inode, given path (take care of path resolution, dinode read etc...)
 //  also cr dir if needed
 //  "type" depends on caller. mkdir, type==T_DIR; mknod, T_DEVICE;
-//    create, T_FILE
+//   create, T_FILE
+// no fat logic here -- tighly coupling with dir resolution
 static struct inode*
 create(char *path, short type, short major, short minor)
 {
@@ -298,13 +330,7 @@ create(char *path, short type, short major, short minor)
   ip->major = major;
   ip->minor = minor;
   ip->nlink = 1;
-  // dirty hack for /procfs/XXX
   if (type == T_FILE) { 
-    // const char *procfs_fnames[] = 
-    // {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
-    // const int majors[] = 
-    // {PROCFS_DISPINFO, PROCFS_CPUINFO, PROCFS_MEMINFO, PROCFS_FBCTL, PROCFS_SBCTL};
-
     for (int i = 0; i < sizeof(pdi)/sizeof(pdi[0]); i++) {
       struct proc_dev_info *p = pdi + i; 
       if (p->type == TYPE_PROCFS && strncmp(path, p->path, 40) == 0) { 
@@ -362,7 +388,7 @@ int sys_open(unsigned long upath, int omode) {
   begin_op();
 
 #ifdef CONFIG_FAT  
-  if (is_fatpath(path)) {
+  if (in_fatmount(path)) {
      char fatpath[MAXPATH]; // too much on stack?
      to_fatpath(path, fatpath, SECONDDEV);
      if ((ip = fat_open(fatpath, omode)))
@@ -479,8 +505,23 @@ int sys_mkdir(unsigned long upath) {
   char path[MAXPATH];
   struct inode *ip;
 
+  if (argstr(upath, path, MAXPATH) < 0)
+    return -1; 
+
+#ifdef CONFIG_FAT
+  int fat_rela = 0, fat_abs = 0; 
+  char fatpath[MAXPATH]; 
+  if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
+    if (fat_abs) 
+      return f_mkdir(fatpath) == FR_OK ? 0:-1;
+    else if (fat_rela)
+      return f_mkdir(path) == FR_OK ? 0:-1; 
+    else BUG(); 
+  }
+#endif
+
   begin_op();
-  if(argstr(upath, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0){
+  if((ip = create(path, T_DIR, 0, 0)) == 0){
     end_op();
     return -1;
   }
@@ -504,13 +545,45 @@ int sys_mknod(unsigned long upath, short major, short minor) {
   return 0;
 }
 
+// xzl: point p->cwd to the specific inode. need to track it
+//  so that we know if our cwd is under fat or xv6
+//  cwd, even if it's fat, also has an inode. 
+//    so that we can examine cwd's type (fat vs xv6)
 int sys_chdir(unsigned long upath) {  
   char path[MAXPATH];
   struct inode *ip;
   struct task_struct *p = myproc();
   
+  if (argstr(upath, path, MAXPATH) < 0) return -1; 
+
+#ifdef CONFIG_FAT
+  int fat_rela = 0, fat_abs = 0; 
+  char fatpath[MAXPATH]; 
+  
+  W("got path %s", path); 
+  if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
+    if (fat_abs) {      
+      if (f_chdir(fatpath) != FR_OK) {return -1;}
+      W("f_chdir to %s", fatpath); 
+    } else if (fat_rela) {
+      FRESULT res; 
+      if ((res=f_chdir(path)) != FR_OK) {W("failed %d",res);return -1;} 
+        W("f_chdir to %s", path); 
+      if (f_getcwd(fatpath, MAXPATH) != FR_OK) {return -1;}      
+    } else BUG();     
+    // fatpath: the fat native, abs path
+    ip = namei_fat(fatpath); 
+    ilock_fat(ip); 
+    ip->type = T_DIR_FAT;
+    iunlock(ip);     
+    iput(p->cwd);  // xzl: iput b/c we are leaving this dir
+    p->cwd = ip; 
+    return 0; 
+  }
+#endif
+
   begin_op();
-  if(argstr(upath, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
+  if((ip = namei(path)) == 0){
     end_op();
     return -1;
   }
@@ -521,7 +594,7 @@ int sys_chdir(unsigned long upath) {
     return -1;
   }
   iunlock(ip);
-  iput(p->cwd);
+  iput(p->cwd);  // xzl: iput b/c we are leaving this dir
   end_op();
   p->cwd = ip;
   return 0;

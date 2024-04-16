@@ -49,6 +49,8 @@ int flags2perm(int flags)
 // in mm; they wont be free'd until the task exit()s. 
 //
 
+// xzl: directly read from inode (namei, readi, ...)
+// for now, dont support exec() for fat
 int
 exec(char *path, char **argv)   // called from sys_exec
 {
