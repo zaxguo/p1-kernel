@@ -175,7 +175,7 @@ int fileread(struct file *f, uint64 addr, int n) {
                     // http://elm-chan.org/fsw/ff/doc/readdir.html
                     // "When all items in the directory have been read and no item to 
                     // read, a null string is stored into the fno->fname[] without an error"                    
-                    if (fno.fname) {
+                    if (fno.fname[0]) {
                         if (either_copyout(1/*userdst*/, addr, &fno, sz)==0)
                             {W("f_readdir ok"); r = sz;}
                         else 

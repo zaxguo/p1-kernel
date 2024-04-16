@@ -74,6 +74,7 @@ ls(char *path)
 
   case T_DIR_FAT:
     printf("--- FAT dir --- \n");
+    printf("fname  fattrib  size\n");
     while (read(fd, &info, sizeof(info)) == sizeof(info)) {
       printf("%s %d %d\n", info.fname, info.fattrib, info.fsize);
     }
