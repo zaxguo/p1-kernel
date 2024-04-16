@@ -24,6 +24,8 @@ struct file {
 #ifdef CONFIG_FAT
 struct FIL;
 typedef struct FIL FIL;
+struct DIR;
+typedef struct DIR DIR;
 #endif
 
 // in-memory copy of an inode
@@ -38,6 +40,7 @@ struct inode {
 #ifdef CONFIG_FAT
   // #define INUM_INVALID  (uint)(-1)  
   FIL *fatfp;
+  DIR *fatdir; 
   // a dirty hack, b/c fp will be kernel va (linear mapping), so we are fine <4GB
   // XXX should use filename instead???
   // #define fp_to_inum(fp) (uint)(fp)  

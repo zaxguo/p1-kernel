@@ -83,7 +83,7 @@ static int redirect_fatpath(const char *path /*in*/, char *fatpath /*out*/,
     fa = 1; 
   releasesleep(&p->cwd->lock);
   
-  W("redirect_fatpath: cwd is fat? %d", fa); 
+  I("redirect_fatpath: %s cwd is fat? %d", path, fa); 
 
   if (fa && path[0] != '/') 
     {*fat_rela = 1; return 0;}
@@ -388,14 +388,26 @@ int sys_open(unsigned long upath, int omode) {
   begin_op();
 
 #ifdef CONFIG_FAT  
-  if (in_fatmount(path)) {
-     char fatpath[MAXPATH]; // too much on stack?
-     to_fatpath(path, fatpath, SECONDDEV);
-     if ((ip = fat_open(fatpath, omode)))
-      goto prepfile;
+  // sys_open() supports both file and dir, should do the same 
+  // for fat 
+  int fat_rela = 0, fat_abs = 0; 
+  char fatpath[MAXPATH], *p; 
+  if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
+    p = fat_abs ? fatpath : path;    
+    if ((ip = fat_open(p, omode)))
+      {W("fat_open done."); goto prepfile;}
     else 
-      {end_op(); return -1;}
+      {E("fat_open failed"); end_op(); return -1;}
   }
+    
+  // if (in_fatmount(path)) {
+  //    char fatpath[MAXPATH]; // too much on stack?
+  //    to_fatpath(path, fatpath, SECONDDEV);
+  //    if ((ip = fat_open(fatpath, omode)))
+  //     goto prepfile;
+  //   else 
+  //     {end_op(); return -1;}
+  // }
 #endif
 
   if(omode & O_CREATE){
@@ -513,9 +525,9 @@ int sys_mkdir(unsigned long upath) {
   char fatpath[MAXPATH]; 
   if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
     if (fat_abs) 
-      return f_mkdir(fatpath) == FR_OK ? 0:-1;
+      {return f_mkdir(fatpath) == FR_OK ? 0:-1;}
     else if (fat_rela)
-      return f_mkdir(path) == FR_OK ? 0:-1; 
+      {return f_mkdir(path) == FR_OK ? 0:-1;} 
     else BUG(); 
   }
 #endif
@@ -560,16 +572,16 @@ int sys_chdir(unsigned long upath) {
   int fat_rela = 0, fat_abs = 0; 
   char fatpath[MAXPATH]; 
   
-  W("got path %s", path); 
+  V("got path %s", path); 
   if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
     if (fat_abs) {      
       if (f_chdir(fatpath) != FR_OK) {return -1;}
-      W("f_chdir to %s", fatpath); 
+      W("fat: f_chdir to %s", fatpath); 
     } else if (fat_rela) {
       FRESULT res; 
-      if ((res=f_chdir(path)) != FR_OK) {W("failed %d",res);return -1;} 
-        W("f_chdir to %s", path); 
+      if ((res=f_chdir(path)) != FR_OK) {W("failed %d",res);return -1;}         
       if (f_getcwd(fatpath, MAXPATH) != FR_OK) {return -1;}      
+      W("fat: f_chdir to %s (%s)", path, fatpath); 
     } else BUG();     
     // fatpath: the fat native, abs path
     ip = namei_fat(fatpath); 

@@ -92,7 +92,8 @@ void fileclose(struct file *f) {
     // close file here, dont have to wait until iput() below, which will just free
     // inode for us
     if (ff.ip->type == FD_INODE_FAT)  {
-        f_close(ff.ip->fatfp); free(ff.ip->fatfp); 
+        if (ff.ip->fatfp) {f_close(ff.ip->fatfp); free(ff.ip->fatfp);}
+        else if (ff.ip->fatdir) {f_closedir(ff.ip->fatdir); free(ff.ip->fatdir);}
     }
 #endif
 
@@ -113,7 +114,7 @@ int filestat(struct file *f, uint64 addr) {
     struct stat st;
 
     if (f->type == FD_INODE || f->type == FD_DEVICE ||
-        f->type == FD_PROCFS) {
+        f->type == FD_PROCFS || f->type == FD_INODE_FAT) {
         ilock(f->ip);
         stati(f->ip, &st);
         iunlock(f->ip);
@@ -149,18 +150,34 @@ int fileread(struct file *f, uint64 addr, int n) {
     } 
 #ifdef CONFIG_FAT    
     else if (f->type == FD_INODE_FAT) { 
-        //  alloc a kernel buf as large as n, and read in. 
-        //  TODO optimize: kalloc() one page only, and read in one page at a time
-        char *buf = malloc(n); if (!buf) {return -2;}
-        unsigned n1; 
-        ilock_fat(f->ip);            
-        if (f_read(f->ip->fatfp, buf, n, &n1) == FR_OK &&
-            either_copyout(1/*usrdst*/, addr, buf, n1) == 0)
-            r = (int)n1;
-        else 
-            {r = -1; BUG();}
-        iunlock(f->ip);
-        free(buf); 
+        if (f->ip->type == T_FILE_FAT) {
+            //  alloc a kernel buf as large as n, and read in. 
+            //  TODO optimize: kalloc() one page only, and read in one page at a time
+            char *buf = malloc(n); if (!buf) {return -2;}
+            unsigned n1; 
+            ilock_fat(f->ip);            
+            if (f_read(f->ip->fatfp, buf, n, &n1) == FR_OK &&
+                either_copyout(1/*usrdst*/, addr, buf, n1) == 0)
+                r = (int)n1;
+            else 
+                {r = -1; BUG();}
+            iunlock(f->ip);
+            free(buf); 
+        } else if (f->ip->type == T_DIR_FAT) {
+            // read one entry at a time
+            int sz = sizeof (FILINFO); 
+            if (n < sz) 
+                r=-1;
+            else {
+                FILINFO fno; 
+                if (!f->ip->fatdir) BUG();
+                if (f_readdir(f->ip->fatdir, &fno) == FR_OK &&
+                    either_copyout(1/*userdst*/, addr, &fno, sz)==0)
+                    r = sz;
+                else 
+                    {r = -1; BUG();}
+            }
+        } else BUG(); 
     } 
 #endif                    
     else if (f->type == FD_PROCFS) {

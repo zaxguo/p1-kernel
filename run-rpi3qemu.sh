@@ -17,7 +17,7 @@
 # -kernel ./kernel8.img -serial null -serial mon:stdio -nographic \
 # -d int -D qemu.log 
 
-### qemu v8, no grahpics, no kb (as referenec)
+### qemu v8, no grahpics, no kb, with sd
 QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 ${QEMU} -M raspi3b \
 -kernel ./kernel8.img -serial null -serial mon:stdio \

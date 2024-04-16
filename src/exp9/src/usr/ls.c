@@ -48,7 +48,7 @@ ls(char *path)
     printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
     break;
 
-  case T_DIR:
+  case T_DIR: // open the dir file and parse per entry
     if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf){
       printf("ls: path too long\n");
       break;
@@ -68,7 +68,12 @@ ls(char *path)
       printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
     }
     break;
+
+  case T_DIR_FAT:
+    printf("ls: tbd");
+    break;    
   }
+
   close(fd);
 }
 

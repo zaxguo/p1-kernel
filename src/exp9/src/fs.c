@@ -358,10 +358,11 @@ void ilock_fat(struct inode *ip)
   acquiresleep(&ip->lock);
 
   if(ip->valid == 0) {  
-    ip->type = T_FILE_FAT;  
+    ip->type = T_FILE_FAT;   // default
     ip->nlink = 1; 
     // ip->size = f_size(ip->fatfp);    // no needed. & we may haven't open() the file yet
     ip->valid = 1;
+    ip->fatdir = 0; ip->fatfp = 0;
   }
 }
 #endif
@@ -797,6 +798,8 @@ nameiparent(char *path, char *name)
 #ifdef CONFIG_FAT
 // http://www.cse.yorku.ca/~oz/hash.html
 // fatpath: native, abs path for fatfs, e.g. "3:/myfile"
+// applies to both dir and file
+// TBD: normalize the path, like removing trailing '/'?
 static unsigned int fatpath_to_inum(const char *fatpath) {
     unsigned hash = 5381;
     int c;
@@ -814,34 +817,68 @@ struct inode* namei_fat(char *fatpath) {
 
 #include <fcntl.h>
 // on success, return inode. will take a inode ref
-// will lock then unlock inode
 // path: native, abs path for fatfs, e.g. "3:/myfile"
+//
+// will lock then unlock inode
+// populate inode fileds with fat fileinfo, b/c 
+// f_stat requires path, which we lost after returning from open()
+// XXX we could also save path in inode XXX
 struct inode* fat_open(const char *path, int omode) {
   struct inode* ip = 0;
-  int flag = 0; 
+  int flag = 0, isdir = 0;
+  uint fsize = 0;   
   FRESULT ret; 
+  FILINFO info;
 
   W("%s got path %s", __func__, path); 
+
+  if ((ret = f_stat(path, &info)) == FR_OK) { // file/dir already exists
+    isdir = info.fattrib & AM_DIR;
+    if (!isdir) 
+      fsize = info.fsize;
+
+    // access rule check (more?)
+    if (isdir && omode != O_RDONLY)
+      return 0; 
+    if (info.fattrib & AM_RDO && omode != O_RDONLY)
+      return 0; 
+  }
 
   if (omode == O_RDONLY)
     flag |= FA_READ; 
   else if (omode & O_WRONLY || omode & O_RDWR) 
     flag |= FA_WRITE; 
   if (omode & O_CREATE)
-    flag |= FA_CREATE_ALWAYS;  // xzl: is this right?
-  if (omode & O_TRUNC) {
-    E("tbd"); BUG(); 
+    flag |= FA_CREATE_NEW;  
+  if (omode & O_TRUNC) {  // used in sh.c ">"
+    flag |= FA_CREATE_ALWAYS; 
   }
   // gen a pseudo inum, which is used idx in itable
+  // (XXX need a better way to generate inum..., maybe obj id in FILINFO?)
+  // the problem: need to open the file/dir before iget()
   ip = iget(SECONDDEV, fatpath_to_inum(path)); 
   ilock_fat(ip);
-  if (!(ip->fatfp = malloc(sizeof(FIL)))) {
-    BUG(); // TODO iunlock, clean up... 
-  }
-  if ((ret=f_open(ip->fatfp, path, flag))!=FR_OK) {
-    W("f_open failed with ret %d", ret); 
-    iunlockput(ip); 
-    return 0; 
+  if (isdir) {
+    ip->type = T_DIR_FAT; 
+    if (!(ip->fatdir = malloc(sizeof(DIR)))) {
+      BUG(); // TODO iunlock, clean up... 
+    }
+    if ((ret=f_opendir(ip->fatdir, path))!=FR_OK) {
+      W("f_opendir failed with ret %d", ret); 
+      iunlockput(ip); 
+      return 0; 
+    }    
+  } else { // normal file
+    ip->type = T_FILE_FAT; 
+    if (!(ip->fatfp = malloc(sizeof(FIL)))) {
+      BUG(); // TODO iunlock, clean up... 
+    }    
+    if ((ret=f_open(ip->fatfp, path, flag))!=FR_OK) {
+      W("f_open failed with ret %d", ret); 
+      iunlockput(ip); 
+      return 0; 
+    }
+    ip->size = (flag & FA_CREATE_ALWAYS) ? 0 : fsize;  // O_TRUNC or not?      
   }
   iunlock(ip);     
   return ip; 
