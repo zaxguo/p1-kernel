@@ -540,7 +540,7 @@ call f_stat internally....
 
 TBD
 [x] ls readdir cannot stop by itself??? -- fixed. bug. 
-
+[ ] impl seek() on fat files
 
 
 ~~~~~~~~~~~~~~~~~ 

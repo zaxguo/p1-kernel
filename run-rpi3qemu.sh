@@ -18,15 +18,23 @@
 # -d int -D qemu.log 
 
 ### qemu v8, no grahpics, no kb, with sd
+# QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
+# ${QEMU} -M raspi3b \
+# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
+# -d int -D qemu.log \
+# -nographic \
+# -drive file=smallfat.bin,if=sd,format=raw
+
+# -usb -device usb-kbd \
+
+### qemu v8, + grahpics, + kb, + sd
 QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 ${QEMU} -M raspi3b \
 -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
--nographic \
+-usb -device usb-kbd \
 -drive file=smallfat.bin,if=sd,format=raw
 
-# -sd smallfat.bin
-# -usb -device usb-kbd \
 
 ### qemu v8, no gfx, no kb, virtual fat
 # cannot make it work as sd driver expects certain

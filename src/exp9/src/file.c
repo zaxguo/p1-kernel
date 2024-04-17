@@ -222,14 +222,48 @@ int filelseek(struct file *f, int offset, int whence) {
         acquire(&mboxlock); 
         size = the_fb.size; 
         release(&mboxlock); 
-    } else { // normal file
-        // take a snapshot of filesize. but nothing prevents file size changes
+    } 
+#ifdef CONFIG_FAT    
+    else if (f->type == FD_INODE_FAT) { 
+        // pass through to f_lseek() 
+        // fatfs maintains offset by itself. we don't maintain it in f->off        
+        // NB: f_lseek only supports offset starting from the begin. so has to 
+        // wrap around it 
+        int ret; 
+        ilock(f->ip);         
+        switch (whence) { 
+        case SEEK_SET:
+            if (offset<0) 
+                ret = -1;
+            else if ((ret = f_lseek(f->ip->fatfp, offset) != FR_OK))
+                {W("f_lseek failed with %d", ret); ret = -1;}
+            else 
+                ret = offset; 
+            break;
+        case SEEK_CUR:
+            E("TBD"); // TBD: get cur pos, then cal the abs offset, then seek()
+            ret = -1; 
+            break; 
+        case SEEK_END:  // "set file offset to EOF plus offset", i.e. offset shall <0
+            E("TBD"); ret = -1;
+            if (offset > 0) { W("unsupported"); ret = -1;}
+            break; 
+        default:
+            E("unrecog option");
+            ret = -1; 
+        }
+        iunlock(f->ip); 
+        return ret; 
+    }
+#endif    
+    else if (f->type == FD_INODE) { // normal file
+        // xzl: take a snapshot of filesize. but nothing prevents file size changes
         // after we unlock inode, making f->off invalid. in that case, read/write
         // shall fail and nothing bad shall happen
         ilock(f->ip);
         size = f->ip->size; 
         iunlock(f->ip);
-    }
+    } else BUG();
     
     switch (whence)
     {

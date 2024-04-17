@@ -92,7 +92,8 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 
 const int N = 10; // max slide num 
 // slides path pattern (starts from 1, per pptx export naming convention)
-const char *path = "/Slide%d.BMP";
+// const char *path = "/Slide%d.BMP";
+const char *path = "/d/Slide%d.BMP";  // load from fat
 
 int dispinfo[MAX_DISP_ARGS]={0};
 
