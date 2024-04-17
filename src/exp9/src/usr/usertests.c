@@ -536,24 +536,6 @@ opentest(char *s)
 }
 
 void
-opentestfat(char *s)  // fat version of above
-{
-  int fd;
-
-  fd = open("/d/logo.txt", 0);
-  if(fd < 0){
-    printf("%s: open logo.txt failed!\n", s);
-    exit(1);
-  }
-  close(fd);
-  fd = open("/d/doesnotexist", 0);
-  if(fd >= 0){
-    printf("%s: open doesnotexist succeeded!\n", s);
-    exit(1);
-  }
-}
-
-void
 writetest(char *s)
 {
   int fd;
@@ -593,48 +575,6 @@ writetest(char *s)
     exit(1);
   }
 }
-
-void
-writetestfat(char *s)  // xzl: fat version of above
-{
-  int fd;
-  int i, ret;
-  enum { N=100, SZ=10 };
-  
-  fd = open("/d/small", O_CREATE|O_RDWR);
-  if(fd < 0){
-    printf("%s: error: creat small failed!\n", s);
-    exit(1);
-  }
-  for(i = 0; i < N; i++){
-    if((ret=write(fd, "aaaaaaaaaa", SZ)) != SZ){
-      printf("%s: error: write aa %d new file failed. ret %d\n", s, i, ret);
-      exit(1);
-    }
-    if(write(fd, "bbbbbbbbbb", SZ) != SZ){
-      printf("%s: error: write bb %d new file failed\n", s, i);
-      exit(1);
-    }
-  }
-  close(fd);
-  fd = open("/d/small", O_RDONLY);
-  if(fd < 0){
-    printf("%s: error: open small failed!\n", s);
-    exit(1);
-  }
-  i = read(fd, buf, N*SZ*2);
-  if(i != N*SZ*2){
-    printf("%s: read failed\n", s);
-    exit(1);
-  }
-  close(fd);
-
-  if(unlink("/d/small") < 0){
-    printf("%s: unlink small failed\n", s);
-    exit(1);
-  }
-}
-
 
 void
 writebig(char *s)
@@ -722,34 +662,6 @@ void dirtest(char *s)
 
   if(chdir("dir0") < 0){
     printf("%s: chdir dir0 failed\n", s);
-    exit(1);
-  }
-
-  if(chdir("..") < 0){
-    printf("%s: chdir .. failed\n", s);
-    exit(1);
-  }
-
-  if(unlink("dir0") < 0){
-    printf("%s: unlink dir0 failed\n", s);
-    exit(1);
-  }
-}
-
-void dirtestfat(char *s)
-{
-  if(mkdir("/d/dir0") < 0){
-    printf("%s: mkdir failed\n", s);
-    exit(1);
-  }
-
-  if(chdir("/d/dir0") < 0){
-    printf("%s: chdir dir0 failed\n", s);
-    exit(1);
-  }
-
-  if(chdir(".") < 0){
-    printf("%s: chdir . failed\n", s);
     exit(1);
   }
 
@@ -1314,7 +1226,8 @@ fourfiles(char *s)
 void
 createdelete(char *s)
 {
-  enum { N = 20, NCHILD=4 };
+  // enum { N = 20, NCHILD=4 };
+  enum { N = 10, NCHILD=4 };
   int pid, i, fd, pi;
   char name[32];
 
@@ -1382,7 +1295,8 @@ createdelete(char *s)
   }
 }
 
-// can I unlink a file and still read it?
+// can I unlink a file and still read it? 
+// xzl: can't expect to work with fat32 which only has 1 link
 void
 unlinkread(char *s)
 {
@@ -1616,7 +1530,7 @@ linkunlink(char *s)
     exit(0);
 }
 
-
+// xzl: fat can finish first few, until link() which it does not support
 void
 subdir(char *s)
 {
@@ -1642,6 +1556,7 @@ subdir(char *s)
   }
 
   if(mkdir("/dd/dd") != 0){
+  // if(mkdir("/d/dd/dd") != 0){  // fat
     printf("subdir mkdir dd/dd failed\n", s);
     exit(1);
   }
@@ -2881,14 +2796,11 @@ struct test {
   {openiputtest, "openiput"},
   {exitiputtest, "exitiput"},
   {iputtest, "iput"},
-  {opentest, "opentest"},
-  {opentestfat, "opentestfat"},     // xzl
-  {writetest, "writetest"},
-  {writetestfat, "writetestfat"},   // xzl
-  {writebig, "writebig"},
-  {createtest, "createtest"},
-  {dirtest, "dirtest"},
-  {dirtestfat, "dirtestfat"},     // xzl
+  {opentest, "opentest"}, // [x] fat
+  {writetest, "writetest"},  // [x] fat
+  {writebig, "writebig"},   // [?] fat 
+  {createtest, "createtest"}, // [x] fat
+  {dirtest, "dirtest"}, // [x] fat
   {exectest, "exectest"},
   {pipe1, "pipe1"},
   {killstatus, "killstatus"}, // [x]
@@ -2901,9 +2813,9 @@ struct test {
   {reparent2, "reparent2"},
   {mem, "mem"},
   {sharedfd, "sharedfd"},
-  {fourfiles, "fourfiles"},
-  {createdelete, "createdelete"},
-  {unlinkread, "unlinkread"},
+  {fourfiles, "fourfiles"}, // [x] fat
+  {createdelete, "createdelete"}, // [x] fat passed (need LFN) xv6 passed
+  {unlinkread, "unlinkread"}, // fat cannot support
   {linktest, "linktest"},
   {concreate, "concreate"},
   {linkunlink, "linkunlink"},

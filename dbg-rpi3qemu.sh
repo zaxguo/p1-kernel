@@ -20,13 +20,13 @@ echo "	Details: https://fxlin.github.io/p1-kernel/gdb/"
 echo " ------------------------------------------------"
 
 # /cs4414-shared/qemu/aarch64-softmmu/qemu-system-aarch64 -M raspi3 \
-# -kernel ./kernel8.img -serial null -serial mon:stdio -nographic -gdb tcp::${MYGDBPORT} -S
+# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic -gdb tcp::${MYGDBPORT} -S
 
 
 # qemu v8, grahpics
 # QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 # ${QEMU} -M raspi3b \
-# -kernel ./kernel8.img -serial null -serial mon:stdio \
+# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 # -d int -D qemu.log \
 # -usb -device usb-kbd \
 # -gdb tcp::${MYGDBPORT} -S
@@ -34,7 +34,7 @@ echo " ------------------------------------------------"
 # qemu v8, no grahpics, no kb, with sd
 QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 ${QEMU} -M raspi3b \
--kernel ./kernel8.img -serial null -serial mon:stdio \
+-kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
 -nographic \
 -drive file=smallfat.bin,if=sd,format=raw \

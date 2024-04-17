@@ -864,7 +864,7 @@ struct inode* fat_open(const char *path, int omode) {
       BUG(); // TODO iunlock, clean up... 
     }
     if ((ret=f_opendir(ip->fatdir, path))!=FR_OK) {
-      W("f_opendir failed with ret %d", ret); 
+      W("f_opendir '%s' failed with ret %d", path, ret); 
       iunlockput(ip); 
       return 0; 
     }    
@@ -874,7 +874,7 @@ struct inode* fat_open(const char *path, int omode) {
       BUG(); // TODO iunlock, clean up... 
     }    
     if ((ret=f_open(ip->fatfp, path, flag))!=FR_OK) {
-      W("f_open failed with ret %d", ret); 
+      W("f_open '%s' failed with ret %d", path, ret); 
       iunlockput(ip); 
       return 0; 
     }

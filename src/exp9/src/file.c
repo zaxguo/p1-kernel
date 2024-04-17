@@ -88,15 +88,7 @@ void fileclose(struct file *f) {
     f->type = FD_NONE;
     release(&ftable.lock);
 
-#ifdef CONFIG_FAT
-    // close file here, dont have to wait until iput() below, which will just free
-    // inode for us
-    if (ff.ip->type == FD_INODE_FAT)  {
-        if (ff.ip->fatfp) {f_close(ff.ip->fatfp); free(ff.ip->fatfp);}
-        else if (ff.ip->fatdir) {f_closedir(ff.ip->fatdir); free(ff.ip->fatdir);}
-    }
-#endif
-
+    // done with file* in ftable. continue to work on inode
     if (ff.type == FD_PIPE) {
         pipeclose(ff.pipe, ff.writable);
     } else if (ff.type == FD_INODE || ff.type == FD_DEVICE 
@@ -105,6 +97,14 @@ void fileclose(struct file *f) {
         iput(ff.ip);
         end_op();
     }
+#ifdef CONFIG_FAT
+    // close file & free inode 
+    else if (ff.type == FD_INODE_FAT)  {
+        if (ff.ip->fatfp) {f_close(ff.ip->fatfp); free(ff.ip->fatfp);}
+        else if (ff.ip->fatdir) {f_closedir(ff.ip->fatdir); free(ff.ip->fatdir);}
+        iput(ff.ip);
+    }
+#endif
 }
 
 // Get metadata about file f.
@@ -156,11 +156,11 @@ int fileread(struct file *f, uint64 addr, int n) {
             char *buf = malloc(n); if (!buf) {return -2;}
             unsigned n1; 
             ilock_fat(f->ip);            
-            if (f_read(f->ip->fatfp, buf, n, &n1) == FR_OK &&
+            if ((r=f_read(f->ip->fatfp, buf, n, &n1)) == FR_OK &&
                 either_copyout(1/*usrdst*/, addr, buf, n1) == 0)
                 r = (int)n1;
             else 
-                {r = -1; BUG();}
+                {W("f_read returns %d", r); r = -1;}
             iunlock(f->ip);
             free(buf); 
         } else if (f->ip->type == T_DIR_FAT) {
@@ -307,12 +307,15 @@ int filewrite(struct file *f, uint64 addr, int n) {
             //  TODO optimize: kalloc() one page only, and read in one page at a time
             char *buf = malloc(n); if (!buf) {return -2;}
             unsigned n1; 
+            FRESULT fr = 9999;  // invalid
             ilock_fat(f->ip);
             if (either_copyin(buf, 1/*usrdst*/, addr, n) == 0 &&
-                f_write(f->ip->fatfp, buf, n, &n1) == FR_OK)
+                (fr=f_write(f->ip->fatfp, buf, n, &n1)) == FR_OK) {
+                if (n!=n1) W("f_write ok but disk is full");
                 ret = (int)n1;
-            else 
-                {ret = -1; BUG();}
+            } else {
+                E("failed. f_write returns %d", fr); ret = -1; BUG();
+            }
             iunlock(f->ip);
             free(buf); 
     } 

@@ -289,7 +289,7 @@ void free (void *pBlock) {
 	assert (pBlock != 0);
 	TBlockHeader *pBlockHeader = (TBlockHeader *) ((unsigned long) pBlock - sizeof (TBlockHeader));
 	assert (pBlockHeader->nMagic == BLOCK_MAGIC);
-    BUG_ON(pBlockHeader->pNext != 0);
+    BUG_ON(pBlockHeader->pNext != 0); // xzl this
 
     int freed = 0; 
 

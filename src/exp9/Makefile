@@ -19,17 +19,19 @@ COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
 
 ASMOPS = -Isrc  -g 
 
-##### platform specific flags ########
+##### platform specific flags, targets ########
 ifeq (${PLAT}, virt)
 COPS += -DPLAT_VIRT
 ASMOPS += -DPLAT_VIRT
 LINKSCR = $(SRC_DIR)/linker-virt.ld
+KERNEL = kernel8-virt.img
 endif
 
 ifeq (${PLAT}, rpi3qemu)
 COPS += -DPLAT_RPI3QEMU
 ASMOPS += -DPLAT_RPI3QEMU
 LINKSCR = $(SRC_DIR)/linker-rpi3qemu.ld
+KERNEL = kernel8-rpi3qemu.img
 endif
 
 # if SCTLR_EL1 specifies alginment check, we must specify -mstrict-align here,
@@ -38,6 +40,7 @@ ifeq (${PLAT}, rpi3)
 COPS += -DPLAT_RPI3 -mcpu=cortex-a53+fp+simd -mstrict-align
 ASMOPS += -DPLAT_RPI3
 LINKSCR = $(SRC_DIR)/linker-rpi3.ld
+KERNEL = kernel8-rpi3.img
 endif
 
 ##### feature specific flags ####
@@ -58,7 +61,7 @@ COPS += -O0
 BUILD_DIR = build
 SRC_DIR = src
 
-all : kernel8.img 
+all : $(KERNEL)
 
 clean :
 	rm -rf $(BUILD_DIR) *.img 
@@ -168,14 +171,17 @@ endif
 ##### feature specific source ####
 ifeq (${CONFIG_FAT}, 1)
 C_OBJS += $(BUILD_DIR)/ff_c.o
+# needed to support fat long file names (LFN) beyond 8.3 format
+C_OBJS += $(BUILD_DIR)/ffunicode_c.o  
 endif
 #################################
+
 
 DEP_FILES = $(C_OBJS:%.o=%.d)
 -include $(DEP_FILES)
 
-kernel8.img: $(LINKSCR) $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
+$(KERNEL): $(LINKSCR) $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 	$(ARMGNU)-ld -T $(LINKSCR) -o $(BUILD_DIR)/kernel8.elf $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
-	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
+	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary $(KERNEL)
 	@$(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
 	@nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym

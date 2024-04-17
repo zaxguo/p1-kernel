@@ -235,13 +235,10 @@ int sys_unlink(unsigned long upath /*user va*/) {
 
 #ifdef CONFIG_FAT
   int fat_rela = 0, fat_abs = 0; 
-  char fatpath[MAXPATH]; 
+  char fatpath[MAXPATH], *p; 
   if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
-    if (fat_abs) 
-      return f_unlink(fatpath) == FR_OK ? 0:-1;
-    else if (fat_rela)
-      return f_unlink(path) == FR_OK ? 0:-1; 
-    else BUG(); 
+    p = fat_abs ? fatpath : path;
+    return (f_unlink(p) == FR_OK) ? 0:-1;
   }  
 #endif
 
@@ -395,7 +392,7 @@ int sys_open(unsigned long upath, int omode) {
   if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
     p = fat_abs ? fatpath : path;    
     if ((ip = fat_open(p, omode)))
-      {W("fat_open done."); goto prepfile;}
+      {V("fat_open done."); goto prepfile;}
     else 
       {E("fat_open failed"); end_op(); return -1;}
   }
@@ -521,14 +518,14 @@ int sys_mkdir(unsigned long upath) {
     return -1; 
 
 #ifdef CONFIG_FAT
-  int fat_rela = 0, fat_abs = 0; 
-  char fatpath[MAXPATH]; 
+  int fat_rela = 0, fat_abs = 0, r; 
+  char fatpath[MAXPATH], *p; 
   if ((redirect_fatpath(path, fatpath, &fat_rela, &fat_abs) == 0)) {
-    if (fat_abs) 
-      {return f_mkdir(fatpath) == FR_OK ? 0:-1;}
-    else if (fat_rela)
-      {return f_mkdir(path) == FR_OK ? 0:-1;} 
-    else BUG(); 
+    p = fat_abs ? fatpath : path;
+    if ((r=f_mkdir(p)) != FR_OK) {
+      W("f_mkdir '%s' failed with %d", p, r); return -1;
+    } else 
+      {return 0;}      
   }
 #endif
 

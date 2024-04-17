@@ -112,8 +112,10 @@
 /     0 - Include all code pages above and configured by f_setcp()
 */
 
-#define FF_USE_LFN	0		/* 0 to 3 */
-#define FF_MAX_LFN	255		/* Maximum LFN length to handle (12 to 255) */
+// xzl: FF_USE_LFN=0 only 8.3 format filename is supported. longer filenames -> API failure
+// too limited. 
+#define FF_USE_LFN	2		/* 0 to 3 */
+#define FF_MAX_LFN	64		/* Maximum LFN length to handle (12 to 255) */
 
 /* The FF_USE_LFN switches the support for LFN (long file name).
 /

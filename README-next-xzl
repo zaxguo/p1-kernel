@@ -544,10 +544,30 @@ TBD
 
 
 ~~~~~~~~~~~~~~~~~ 
-parted 
-(+script) can be useful 
+creawte disk image, partitions
+https://unix.stackexchange.com/questions/771277/creating-disk-image-with-msdos-partition-table-and-fat32
 
-~~~~~~~~~~~~~~~~~ 
+# use parted to create patitions
+# 128MB
+dd if=/dev/zero of=smallfat.bin bs=1M count=128
+
+parted smallfat.bin \
+mklabel msdos   \
+mkpart primary fat32 4096s 100%
+
+# WARNING: You are not superuser.  Watch out for permissions.
+# ^^ this is ok
+
+# check partitions
+mmls smallfat.bin
+
+# mkfat32 for partition 1 (note ~/.mtoolsrc must be configured)
+mformat -i smallfat.bin x:
+
+# list dirs 
+mdir -i smallfat.bin  x:
+
+~~~~~~~~~~~~~~~~~  
 mmls 
 list partitions of an image. useful
 
@@ -563,8 +583,22 @@ Units are in 512-byte sectors
 003:  -------   0000004096   0000004176   0000000081   Unallocated
 004:  000:001   0000004177   0000008191   0000004015   Linux (0x83)
 
+Another Ex:
 
-~~~~~~~~~~~~~~~~~ 
+xl6yq@granger1 (next)[exp9]$ mmls smallfat.bin
+DOS Partition Table
+Offset Sector: 0
+Units are in 512-byte sectors
+
+      Slot      Start        End          Length       Description
+000:  Meta      0000000000   0000000000   0000000001   Primary Table (#0)
+001:  -------   0000000000   0000004095   0000004096   Unallocated
+002:  000:000   0000004096   0000262143   0000258048   Win95 FAT32 (0x0c)
+
+
+~~~~~~~~~~~~~~~~~
+
+
 fat32 mtool
 https://wiki.osdev.org/MTools
 
@@ -592,6 +626,7 @@ https://unix.stackexchange.com/questions/629492/create-and-populate-fat32-filesy
 dd if=/dev/zero of=disk.img bs=1M count=2
 
 # Put a FAT filesystem on it (use -F for FAT32, otherwise it's automatic)
+# NB: this wont create partition
 mformat -i disk.img ::
 
 # Add a file to it
@@ -602,6 +637,17 @@ mdir -i disk.img ::
 
 # Extract a file
 mcopy -i disk.img ::/example.txt extracted.txt
+
+~~~~~~~~~~~~~~~~~ 
+
+usertests for fat32
+
+after implementing chdir() and relative path, no longer need
+dedicate functions, e.g. dirtestfat()
+just do: 
+    cd /d/
+    /usertests dirtest 
+this should perform file tests on fatfs
 
 
 ~~~~~~~~~~~~~~~~~ 
