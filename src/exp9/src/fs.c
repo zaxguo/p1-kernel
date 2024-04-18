@@ -52,7 +52,7 @@ fsinit(int dev) {
   if (dev == SECONDDEV) {
     snprintf(devstr, 32, "%d:", dev); 
     if ((ret=f_mount(&fatfs, devstr, 1 /*mount now*/)) != FR_OK)
-      {E("devstr %s ret val %d", devstr, ret); BUG();}
+      {E("devstr %s ret %d", devstr, ret); BUG();}
     if ((ret=f_chdrive(devstr)) != FR_OK) // must do this, otherwise f_chdir(..) default to vol 0
       {E("f_chdrive failed"); BUG();}
     return; 

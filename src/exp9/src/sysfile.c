@@ -83,7 +83,7 @@ static int redirect_fatpath(const char *path /*in*/, char *fatpath /*out*/,
     fa = 1; 
   releasesleep(&p->cwd->lock);
   
-  I("redirect_fatpath: %s cwd is fat? %d", path, fa); 
+  V("redirect_fatpath: %s cwd is fat? %d", path, fa); 
 
   if (fa && path[0] != '/') 
     {*fat_rela = 1; return 0;}

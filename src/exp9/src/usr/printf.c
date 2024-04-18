@@ -1,3 +1,4 @@
+// xv6's minimalist printf. simple but very basic support
 #include "../param.h"
 #include "../stat.h"
 #include "user.h"

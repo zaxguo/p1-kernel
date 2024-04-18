@@ -549,23 +549,38 @@ https://unix.stackexchange.com/questions/771277/creating-disk-image-with-msdos-p
 
 # use parted to create patitions
 # 128MB
-dd if=/dev/zero of=smallfat.bin bs=1M count=128
+# dd if=/dev/zero of=smallfat.bin bs=1M count=128
+# or: 
+# truncate -s 128MB smallfat.bin
 
-parted smallfat.bin \
-mklabel msdos   \
-mkpart primary fat32 4096s 100%
+    # 1 part
+    parted smallfat.bin \
+    mklabel msdos   \
+    mkpart primary fat32 4096s 100%
+
+    # 2 parts
+    parted smallfat.bin \
+    mklabel msdos   \
+    mkpart primary fat32 4096s 50% \
+    mkpart primary fat32 50% 100%
 
 # WARNING: You are not superuser.  Watch out for permissions.
 # ^^ this is ok
 
 # check partitions
+parted smallfat.bin print
+# or
 mmls smallfat.bin
 
 # mkfat32 for partition 1 (note ~/.mtoolsrc must be configured)
-mformat -i smallfat.bin x:
+# -F for fat32, default fat16
+mformat -F -i smallfat.bin x:
 
 # list dirs 
 mdir -i smallfat.bin  x:
+
+# mkdir 
+mmd -i smallfat.bin ::/testdir
 
 ~~~~~~~~~~~~~~~~~  
 mmls 
@@ -637,6 +652,13 @@ mdir -i disk.img ::
 
 # Extract a file
 mcopy -i disk.img ::/example.txt extracted.txt
+
+
+support for mutiple partitions... seem bad???
+
+like, mformat has problems with formating partition2...
+"Not enough sectors"
+
 
 ~~~~~~~~~~~~~~~~~ 
 

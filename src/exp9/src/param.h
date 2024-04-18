@@ -25,7 +25,11 @@
 
 // device number of file system root disk NB: this is block disk id, not major/minor
 #define ROOTDEV       DEV_RAMDISK  
+#if defined(PLAT_RPI3QEMU)
 #define SECONDDEV     DEV_SD0       // secondary dev to mount under /d/
+#elif defined(PLAT_RPI3)
+#define SECONDDEV     DEV_SD1       // secondary dev to mount under /d/
+#endif
     
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define FSSIZE       8000 // 2000  // size of file system in blocks

@@ -388,6 +388,7 @@ static int parse_mbr(TMasterBootRecord *pmbr, char isvalid[4]) {
                 isvalid[n] = 0;
         }
         memmove(pmbr, buf, sizeof(TMasterBootRecord));
+        ret = 0; 
     }
 out:
     kfree(buf);

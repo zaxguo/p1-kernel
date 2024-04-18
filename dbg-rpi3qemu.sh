@@ -22,18 +22,20 @@ echo " ------------------------------------------------"
 # /cs4414-shared/qemu/aarch64-softmmu/qemu-system-aarch64 -M raspi3 \
 # -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic -gdb tcp::${MYGDBPORT} -S
 
+# qemu v5.2, currently used by 4414
+QEMU5=/cs4414-shared/qemu/aarch64-softmmu/qemu-system-aarch64 \
+# qemu8, apr 2024
+QEMU8=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
 
 # qemu v8, grahpics
-# QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
-# ${QEMU} -M raspi3b \
+# ${QEMU8} -M raspi3b \
 # -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 # -d int -D qemu.log \
 # -usb -device usb-kbd \
 # -gdb tcp::${MYGDBPORT} -S
 
 # qemu v8, no grahpics, no kb, with sd
-QEMU=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
-${QEMU} -M raspi3b \
+${QEMU8} -M raspi3b \
 -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
 -nographic \

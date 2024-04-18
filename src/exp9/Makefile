@@ -1,6 +1,10 @@
 # PLAT = virt
 # PLAT ?= rpi3qemu
-PLAT ?= rpi3
+# PLAT ?= rpi3
+
+ifndef PLAT
+$(error PLAT must be set to virt|rpi3qemu|rpi3. e.g. export PLAT=rpi3qemu)
+endif
 
 # support for fat32 fs
 CONFIG_FAT ?= 1
