@@ -1,7 +1,7 @@
 CC      := aarch64-linux-gnu-gcc
 CFLAGS  := -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 CFLAGS  += -nostartfiles -ffreestanding -mgeneral-regs-only
-CFLAGS  += -Os  # to fit xv6 fs limit. should do -O2
+CFLAGS  += -O2  # to fit xv6 fs limit. should do -O2
 
 LDFLAGS := 
 
