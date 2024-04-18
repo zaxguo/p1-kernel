@@ -245,8 +245,12 @@ void ppu_run(int cycles)
 
 void ppu_cycle()
 {
+    // printf("%s called ppu.ready %d", __func__, ppu.ready);
+
     if (!ppu.ready && cpu_clock() > 29658)
         ppu.ready = true;
+
+    // printf("%s called ppu.ready %d", __func__, ppu.ready);
 
     ppu.scanline++;
     if (ppu_shows_background()) {

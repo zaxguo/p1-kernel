@@ -1,12 +1,17 @@
+# copied from user.ld but we start from 0x1000
+
 OUTPUT_ARCH( "aarch64" )
 ENTRY( _main )
 
 
 SECTIONS
 {
-  # xzl: maybe text should start from non zero (e.g. 0x1000 cf nes.ld) 
-  # in case some prog take null function pointers and believe it is invalid
- . = 0x0;
+  # xzl: text should start from non zero 
+  # in case prog take null function pointers and believe it is invalid. cf: cpu_run()
+  # this happens with gcc-9.4 (Ubuntu 20.04) which links cpu_address_immediate()
+  # to address 0. 
+
+ . = 0x1000;
  
   .text : {
     *(.text .text.*)

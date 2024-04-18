@@ -73,6 +73,8 @@ void wait_for_frame()
 
     if (fds[0]<=0) {printf("fatal:pipe invalid\n"); exit(1);};
 
+    // printf("%s called", __func__);
+
     while (1) { 
         if (read(fds[0], &ev, sizeof ev) != sizeof ev) {
             printf("read ev failed"); exit(1); 
@@ -114,6 +116,7 @@ static inline PIXEL getpixel(int id, char *buf, int x, int y, int pit) {
 /* Set background color. RGB value of c is defined in fce.h */
 void nes_set_bg_color(int c)
 {
+    // printf("%s called", __func__);
     int pitch = dispinfo[PITCH];
     PIXEL p = fcecolor_to_pixel(palette[c]);
     for (int y = 0; y < SCREEN_HEIGHT; y++) 
@@ -131,6 +134,8 @@ void nes_set_bg_color(int c)
 // https://github.com/fxlin/p1-kernel/blob/master/docs/exp3/fb.md
 void nes_flush_buf(PixelBuf *buf) {
     int pitch = dispinfo[PITCH]; //in bytes
+
+    // printf("%s called", __func__);
 
     for (int i = 0; i < buf->size; i ++) {
         Pixel *p = &buf->buf[i];

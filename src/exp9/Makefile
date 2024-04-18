@@ -74,12 +74,12 @@ clean :
 $(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
 	@echo  KERNEL CC $< "->" $@
 	@mkdir -p $(@D)
-	@$(ARMGNU)-gcc $(COPS1) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc-9 $(COPS1) -MMD -c $< -o $@
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	@echo  KERNEL CC $< "->" $@
 	@mkdir -p $(@D)
-	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+	$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
 
 # font build rules. 
 # NB: the symbols in the binary will have prefix "_binary". 
@@ -95,7 +95,7 @@ $(BUILD_DIR)/%_bin.o: %.bin
 # asm rule 
 $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
 	@echo  KERNEL AS $< "->" $@
-	@$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc-9 $(ASMOPS) -MMD -c $< -o $@
 
 # generic kernel
 C_OBJS = $(BUILD_DIR)/bio_c.o
@@ -134,7 +134,7 @@ ASM_OBJS += $(BUILD_DIR)/utils_s.o
 BIN_OBJS = $(BUILD_DIR)/sd_bin.o
 BIN_OBJS += $(BUILD_DIR)/font_psf.o
 
-# plat specific source 
+# ------- Rpi3 QEMU specific source -------
 ifeq (${PLAT}, rpi3qemu)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
 # usb glue
@@ -150,6 +150,7 @@ C_OBJS += $(BUILD_DIR)/machineinfo_c.o
 C_OBJS += $(BUILD_DIR)/sd_c.o
 endif
 
+# ------- Rpi3 specific source -------
 ifeq (${PLAT}, rpi3)
 C_OBJS += $(BUILD_DIR)/mini_uart_c.o
 # usb glue

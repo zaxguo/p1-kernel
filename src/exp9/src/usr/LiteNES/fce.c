@@ -104,7 +104,9 @@ void fce_update_screen()        // xzl: called by ppu cycle
 {
     int idx = ppu_ram_read(0x3F00);
     nes_set_bg_color(idx);
-    
+    // printf("%s called %d %d %d\n", __func__,ppu_shows_sprites(), 
+    //     ppu_shows_background(), ppu_shows_sprites());
+
     if (ppu_shows_sprites())
         nes_flush_buf(&bbg);
 

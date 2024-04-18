@@ -76,7 +76,9 @@
         "ffconf.h": "c",
         "ff.h": "c",
         "string.h": "c",
-        "diskio-ff.h": "c"
+        "diskio-ff.h": "c",
+        "hal.h": "c",
+        "fce.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

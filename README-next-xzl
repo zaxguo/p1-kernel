@@ -540,8 +540,32 @@ call f_stat internally....
 
 TBD
 [x] ls readdir cannot stop by itself??? -- fixed. bug. 
-[ ] impl seek() on fat files
+[x] impl seek() on fat files
 
+~~~~~~~~~~~~~~~~~ 
+a bug caused by linker/compiler issue
+
+nes breaks when switching to gcc9.4 (ubuntu 2004) to gcc9.5(ubuntu 2204)
+symptom: blank/gray screen (only background), no response
+
+cause: 
+cpu_run will do this
+        if (cpu_op_address_mode[op_code] == NULL) {
+        }
+however,       
+    void cpu_address_implied() was linked at addr 0. 
+    (b/c user.ld starts .text from addr 0). 
+therefore, cpu_run() skips many isns it shouldn't skip. 
+gcc9.4 didnt have this issue, even though it links another func at addr 0; 
+but no func pointer was taken for that func. 
+
+this is figured out by comparing the "good" nes and the "bad" nes, 
+and compare their cpu insns traces side by side
+(after noticing that PPU.mask was not programmed at all, and iowrtie was not called regularly)
+
+fix: create a linker script (nes.ld) which starts text from 1000
+
+long term: need to port gdb?? 
 
 ~~~~~~~~~~~~~~~~~ 
 creawte disk image, partitions

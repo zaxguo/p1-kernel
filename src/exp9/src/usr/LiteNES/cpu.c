@@ -293,7 +293,7 @@ void cpu_op_rra() { cpu_op_ror(); cpu_op_adc(); }
 
 
 // CPU Lifecycle
-
+// xzl: ppulate all cpu ops, names, address modes, and handlers
 void cpu_init()
 {
     CPU_OP_BIS(00, 7, brk, "BRK", implied)
@@ -533,6 +533,7 @@ void cpu_init()
     cpu.A = cpu.X = cpu.Y = 0;
 }
 
+// xzl: called once at init
 void cpu_reset()
 {
     cpu.PC = cpu_reset_interrupt_address();
@@ -558,10 +559,21 @@ inline unsigned long long cpu_clock()
     return cpu_cycles;
 }
 
-void cpu_run(long cycles)
+extern void printf(const char*, ...); // xzl
+
+void cpu_run(long cycles)           // xzl: the cpu emu loop. run this many cycles then return (to exec ppu)
 {
+    static int once = 0;  // xzl: change this to 1 for op tracing
     while (cycles > 0) {
-        op_code = memory_readb(cpu.PC++);
+
+        if (once) {
+            printf("PC %x SP %x A %x X %x Y %x P %x ", 
+                cpu.PC, cpu.SP, cpu.A, cpu.X, cpu.Y, cpu.P); 
+        }
+
+        op_code = memory_readb(cpu.PC++);   
+        if (once)
+            printf("opcode %x\n", op_code); 
         if (cpu_op_address_mode[op_code] == NULL) {
         }
         else {
@@ -572,5 +584,5 @@ void cpu_run(long cycles)
         cpu_cycles -= cpu_op_cycles[op_code] + op_cycles;
         op_cycles = 0;
     }
+    once = 0; 
 }
-

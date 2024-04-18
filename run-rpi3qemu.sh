@@ -6,35 +6,44 @@
 # https://www.qemu.org/docs/master/system/arm/raspi.html
 
 # qemu v5.2, currently used by 4414
-QEMU5=/cs4414-shared/qemu/aarch64-softmmu/qemu-system-aarch64 \
-# qemu8, apr 2024
-QEMU8=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64
+QEMU5=/cs4414-shared/qemu/aarch64-softmmu/qemu-system-aarch64
 
-# ${QEMU5} -M raspi3 \
+# qemu6, deefaul ton Ubuntu 2204
+# seems good
+QEMU6=qemu-system-aarch64
+
+# qemu8, apr 2024
+# good
+#QEMU8=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-aarch64 
+# incomplete build under wsl? no graphics?? to fix (Apr 2024)
+#QEMU8=~/qemu-8.2-apr2024/build/qemu-system-aarch64   
+
+QEMU=${QEMU6}
+
+# ${QEMU} -M raspi3 \
 # -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic \
 # -d int -D qemu.log 
 
 #### qemu v8, console only
-# ${QEMU8} -M raspi3b \
+# ${QEMU} -M raspi3b \
 # -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic \
 # -d int -D qemu.log 
 
 ### qemu v8, no grahpics, no kb, with sd
-# ${QEMU8} -M raspi3b \
+# ${QEMU} -M raspi3b \
 # -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 # -d int -D qemu.log \
 # -nographic \
 # -drive file=smallfat.bin,if=sd,format=raw
 
-# -usb -device usb-kbd \
 
 ### qemu v8, + grahpics, + kb, + sd
-${QEMU8} -M raspi3b \
+${QEMU} -M raspi3b \
 -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
--usb -device usb-kbd \
 -drive file=smallfat.bin,if=sd,format=raw
 
+# -usb -device usb-kbd \
 
 ### qemu v8, no gfx, no kb, virtual fat
 # cannot make it work as sd driver expects certain

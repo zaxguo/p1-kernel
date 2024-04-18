@@ -1,3 +1,4 @@
+# xzl Apr 2024 mandates using gcc-9 (not gcc 11 which is default in Ubuntu 22.04)
 ARMGNU ?= aarch64-linux-gnu
 
 ULIB = ulib.o printf.o usys_s.o umalloc.o tinyprintf.o uio.o
@@ -33,11 +34,11 @@ mkfs: mkfs.c
 
 %.o: %.c
 	@echo  USER CC $< "->" $@
-	@$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
 
 %_s.o: %.S
 	@echo  USER AS $< "->" $@
-	@$(ARMGNU)-gcc $(ASMOPS) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc-9 $(ASMOPS) -MMD -c $< -o $@
 
 build/nes: 
 	cd LiteNES && $(MAKE)
@@ -50,8 +51,8 @@ build/nes:
 #%.elf: %.o $(ULIB)
 build/%: %.o $(ULIB)		
 	@echo  USER LD $< "->" $@
-	@$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
 	@mkdir -p build
+	@$(ARMGNU)-ld $(LDFLAGS) -T user.ld -o $@ $^
 	@$(ARMGNU)-objdump -S $@ > $*.asm
 	@$(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 

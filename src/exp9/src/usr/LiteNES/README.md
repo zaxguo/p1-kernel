@@ -22,6 +22,11 @@ changes:
 removed dep on standard libc as much as possible (only rely on our minimalist ulib
 - no fopen --> open (etc
 - no signal 
+- the orgin code defined symbols in .h which is included in multiple files. gcc-9
+seems ok, as the default behavior would be merge them??? but gcc-11 won't like it.
+cf. cpu-internal.h byte CPU_RAM[]
+so I manually move the def to .c and leave "extern" decl in .h and messed it up.
+as of now, enforce gcc-9
 
 ## LiteNES
 

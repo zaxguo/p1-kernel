@@ -135,6 +135,8 @@ void user_process() {
     // USER_PROGRAM1("/usertests", "/usertests", "dirtestfat");    
 
     USER_PROGRAM1("/sh", "/sh", "" /* does not care*/);    
+    // USER_PROGRAM1("/nes", "/nes", "" /* does not care*/);    //no procfs, wont work
+
 
     char console[] = {"console"};     
     if (call_sys_open(console, O_RDWR) < 0) {

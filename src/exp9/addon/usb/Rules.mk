@@ -37,7 +37,7 @@ RASPPI	= 3
 PREFIX	?= aarch64-linux-gnu-
 endif
 
-CC	= $(PREFIX)gcc
+CC	= $(PREFIX)gcc-9   # xzl mandates gcc-9
 AS	= $(CC)
 LD	= $(PREFIX)ld
 AR	= $(PREFIX)ar

@@ -1,7 +1,7 @@
-CC      := aarch64-linux-gnu-gcc
+CC      := aarch64-linux-gnu-gcc-9
 CFLAGS  := -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 CFLAGS  += -nostartfiles -ffreestanding -mgeneral-regs-only
-CFLAGS  += -Os  # to fit xv6 fs limit. should do -O2
+CFLAGS  += -O2  # Os to fit xv6 fs limit. should do -O2
 
 LDFLAGS := 
 
@@ -16,7 +16,7 @@ OBJS	+= ../uio.o
  
 nes: $(OBJS)
 	@echo + LD "->" $@
-	aarch64-linux-gnu-ld $(LDFLAGS) -T ../user.ld -o $@ $^
+	aarch64-linux-gnu-ld $(LDFLAGS) -T nes.ld -o $@ $^
 
 # $(CC) $(OBJS) $(LDFLAGS) -o nes
 
