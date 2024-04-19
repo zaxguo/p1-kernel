@@ -13,9 +13,10 @@ ARMGNU ?= aarch64-linux-gnu
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -Isrc \
 -Iaddon/usb/include\
--Iaddon/sound/ampi\
 -mgeneral-regs-only \
 -g 
+
+# -Iaddon/sound/ampi\
 
 # COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
 COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
@@ -79,18 +80,18 @@ $(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	@echo  KERNEL CC $< "->" $@
 	@mkdir -p $(@D)
-	$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
+	@$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
 
 # font build rules. 
 # NB: the symbols in the binary will have prefix "_binary". 
 $(BUILD_DIR)/%_psf.o: %.psf
 	@mkdir -p $(@D)
-	$(ARMGNU)-ld -r -b binary -o $@ $<
+	@$(ARMGNU)-ld -r -b binary -o $@ $<
 
 # ramdisk build rules
 $(BUILD_DIR)/%_bin.o: %.bin
 	@mkdir -p $(@D)
-	$(ARMGNU)-ld -r -b binary -o $@ $<
+	@$(ARMGNU)-ld -r -b binary -o $@ $<
 
 # asm rule 
 $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
@@ -190,3 +191,5 @@ $(KERNEL): $(LINKSCR) $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary $(KERNEL)
 	@$(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
 	@nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym
+	@echo KERNEL INSTALL
+	@cp $(KERNEL) /mnt/d/tmp/$(KERNEL)

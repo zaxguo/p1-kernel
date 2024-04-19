@@ -41,9 +41,9 @@ QEMU=${QEMU6}
 ${QEMU} -M raspi3b \
 -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
+-usb -device usb-kbd \
 -drive file=smallfat.bin,if=sd,format=raw
 
-# -usb -device usb-kbd \
 
 ### qemu v8, no gfx, no kb, virtual fat
 # cannot make it work as sd driver expects certain

@@ -7,8 +7,8 @@ LDFLAGS :=
 
 CFILES  := $(shell find . -name "*.c")
 OBJS    := $(CFILES:%.c=%.o)
-OBJS	+= ../ulib.o ../printf.o ../usys_s.o ../umalloc.o ../tinyprintf.o
-OBJS	+= ../uio.o 
+OBJS	+= ../ulib.o ../printf.o ../usys_s.o ../umalloc.o
+OBJS	+= ../uio.o ../tinyprintf.o
 
 %.o: %.c
 	@echo + CC $< "->" $@
@@ -16,7 +16,7 @@ OBJS	+= ../uio.o
  
 nes: $(OBJS)
 	@echo + LD "->" $@
-	aarch64-linux-gnu-ld $(LDFLAGS) -T nes.ld -o $@ $^
+	@aarch64-linux-gnu-ld $(LDFLAGS) -T nes.ld -o $@ $^
 
 # $(CC) $(OBJS) $(LDFLAGS) -o nes
 

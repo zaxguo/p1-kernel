@@ -40,7 +40,7 @@ mkfs: mkfs.c
 	@echo  USER AS $< "->" $@
 	@$(ARMGNU)-gcc-9 $(ASMOPS) -MMD -c $< -o $@
 
-build/nes: 
+build/nes: ulib.o printf.o usys_s.o umalloc.o uio.o tinyprintf.o
 	cd LiteNES && $(MAKE)
 	cp LiteNES/nes build/
 
