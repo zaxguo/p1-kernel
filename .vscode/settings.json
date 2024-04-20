@@ -78,7 +78,8 @@
         "string.h": "c",
         "diskio-ff.h": "c",
         "hal.h": "c",
-        "fce.h": "c"
+        "fce.h": "c",
+        "usbdevice.h": "c"
     },
     "files.exclude": {
         "docs/**": true,
@@ -90,9 +91,9 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
-        // "src/exp9/addon/usb/**": true,  // usb 
-        "src/exp9/addon/sound/**": true, 
+        "src/exp9/**": true,
         "src/experimental/**": true,
+        // "src/current/addon/usb/**": true,  // usb 
     }, 
     "search.exclude": {
         "docs/**": true,
@@ -104,8 +105,7 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
-        // "src/exp9/addon/usb/**": true,  // usb 
-        "src/exp9/addon/sound/**": true,  // usb 
+        // "src/current/addon/usb/**": true,  // usb 
         "src/experimental/**": true,        
         "*.asm": true,
         ".*": true,

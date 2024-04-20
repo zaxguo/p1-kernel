@@ -20,6 +20,8 @@ QEMU6=qemu-system-aarch64
 
 QEMU=${QEMU6}
 
+KERNEL=./kernel/kernel8-rpi3qemu.img
+
 # ${QEMU} -M raspi3 \
 # -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic \
 # -d int -D qemu.log 
@@ -39,7 +41,7 @@ QEMU=${QEMU6}
 
 ### qemu v8, + grahpics, + kb, + sd
 ${QEMU} -M raspi3b \
--kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
+-kernel ${KERNEL} -serial null -serial mon:stdio \
 -d int -D qemu.log \
 -usb -device usb-kbd \
 -drive file=smallfat.bin,if=sd,format=raw

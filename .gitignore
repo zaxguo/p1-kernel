@@ -4,6 +4,9 @@ qemu.log
 *.old
 *.bin
 
+**/*.BMP
+**/*.bmp
+
 old/*
 site/*
 todel/*

@@ -176,23 +176,22 @@ added test for pipe3: two writers, one reader.
 
 [x] implemented fb flip for nes (mario)
 
-    [ ]     add storage driver
-    [ ]         usb storage r/w -- existing code no irq (otherwise FSM becomes messy)
+    [x]     add storage driver
+    [x]         usb storage r/w -- existing code no irq (otherwise FSM becomes messy)
                     ref: the C  version of circle usb stack
                 input driver is irq driven 
-    [ ] sd card driver    
+    [ x] sd card driver    
     [ ]  port doom 
 
     ~~~add fat32 support
         useful: https://cpl.li/posts/2019-03-12-mbrfat/
 
 [ ]  add support for rpi3 hardware
-    [ ] 
     [x]     sound driver
     rf: pwm (cpu or dma playback, via 3.5mm jack
     
     https://github.com/babbleberry/rpi4-osdev/tree/master/part9-sound
-
+    has example on how ot play .wav file
 
     https://github.com/PeterLemon/RaspberryPi/tree/master/Sound/PWM/8BIT/48000Hz
     
@@ -204,6 +203,10 @@ added test for pipe3: two writers, one reader.
         ported from  circle (older veersion of circle? use vchiq firmware
         (too bloaty ... tried but decided to go the DMA/PMW route first 
         https://github.com/ayuusweetfish/AMPi
+
+        contains code for ogg decoding (via stb_vorbis)
+        https://github.com/ayuusweetfish/AMPi/tree/master/sample
+
 
         can via VCHQI
         https://forums.raspberrypi.com/viewtopic.php?t=306441
@@ -350,6 +353,11 @@ https://www.valvers.com/open-software/raspberry-pi/bare-metal-programming-in-c-p
 
 
 ------------
+NJU OS website 
+https://nju-projectn.github.io/ics-pa-gitbook/ics2024/
+
+
+
 newlib nju os
 https://github.com/NJU-ProjectN/newlib-navy/tree/master
 
@@ -362,6 +370,23 @@ https://github.com/NJU-ProjectN/am-kernels/tree/master/kernels/litenes/src
 original
 https://github.com/yaglo/mynes
 
+a full fledge nes emulator (still active project
+https://github.com/TASEmulators/fceux
+
+
+-------------
+sdl, minisdl 
+cf; NJU OS
+https://github.com/NJU-ProjectN/navy-apps/tree/master/libs
+
+https://github.com/NJU-ProjectN/navy-apps/tree/master/libs/libminiSDL/src
+
+consider its sound interface. ...
+https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libminiSDL/src/audio.c
+
+^^ in fact, doom has SDL port (simple, clean). so having SDL is good for doom port
+    also doom can be used to test SDL sound...
+also PAL.... 
 
 -------------
 device interfacwes
@@ -497,6 +522,68 @@ uspi:done ... get storage
 uspi:done ... get eth
 uspi:USPi library successfully initialized
 
+~~~~~~~~~~~~~~~~~~
+
+	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+
+
+uspi:Initializing USPi library 2.00
+<... very long time .... >
+
+    1st call to USBDeviceInitialize     from rootport init..  the "default" device...   ven409 is a rootport device??
+    #0  USBDeviceInitialize (pThis=0xffff00003ee01020) at usbdevice.c:127
+    #1  0xffff00000049807c in DWHCIRootPortInitialize (pThis=pThis@entry=0xffff00003ee00b28) at dwhcirootport.c:72
+    #2  0xffff00000048cea0 in DWHCIDeviceInitialize (pThis=0xffff00003ee00018) at dwhcidevice.c:188
+    #3  0xffff0000004896b4 in USPiInitialize () at uspilibrary.c:49
+    #4  0xffff00000047b62c in usbkb_init () at src/kb.c:155
+    #5  0xffff000000470ab4 in kernel_main () at src/kernel.c:75
+
+usbdev0-1:Device ven409-55aa, dev9-0-0 found [from USBDeviceInitialize()]
+usbdev0-1:Interface int9-0-0 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int9-0-0
+usbdev0-1:----- USBDeviceInitialize: Done with a device ------ ]
+
+<... very long time .... >
+
+"configure" the defaeult device, which will enuemrte its "functions". if this is a standard hub, 
+this goes on to enumreate hub, functions, etc...
+if this is a stanard hub, will configure hub, enumerate ports, configure devices....
+
+    2nd call to USBDeviceInitialize
+    #0  USBDeviceInitialize (pThis=0xffff00003ee01d40) at usbdevice.c:127
+    #1  0xffff000000491558 in USBStandardHubEnumeratePorts (pThis=pThis@entry=0xffff00003ee01930) at usbstandardhub.c:282
+    #2  0xffff000000491ba0 in USBStandardHubConfigure (pUSBFunction=0xffff00003ee01930) at usbstandardhub.c:144
+    #3  0xffff00000048ffd0 in USBDeviceConfigure (pThis=0xffff00003ee01020) at usbdevice.c:422
+    #4  0xffff00000049808c in DWHCIRootPortInitialize (pThis=pThis@entry=0xffff00003ee00b28) at dwhcirootport.c:81
+    #5  0xffff00000048cea0 in DWHCIDeviceInitialize (pThis=0xffff00003ee00018) at dwhcidevice.c:188
+    #6  0xffff0000004896b4 in USPiInitialize () at uspilibrary.c:49
+    #7  0xffff00000047b62c in usbkb_init () at src/kb.c:155
+    #8  0xffff000000470ab4 in kernel_main () at src/kernel.c:75
+
+
+usbdev0-1:Device ven627-1 found [from USBDeviceInitialize()]
+usbdev0-1:Interface int3-1-1 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int3-1-1
+<... very long time .... >
+
+
+
+usbhub:Port 1: Device configured
+
+<... very long time .... >
+
+dwroot:Device configured
+uspi:USPi library successfully initialized
+~~~~~~~~~~~~~~~~~~
+CONCLUSION 4/19/24
+the bottnecks -- 
+[4.390] DWHCIDeviceTransferStage::warn: takes 2553 ms.  >            
+[10.608] DWHCIDeviceTransferStage::warn: takes 6218 ms.  >
+[15.018] DWHCIDeviceTransferStage::warn: takes 4410 ms.  >           
+it's wwait for a tansfer stage t ocomplete (blocking wait). and the delay is undeterminstic. somtimes can be long
+the problems could be in how qemu implement these registers?? and timing. 
+
+TBD>... look into qemu usb code
 
 ~~~~~~~~~~~~~~~~~ 
 fat32 consideration
@@ -750,3 +837,58 @@ EMMC: Sending command 0x37020000 arg 0x50480000
 EMMC: Sending command 0x6020000 arg 0x50480002
 EMMC: supports SET_BLKCNT CCS
 sd_readblock lba 0x0 num 0x1
+
+
+~~~~~~
+libc, newlib
+
+https://github.com/bminor/newlib/tree/master/newlib/libc
+modules:
+argz (arg parsing? 
+ctype (type handling, char, int, etc. 
+errorno
+iconv (conversion of encoding?
+locale (no need?
+machine (arch specifc code, e.g. optimzed memcpy etc. MUCH needed
+    https://github.com/bminor/newlib/tree/master/newlib/libc/machine/aarch64
+
+stdio (needed
+stdio64             Large File Input and Output   (not needed
+posix "several utility functions specified by POSIX, but not by C.     mot needed???
+
+reent   reentran versyions of variouss fucntions.. used for multithread cases? (which we dont have??
+search      various search algo, hash etc .. can be compioled with ease
+ssp         ... statck smath protection
+stdlib       need
+string      need
+sys         old libgloss?? there's arm, but no aarch64
+syscalls
+time
+unix        ... needed?? (things like basename, getcwd, ...
+xdr     "eXternal Data Representation (XDR) code from SunRPC" 
+
+signals??   ... use emulation?? (no kernel support
+c++ runtime support? 
+setjmp???
+
+
+the github mirror
+https://github.com/bminor/newlib
+
+structure (newlib vs libgloss
+https://www.embecosm.com/appnotes/ean9/html/ch03s01.html
+The main newlib directory contains the bulk of the code for the two main libraries, libc and libm, together with any architecture specific code for particular targets
+
+
+libgloss for aarch64
+https://github.com/bminor/newlib/tree/master/libgloss/aarch64
+https://github.com/bminor/newlib/tree/master/newlib/libc
+
+
+porting newlib
+https://wiki.osdev.org/Porting_Newlib
+mostly how to build, how to configure, define syscalls, etc.
+
+NJU ported newlib
+https://github.com/NJU-ProjectN/newlib-navy/tree/master
+based on an older vesion of enwlib.. its pretty much libc ONLY, no libm etc

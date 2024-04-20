@@ -5,14 +5,14 @@
         {
             "name": "cs4414",
             "includePath": [
-                "${workspaceFolder}/src/exp9",
-                "${workspaceFolder}/src/exp9/src",
-                "${workspaceFolder}/src/exp9/addon/usb/include",
+                "${workspaceFolder}/src/current",
+                "${workspaceFolder}/src/current/src",
+                "${workspaceFolder}/src/current/addon/usb/include",
                 // "${workspaceFolder}/src/exp9/addon/sound/ampi",
                 // "${workspaceFolder}/src/exp9/addon/circle/include/"
             ],
             "defines": ["PLAT_RPI3", "AARCH64", "RASPPI=3", "CONFIG_FAT=1"],
-            "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
+            "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc-9",
             "cStandard": "c11",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "linux-gcc-arm64",
