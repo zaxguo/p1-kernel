@@ -12,7 +12,7 @@ echo "  Next: in a separate window, launch gdb: "
 echo "      gdb-multiarch build/kernel8.elf "
 echo 
 echo "  Example gdb commands -- "
-echo "      (gdb) file build/kernel8.elf"
+echo "      (gdb) file kernel/build/kernel8.elf"
 echo "      (gdb) target remote :${MYGDBPORT}"
 echo "      (gdb) layout asm"
 echo "  You may want to have a custom ~/.gdbinit "
@@ -34,11 +34,13 @@ QEMU=${QEMU6}
 
 # qemu, grahpics
 ${QEMU} -M raspi3b \
--kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
+-kernel ./kernel/kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
--usb -device usb-kbd \
 -nographic \
+-drive file=smallfat.bin,if=sd,format=raw \
 -gdb tcp::${MYGDBPORT} -S
+
+# -usb -device usb-kbd \
 
 # qemu, no grahpics, no kb, with sd
 # ${QEMU} -M raspi3b \

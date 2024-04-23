@@ -1,1 +1,0 @@
-../../exp8/src/rev_uva_logo_color3-resized.h

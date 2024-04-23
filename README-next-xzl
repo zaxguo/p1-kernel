@@ -1,3 +1,17 @@
+Apr 22 2024 reorg the code source
+
+this repo contains the kernel and a lean userspace
+    kernel/     kernel source
+    kernel/addon/  heavy 3rd party kernel code, e.g. usb driver
+    usr/        a minimum userspace, inc apps like "slider" and "nes"
+        all apps here have no dependency on libc
+        libnew/     glue to libc
+        libminisdl/ implemented sdl interface, depends on libc (newlib)
+    old/        snapshots of kernel sources
+    scripts/    utility scripts
+    staged/     usable, but unused code
+
+~~~~~~~~~~~~~~~~~~~~~~~~~
 roadmap... 
 exp7: 
     sync (spinlock, sleeplock) & corresponding sched support (sleep, etc.)
@@ -840,7 +854,7 @@ sd_readblock lba 0x0 num 0x1
 
 
 ~~~~~~
-libc, newlib
+libc, newlib        (choice of Zehyper, realtime OS...
 
 https://github.com/bminor/newlib/tree/master/newlib/libc
 modules:
@@ -892,3 +906,93 @@ mostly how to build, how to configure, define syscalls, etc.
 NJU ported newlib
 https://github.com/NJU-ProjectN/newlib-navy/tree/master
 based on an older vesion of enwlib.. its pretty much libc ONLY, no libm etc
+
+
+
+                ARCHITECTURE-VENDOR-OS
+
+            For example, you can use the alias `sun4' as a HOST argument or in a
+            `--target=TARGET' option.  The equivalent full name is
+            `sparc-sun-sunos4'.
+
+./configure --target=aarch64-linux-gnu CC='aarch64-linux-gnu-gcc-9'
+
+
+# cf newlib/README Compiling NEWLIB
+# this is right
+CC='aarch64-linux-gnu-gcc-9' ../newlib/configure --host=aarch64-linux-gnu \
+    --disable-multilib \
+    --disable-newlib-iconv
+
+# libgloss
+
+CFLAGS=-I'../newlib/libc/include' CC='aarch64-linux-gnu-gcc-9' ../libgloss/configure --host=aarch64-linux-gnu
+
+
+
+make -j10
+
+mkdir build
+~~~~ ~~~~ ~~~~ 
+newlib configure system... 
+
+loolisk like it just check all subdirs... ??
+
+ if test x${unix_dir} != x; then
+  HAVE_UNIX_DIR_TRUE=
+  HAVE_UNIX_DIR_FALSE='#'
+else
+  HAVE_UNIX_DIR_TRUE='#'
+  HAVE_UNIX_DIR_FALSE=
+fi
+
+then in Makefile.in...
+@HAVE_UNIX_DIR_TRUE@am__append_25 = \
+@HAVE_UNIX_DIR_TRUE@	libc/unix/getcwd.c \
+@HAVE_UNIX_DIR_TRUE@	libc/unix/pread.c \
+@HAVE_UNIX_DIR_TRUE@	libc/unix/pwrite.c \
+@HAVE_UNIX_DIR_TRUE@	libc/unix/sigset.c
+
+xdr_dir-->this controls whether a dir is built or not 
+
+"xdr is compiled and supported only for those platforms which
+set xdr_dir nonempty in configure.host. At present, the list
+of platforms which do this is:
+   cygwin"
+
+# source 
+configure.host: 
+    for each "host" or "target", defines which "dir" should be built or not (e.g. unix, posix, etc
+
+    here, based on "host" (triplet), it will decide what to compile, and what not to compile 
+
+
+# generated 
+config.log config.status
+can see the specific var values, e.g. "host_cpu"
+
+~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ 
+
+
+
+~~~~ 
+altenrative libc is musl
+https://www.musl-libc.org/how.html
+https://git.musl-libc.org/cgit/musl/tree
+seems simpler than newlib???
+
+CC='aarch64-linux-gnu-gcc-9' \
+CFLAGS=-mcpu=cortex-a53+fp+simd \
+./configure --target=aarch64-linux-gnu \
+--prefix=/home/xzl/musl
+
+it's much tightly coupled with linux (?), e.g. expecting all syscalls (and numbers)
+
+cf: obj/include/bits/syscall.h
+arch/aarch64/bits/syscall.h.in ....
+in the lib, all syscalls are made in this fashion
+ int r = __syscall(SYS_readlink, path, buf, bufsize);
+^^ if wanted to port, all these callsites shall be changed 
+(or the kernel's syscall interface shallbe consistent with Linux...0
+
+NOT QUITE 'EMBEDDED' AS NEWLIB...

@@ -33,13 +33,13 @@ KERNEL=./kernel/kernel8-rpi3qemu.img
 
 ### qemu v8, no grahpics, no kb, with sd
 # ${QEMU} -M raspi3b \
-# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
+# -kernel ${KERNEL} -serial null -serial mon:stdio \
 # -d int -D qemu.log \
 # -nographic \
 # -drive file=smallfat.bin,if=sd,format=raw
 
 
-### qemu v8, + grahpics, + kb, + sd
+### qemu v8, + grahpics, + kb, + sdls
 ${QEMU} -M raspi3b \
 -kernel ${KERNEL} -serial null -serial mon:stdio \
 -d int -D qemu.log \

@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "assert.h": "c",
+        "sdl-video.h": "c",
+        "fcntl.h": "c",
+        "sdl.h": "c",
+        "sdl-general.h": "c",
+        "sdl-keycode.h": "c",
+        "sdl-scancode.h": "c",
+        "stdbool.h": "c",
+        "stdio.h": "c"
+    }
+}

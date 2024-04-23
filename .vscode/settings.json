@@ -79,7 +79,14 @@
         "diskio-ff.h": "c",
         "hal.h": "c",
         "fce.h": "c",
-        "usbdevice.h": "c"
+        "usbdevice.h": "c",
+        "signal.h": "c",
+        "*.in": "c",
+        "stdio.h": "c",
+        "chrono": "c",
+        "compare": "c",
+        "ratio": "c",
+        "*.py": "c"
     },
     "files.exclude": {
         "docs/**": true,
@@ -92,6 +99,7 @@
         "src/exp7/**": true,
         "src/exp8/**": true,
         "src/exp9/**": true,
+        "src/current/usr/newlib": true,
         "src/experimental/**": true,
         // "src/current/addon/usb/**": true,  // usb 
     }, 
@@ -105,6 +113,8 @@
         "src/exp6/**": true,
         "src/exp7/**": true,
         "src/exp8/**": true,
+        "src/exp9/**": true,
+        "src/current/usr/newlib": true,
         // "src/current/addon/usb/**": true,  // usb 
         "src/experimental/**": true,        
         "*.asm": true,

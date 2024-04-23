@@ -1,1 +1,0 @@
-../../exp1/src/linker-qemu.ld

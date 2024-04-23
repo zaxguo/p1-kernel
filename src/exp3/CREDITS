@@ -1,7 +1,0 @@
-derived from 
-../../exercises/exp3/3/bl4ckout31/ which uses arm generic timer
-
-
-GIC code from: 
-https://github.com/RT-Thread/rt-thread/tree/master
-Under Apache 2.0
