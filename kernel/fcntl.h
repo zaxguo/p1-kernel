@@ -66,4 +66,13 @@ static struct proc_dev_info pdi[] =            \
 // max # of args passed to the kernel, via writing to a procfs
 #define PROCFS_MAX_ARGS   8
 
+// /proc/sbctl command, cf kernel/sound.c
+enum {
+  SB_CMD_FINI = 0, 
+  SB_CMD_INIT, 
+  SB_CMD_START, 
+  SB_CMD_CANCEL, 
+  SB_CMD_TEST = 9
+}; 
+
 #endif

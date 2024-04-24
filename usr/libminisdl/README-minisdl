@@ -1,4 +1,6 @@
-From https://github.com/NJU-ProjectN/navy-apps/tree/master/libs
+depends on libc (newlib)
+
+idea: From https://github.com/NJU-ProjectN/navy-apps/tree/master/libs
 
 
 // xzl: from NJU project. the choice of SDL interfaces seems good. 

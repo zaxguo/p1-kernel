@@ -1298,7 +1298,7 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
 
     switch (cmd)
     {  // xzl: XXX refactor lock acquire/release below
-    case 0: // fini
+    case SB_CMD_FINI: // arg1=devid
         id = args[1]; 
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;    
@@ -1308,14 +1308,14 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
         break;
-    case 1: 
+    case SB_CMD_INIT: // init
         if (args[1] >= 0) {
             W("sound init chunksize=%d", args[1]);
             sound_init(args[1]);
             ret = 1; 
         }
         break; 
-    case 2: 
+    case SB_CMD_START: // arg1=devid
         id = args[1]; 
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;    
@@ -1325,7 +1325,7 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
         break; 
-    case 3:
+    case SB_CMD_CANCEL: // arg1=devid
         id = args[1]; 
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;    
@@ -1335,7 +1335,7 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
         break; 
-    case 9: 
+    case SB_CMD_TEST:  // play sound samples built-in the kernel
         W("test sound");
         test_sound(); 
         break; 

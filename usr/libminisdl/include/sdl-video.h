@@ -320,21 +320,9 @@ uint32_t SDL_MapRGBA(SDL_PixelFormat *fmt, uint8_t r, uint8_t g, uint8_t b, uint
 int SDL_LockSurface(SDL_Surface *s);
 void SDL_UnlockSurface(SDL_Surface *s);
 
-
-
-/////////////// uio.c
-// display config
-// the field of /proc/dispinfo. order must be right
-// check by "cat /proc/dispinfo"
-enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
-    PITCH,DEPTH,ISRGB,MAX_DISP_ARGS}; 
-int config_fbctl(int w, int d, int vw, int vh, int offx, int offy);
-int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs);
-
 // /dev/fb
 #define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
 typedef unsigned int PIXEL; 
-
 
 // new APIs
 // need by doom

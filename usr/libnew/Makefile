@@ -1,9 +1,8 @@
 include $(abspath ../../config.mk)
 
 # newlib glue 
-ULIBNEW = syscall-newlib.o usys-newlib_s.o
+ULIBNEW = syscall-newlib.o usys-newlib_s.o uio-newlib.o
 
-# for syscall-newlib.c 
 CNEWOPS = -MMD -Wall -Werror -g -fno-omit-frame-pointer
 CNEWOPS += -nostdinc -nostdlib -nostartfiles -ffreestanding -mgeneral-regs-only
 CNEWOPS += -Os

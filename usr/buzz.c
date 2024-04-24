@@ -1,4 +1,6 @@
 // play pre-recorded sound samples
+// uncompressed samples in C header file
+// no dep on libc or libvorbis
 
 #include <assert.h>
 #include <stdint.h>
@@ -10,18 +12,18 @@
 
 int sb, sbctl;
 
-int sbctl_cmd(int fd, int arg1, int arg2) {
+// cf kernel/sound.c procfs_parse_sbctl()
+int sbctl_cmd(int fd, int arg0, int arg1) {
     char line[128]; 
     int len1; 
     
-    sprintf(line, "%d %d\n", arg1, arg2); len1 = strlen(line); 
+    sprintf(line, "%d %d\n", arg0, arg1); len1 = strlen(line); 
     if ((len1 = write(sbctl, line, len1)) < 0) {
         printf("write to sbctl failed with %d. shouldn't happen", len1);
         exit(1);
     }
     close(sbctl);
     sbctl = open("/proc/sbctl", O_RDWR); // flush
-
     return len1; 
 }
 

@@ -8,3 +8,6 @@ USR_PATH ?= $(VOS_HOME)/p1-kernel-next/usr
 NEWLIB_HOME ?= $(VOS_HOME)/newlib
 NEWLIB_INC_PATH ?= $(NEWLIB_HOME)/newlib/libc/include 
 NEWLIB_BUILD_PATH ?= $(NEWLIB_HOME)/build
+
+# newlib glue
+LIBNEW_PATH=${USR_PATH}/libnew

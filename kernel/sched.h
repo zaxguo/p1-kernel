@@ -58,7 +58,7 @@ struct user_page {
 
 // the size grows with MAX_TASK_XXX_PAGES, could be problem for larger user programs in the future...
 struct mm_struct {
-	unsigned long pgd;	// pa. NB this is loaded to ttbr0 (user va)
+	unsigned long pgd;	// pa. this is loaded to ttbr0 (user va)
 	
 	unsigned long sz, codesz; 	// for a user task, VA [0, sz) covers its code,data,&heap. [0,codesz) covers code &data. not page aligned
 	int user_pages_count;
@@ -66,7 +66,7 @@ struct mm_struct {
 	// struct user_page user_pages[MAX_TASK_USER_PAGES];
 
 	int kernel_pages_count;
-	/* phys addrs of which (kernel) pages are used for this task, e.g. those for pgtables.  */
+	/* which kernel pages are used by this task, e.g. those for pgtables.  PA */
 	unsigned long kernel_pages[MAX_TASK_KER_PAGES]; 
 };
 
@@ -83,7 +83,7 @@ struct task_struct {
 	long preempt_count; // a flag. A non-zero means that the task is executing in a critical code region cannot be interrupted, Any timer tick should be ignored and not triggering rescheduling
 	unsigned long flags;
 	struct spinlock lock;	 // protect this task_struct
-	struct mm_struct mm;
+	struct mm_struct mm;		// XXX to impl thread, this shall be a pointer 
 	void *chan;                  // If non-zero, sleeping on chan
 	int pid; 					 // still need this, ease of debugging...
   	int xstate;  				// Exit status to be returned to parent's wait

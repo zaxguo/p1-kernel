@@ -12,6 +12,8 @@
 
 int SDL_Init(uint32_t flags);
 void SDL_Quit();
+void SDL_QuitSubSystem(uint32_t flags); // by doom
+
 char *SDL_GetError();
 int SDL_SetError(const char* fmt, ...);
 int SDL_ShowCursor(int toggle);

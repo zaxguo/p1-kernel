@@ -398,6 +398,81 @@ https://github.com/NJU-ProjectN/navy-apps/tree/master/libs/libminiSDL/src
 consider its sound interface. ...
 https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libminiSDL/src/audio.c
 
+about mixer SDL_mixer
+https://nju-projectn.github.io/ics-pa-gitbook/ics2024/4.5.html#%E5%AE%9E%E7%8E%B0%E6%B7%B7%E5%A3%B0%E5%BA%93sdlmixer
+shoudl go with the orignal implemntation (instewad of roll it own)
+but it's quite complex (warranted) though
+
+SDL official code 
+https://github.com/libsdl-org/SDL/tree/SDL2/src/audio
+what's nice about SDL -- it has various in-house impl of c data structures and utlities
+it is also ported to various platforms (ps2, psp, etc....
+the modification seems rather small 
+
+
+but it also expects multithreading... e.g. SDL audio relies on callback (which is called
+from a thread 
+cf https://github.com/libsdl-org/SDL/blob/main/src/thread/SDL_thread.c#L317
+threading is platform specific (e.g. for PS vita, goes to sce devkit's thread considerationhttps://github.com/libsdl-org/SDL/blob/ec97857a87dd195b6c84d35a2f347a4772f4aaaa/src/thread/vita/SDL_systhread.c#L72
+
+so unless we change SDL interface dramatically, threading seems natural and must 
+be supported by kernel (in addition to fork() 
+
+------------------
+threading idea, clone() 
+
+without threading, multitask programs can only use fork() and pipe() to communicate...
+essentially becomes message passing ... 
+
+ long clone(unsigned long flags, void *stack,
+                     int *parent_tid, unsigned long tls,
+                     int *child_tid);
+
+https://man7.org/linux/man-pages/man2/clone.2.html
+
+--------------------
+DEBUG SUPPORT 
+
+GDB bring up? 
+it woudl be very useful. 
+however, the engineering effort seems high... GDB is pat of binuntils and relies on 
+things like BFD, textinfo, readline.... 
+
+can we debug user app using qemu+gdb? maybe feasible? 
+    if so would help a lot 
+
+    CAN BE DONE. it's the same idea. e.g. 
+    instewd of "gdb-multiarch kernel/build/kernel8.elf", do: 
+
+    gdb-multiarch usr/LiteNES/nes
+    (then can set breakpoint, single step, etc)
+
+
+    after some trial, print local variables seem get confused by virtual addr? 
+        like multiple programs will have the same virt addr? 
+    maybe solved by linking the target program to a diffent virt addr base     
+
+backtrace upon crash? 
+backtrace print already in libc
+can be implemented as follows ---- 
+    + a bit more signal support (other than kill), with userspace handlers 
+    do_mem_abort() will send signal (pending), return to userspace, and cause 
+        signal handler to exec there. therefore backtrace dump. 
+
+--------------------
+ogg decoder
+
+stb -  vorbis ogg decoder
+I dont undersatnd why it's .h and.c packed in a file, and you have to extract .h out??
+https://github.com/nothings/stb/tree/master
+can simply use navy version (splitted)
+https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libvorbis/src/stb_vorbis.c
+
+Ogg Vorbis is a fully open, non-proprietary, patent-and-royalty-free, general-purpose compressed audio format for mid to high quality (8kHz-48.0kHz, 16+ bit, polyphonic) audio and music at fixed and variable bitrates from 16 to 128 kbps/channel.
+
+
+--------------------
+
 ^^ in fact, doom has SDL port (simple, clean). so having SDL is good for doom port
     also doom can be used to test SDL sound...
 also PAL.... 

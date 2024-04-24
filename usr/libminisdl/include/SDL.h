@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "uio-newlib.h" 
+
 typedef bool SDL_bool;
 typedef uint8_t  Uint8;
 typedef int16_t  Sint16;
@@ -33,7 +35,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
 
 #define SDLCALL
 
@@ -66,12 +67,8 @@ extern "C" {
 // #define SDLK_z   SDLK_Z
 
 // keyboard.c
-int SDL_KeyboardInit(void);
+// int SDL_KeyboardInit(void);
 SDL_Keycode SDL_GetKeyFromScancode(SDL_Scancode scancode);
-
-// xzl: USB keyboard 
-enum{INVALID=0,KEYDOWN,KEYUP}; // evtype below
-int read_kb_event(int events, int *evtype, unsigned *scancode);
 
 // cf sdl-keycode.h
 #if 0

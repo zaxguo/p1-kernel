@@ -86,7 +86,8 @@
         "chrono": "c",
         "compare": "c",
         "ratio": "c",
-        "*.py": "c"
+        "*.py": "c",
+        "nplayerc": "c"
     },
     "files.exclude": {
         "docs/**": true,
@@ -99,6 +100,7 @@
         "src/exp7/**": true,
         "src/exp8/**": true,
         "src/exp9/**": true,
+        "old/**": true,
         "src/current/usr/newlib": true,
         "src/experimental/**": true,
         // "src/current/addon/usb/**": true,  // usb 
@@ -114,6 +116,7 @@
         "src/exp7/**": true,
         "src/exp8/**": true,
         "src/exp9/**": true,
+        "old/**": true,
         "src/current/usr/newlib": true,
         // "src/current/addon/usb/**": true,  // usb 
         "src/experimental/**": true,        

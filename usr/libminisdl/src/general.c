@@ -2,8 +2,10 @@
 #include "SDL.h"
 #include "stdio.h"
 
+extern int sdl_init_audio(void); // audio.c 
 int SDL_Init(uint32_t flags) {
-  // return NDL_Init(flags);
+  if (flags & SDL_INIT_AUDIO)
+    sdl_init_audio(); 
   return 0; 
 }
 
