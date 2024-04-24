@@ -644,6 +644,34 @@ TBD
 [x] impl seek() on fat files
 
 ~~~~~~~~~~~~~~~~~ 
+sdl sdl_keycode issues. 
+cf: SDL_default_keymap
+
+// xzl: NB: in table below, two differnet scancodes may have same SDL_keycode. (weird)
+// ex: all zeros, and SDLK_EQUALS & SDLK_F4. why so? 
+// however enum SDL_KeyCode (sdl-keycode.h) differentiate them using bit 30
+// cf SDLK_SCANCODE_MASK. 
+// the problem is that SDL_GetKeyFromScancode() still returns
+// "raw" codes in the table below. 
+
+solution: get rid of all code and customzie SDL_GetKeyFromScancode....
+also clean up other keyboard.c code... 
+
+~~~~~~~~~~~~~~~~~ 
+doom epxects ctrl/alt keyup/down events. 
+but ctrl/alt/shift... are passed as keyevents modifiers (usb kb event specs)
+directly from usb hw. cf kb_intr() 
+so our kb events from kb.c do not include evnrts for mod keys
+
+although there's scancode def for ctrl/alt/etc, the usb keyboard will return things like
+(left alt key pressed)
+// from kernel
+kb.c:115 mod 4 key 00 00 00 00 00 00
+
+future work (project idea): kb_intr can be modified to detect these events... 
+
+as of now just modify doom code...to use other keys
+~~~~~~~~~~~~~~~~~ 
 a bug caused by linker/compiler issue
 
 nes breaks when switching to gcc9.4 (ubuntu 2004) to gcc9.5(ubuntu 2204)

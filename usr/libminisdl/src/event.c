@@ -5,7 +5,6 @@
 
 static int eventfd = 0; 
 static int blocking; // fd opened as blocking or not?
-static int kb_init = 0; 
 
 int SDL_PushEvent(SDL_Event *ev) {
   return 0;
@@ -15,10 +14,7 @@ int SDL_PushEvent(SDL_Event *ev) {
 // Returns 1 if there is a pending event or 0 if there are none available.
 // since the kernel buffers kb events, we dont buffer it here
 int SDL_PollEvent(SDL_Event *ev) {
-  if (!kb_init) {
-    SDL_KeyboardInit(); kb_init = 1; 
-  }
-
+  
   if (eventfd && blocking==1) {
     close(eventfd); eventfd = 0; 
   }
@@ -38,7 +34,7 @@ int SDL_PollEvent(SDL_Event *ev) {
     
     ev->key.scancode = scancode; 
     ev->key.keysym.sym = SDL_GetKeyFromScancode(scancode); 
-    printf("scancode %x, sdl code %x\n", scancode, ev->key.keysym.sym);
+    // printf("SDL_PollEvent: scancode %d, sdl code %d\n", scancode, ev->key.keysym.sym);
 
     // TODO: SDL_Quit -- Ctrl+Q?
     return 1; 

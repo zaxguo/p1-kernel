@@ -94,13 +94,28 @@ int kb_read(int user_dst, uint64 dst, int off, int n, char blocking, void *conte
 }
 
 // if buf full, drop event but still change key state
+// above "mod" (modifier) -- the status of ctrl/shift/alt/meta...
+// #define KEY_MOD_LCTRL  0x01
+// #define KEY_MOD_LSHIFT 0x02
+// #define KEY_MOD_LALT   0x04
+// #define KEY_MOD_LMETA  0x08
+// #define KEY_MOD_RCTRL  0x10
+// #define KEY_MOD_RSHIFT 0x20
+// #define KEY_MOD_RALT   0x40
+// #define KEY_MOD_RMETA  0x80
+// cf: https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
+// e.g. left alt key pressed 
+// kb.c:115 mod 4 key 00 00 00 00 00 00
+// the driver does not pass mod keys to userspace.
+// however doom expects ctrl/alt key events... can be a project idea
 void kb_intr(unsigned char mod, const unsigned char keys[6]) {
     unsigned char c;
 
     if (keys[0] == 1 /*KEY_ERR_OVF*/) // too many keys
         return;
 
-    V("mod %u key %02x %02x %02x %02x %02x %02x", mod, keys[0], keys[1], keys[2], keys[3], keys[4], keys[5]);
+    V("mod %u key %02x %02x %02x %02x %02x %02x", 
+        mod, keys[0], keys[1], keys[2], keys[3], keys[4], keys[5]);
 
     acquire(&kb.lock);
 
