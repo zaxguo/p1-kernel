@@ -226,7 +226,7 @@ ni_sys:
 	handle_invalid_entry 0, SYSCALL_ERROR
 ret_from_syscall:
 	/* --- deal with killed() tasks ---
-	if (!current->killed) 
+	if (current->killed) 
 		exit_process(-1);
 	*/
 	mov x27, sp
@@ -236,7 +236,7 @@ ret_from_syscall:
 	add x26, x26, #TASK_STRUCT_KILLED_OFFSET
 	// x26 points to current->killed
 	ldr w27, [x26]
-	cmp x27, #0
+	cmp w27, #0
 	b.eq cont_exit
 	// exit_process(-1)
 	mov x25, x0 	// preserve x0 

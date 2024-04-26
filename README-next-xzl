@@ -1120,4 +1120,17 @@ this avoid the race condition from dynamically allocating & freeing task_struct.
     NOT BAD
 
 
+fixed a bug: sched.c
+previousl, each kernel stack is a page, dynamically allocated. so it's nautrally page
+algined. 
+now we define them as static var, (by default) they are no longer aligned (depends
+on compiler's chance). this breaks things, e.g. ret_from_fork asm, which uses the 
+alignmenta assumption to get task-task_struct. and it is not tough to figure out. 
 
+solution: force aligned at thread_size, and add dynamic check BUG() in code. 
+// kernel_stacks[i]: kernel stack for task with pid=i. 
+// WARNING: various kernel code assumes each kernel stack is page-aligned. 
+// cf. ret_from_syscall (entry.S). if you modify the d/s below, keep that in mind. 
+static char kernel_stacks[NR_TASKS][THREAD_SIZE] __attribute__ ((aligned (THREAD_SIZE))); 
+
+now mario can run 

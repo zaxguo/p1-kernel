@@ -33,7 +33,6 @@
 // x0..x9 were intact since kernel entry (svc). hence they can be directly used as arguments
 // upon return, ret_from_syscall (entry.S) will copy x0 to pt_regs, as return value to user
 
-
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)

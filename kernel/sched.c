@@ -1,5 +1,5 @@
 #define K2_DEBUG_WARN
-// q#define K2_DEBUG_INFO
+// #define K2_DEBUG_INFO
 // #define K2_DEBUG_VERBOSE
 
 #include "plat.h"
@@ -27,7 +27,11 @@ static struct mm_struct mm_tables[NR_MMS];
 // allocating/freeing mm slots won't need to take individual mm->lock, which 
 // might be slowed down by, e.g. a task is holding mm->lock during exec()
 
-static char kernel_stacks[NR_TASKS][THREAD_SIZE]; 
+
+// kernel_stacks[i]: kernel stack for task with pid=i. 
+// WARNING: various kernel code assumes each kernel stack is page-aligned. 
+// cf. ret_from_syscall (entry.S). if you modify the d/s below, keep that in mind. 
+static char kernel_stacks[NR_TASKS][THREAD_SIZE] __attribute__ ((aligned (THREAD_SIZE))); 
 
 struct task_struct *init_task, *current; 
 struct task_struct *task[NR_TASKS];
@@ -52,7 +56,7 @@ struct spinlock wait_lock = {.locked=0, .cpu=0, .name="wait_lock"};
 void preempt_disable(void) { current->preempt_count++; }
 void preempt_enable(void) { current->preempt_count--; }
 
-/* get a task's saved registers, which are at the top of the task's kernel page. 
+/* get a task's saved registers ("trapframe"), at the top of the task's kernel page. 
    these regs are saved/restored by kernel_entry()/kernel_exit(). 
 */
 struct pt_regs * task_pt_regs(struct task_struct *tsk) {
@@ -64,7 +68,8 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 void sched_init(void) {
     acquire(&sched_lock);
     for (int i = 0; i < NR_TASKS; i++) {
-        task[i] = (struct task_struct *)(&kernel_stacks[i][0]);
+        task[i] = (struct task_struct *)(&kernel_stacks[i][0]); 
+        BUG_ON((unsigned long)task[i] & ~PAGE_MASK);  // must be page aligned
         memset(task[i], 0, sizeof(struct task_struct)); // zero everything
         initlock(&(task[i]->lock), "task");
         init_task->state = TASK_UNUSED;
@@ -250,8 +255,9 @@ void timer_tick() {
 }
 
 // Wake up all processes sleeping on chan.
-// Must be called without any p->lock, without sched_lock 
 // Called from irq (many drivers) or task
+//
+// Must be called WITHOUT any p->lock, without sched_lock 
 void wakeup(void *chan) {
     struct task_struct *p;
 
@@ -325,7 +331,9 @@ void reparent(struct task_struct *p) {
         if ((*child)->parent == p) {
             (*child)->parent = init_task;
             // release(&(*child)->lock); 
-            wakeup(init_task); // must call w/o any p->lock 
+            release(&sched_lock);   // XXX refactor this 
+            wakeup(init_task); // must call w/o any p->lock, sched_lock
+            acquire(&sched_lock); 
         } else 
             ; // release(&(*child)->lock); 
     }
@@ -337,7 +345,7 @@ void reparent(struct task_struct *p) {
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
-    I("exit_process called %d", status); 
+    W("pid %d (%s): exit_process status %d", current->pid, current->name, status);
 
     if (p == init_task)
         panic("init exiting");
@@ -405,7 +413,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
     int havekids, pid;
     struct task_struct *p = myproc();
 
-    I("pid %d entering wait()", p->pid);
+    I("pid %d (%s) entering wait()", p->pid, p->name);
 
     acquire(&wait_lock);
     
@@ -424,7 +432,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
                 if (p0->state == TASK_ZOMBIE) {
                     // Found one.
                     pid = p0->pid;
-                    V("found zombie pid=%d", pid); BUG_ON(!p->mm);//must be user task
+                    W("found zombie pid=%d", pid); BUG_ON(addr!=0 && !p->mm);//addr!=0 implies user task; mm must exist
                     if (addr != 0 && copyout(p->mm, addr, (char *)&(p0->xstate),
                                              sizeof(p0->xstate)) < 0) {
                         release(&p0->lock);
@@ -684,11 +692,12 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
 	regs->sp = USER_VA_END; // 2 *  PAGE_SIZE;  <--too small
+
 	/* only allocate 1 code page here b/c the stack page is to be mapped on demand. 
 	   this will trigger allocating the task's pgtable tree (mm.pgd)
-	*/
-	
-	void *code_page = allocate_user_page_mm(current->mm, 0 /*va*/, MMU_PTE_FLAGS | MM_AP_RW);
+	*/	
+	void *code_page = allocate_user_page_mm(current->mm, 0 /*va*/, 
+        MMU_PTE_FLAGS | MM_AP_RW);
 	if (code_page == 0)	{
         release(&current->mm->lock); // release(&current->lock); 
 		return -1;
@@ -699,7 +708,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	memmove(code_page, (void *)start, size); 	
 	set_pgd(current->mm->pgd);
 
-	safestrcpy(current->name, "initcode", sizeof(current->name));
+	safestrcpy(current->name, "user1st", sizeof(current->name));
 	current->cwd = namei("/");
 	BUG_ON(!current->cwd); 
     release(&current->mm->lock); //release(&current->lock); 

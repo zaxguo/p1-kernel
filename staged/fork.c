@@ -140,7 +140,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	memmove(code_page, (void *)start, size); 	
 	set_pgd(current->mm.pgd);
 
-	safestrcpy(current->name, "initcode", sizeof(current->name));
+	safestrcpy(current->name, "user1st", sizeof(current->name));
 	current->cwd = namei("/");
 	BUG_ON(!current->cwd); 
 
