@@ -17,6 +17,8 @@ struct file {
   // FD_PROCFS FD_DEVICE      1 PAGE 
   void *content;
 };
+// xzl: no lock for a struct file, b/c it's task private.
+// there is a global lock for ftable, for allocating/freeing file slots
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
 #define minor(dev)  ((dev) & 0xFFFF)

@@ -11,7 +11,8 @@
 #define NFILE       100  // open files per system
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes xzl:too small?
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
-#define NR_TASKS				128     // 32 should be fine. usertests.c seems to expect > 100
+#define NR_TASKS				32   // 128     // 32 should be fine. usertests.c seems to expect > 100
+#define NR_MMS              NR_TASKS
 
 // 1-ramdisk, 2-virt_disk
 #define DEV_RAMDISK     1

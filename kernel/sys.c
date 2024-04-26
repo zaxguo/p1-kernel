@@ -42,7 +42,7 @@ fetchaddr(uint64 addr, uint64 *ip)
   // xzl: maybe check against brk and stack bottom? our task memlayout differs TODO:
 //   if(addr >= p->sz || addr+sizeof(uint64) > p->sz) // both tests needed, in case of overflow
 //     return -1;
-  if(copyin(&p->mm, (char *)ip, addr, sizeof(*ip)) != 0)
+  if(copyin(p->mm, (char *)ip, addr, sizeof(*ip)) != 0)
     return -1;
   return 0;
 }
@@ -52,7 +52,7 @@ fetchaddr(uint64 addr, uint64 *ip)
 int
 fetchstr(uint64 addr, char *buf, int max)
 {  
-  if(copyinstr(&myproc()->mm, buf, addr, max) < 0)
+  if(copyinstr(myproc()->mm, buf, addr, max) < 0)
     return -1;
   return strlen(buf);
 }
@@ -74,13 +74,16 @@ int sys_wait(unsigned long p /* user va*/) {
 }
 
 unsigned long sys_sbrk(int incr) {
-	unsigned long sz = current->mm.sz; 
+	unsigned long sz; 
 	struct pt_regs *regs = task_pt_regs(current);
 	
 	V("cal sys_sbrk");
 
+	acquire(&current->mm->lock); 
+	sz = current->mm->sz; 
+
 	// all kinds of checks. careful: sz is unsigned; incr is signed
-	if (incr < 0 && sz + incr < current->mm.codesz) {
+	if (incr < 0 && sz + incr < current->mm->codesz) {
 		W("new brk too small. into code/data region"); 
 		goto bad; 
 	}
@@ -89,10 +92,13 @@ unsigned long sys_sbrk(int incr) {
 		goto bad; 
 	} 
 	if (incr == 0) // shortcut 
-		return sz; 
+		{release(&current->mm->lock); return sz;}
 
-	return growproc(&current->mm, incr);
+	sz = growproc(current->mm, incr);
+	release(&current->mm->lock);
+	return sz; 
 bad:
+	release(&current->mm->lock);
 	W("sys_sbrk failed"); 
 	return (unsigned long)(void *)-1; 	
 }

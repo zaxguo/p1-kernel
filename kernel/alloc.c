@@ -12,7 +12,7 @@
 	all alloc/free funcs below are locked
 */
 static unsigned char mem_map [ MAX_PAGING_PAGES ] = {0,};
-static struct spinlock alloc_lock = {.locked=0, .cpu=0, .name="alloc_lock"}; 
+struct spinlock alloc_lock = {.locked=0, .cpu=0, .name="alloc_lock"}; 
 static unsigned long LOW_MEMORY = 0; 	// pa
 static unsigned long PAGING_PAGES = 0; 
 extern char kernel_end; // linker.ld
@@ -25,9 +25,8 @@ extern char kernel_end; // linker.ld
 /* allocate a page (zero filled). return kernel va. */
 void *kalloc() {
 	unsigned long page = get_free_page();
-	if (page == 0) {
+	if (page == 0)
 		return 0;
-	}
 	return PA2VA(page);
 }
 
@@ -37,8 +36,7 @@ void kfree(void *p) {
 }
 
 /* allocate a page (zero filled). return pa of the page. 0 if failed */
-unsigned long get_free_page()
-{
+unsigned long get_free_page() {
 	acquire(&alloc_lock);
 	for (int i = 0; i < PAGING_PAGES; i++){
 		if (mem_map[i] == 0){

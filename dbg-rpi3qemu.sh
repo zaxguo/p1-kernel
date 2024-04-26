@@ -33,19 +33,19 @@ QEMU8=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-a
 QEMU=${QEMU6}
 
 # qemu, grahpics
+# ${QEMU} -M raspi3b \
+# -kernel ./kernel/kernel8-rpi3qemu.img -serial null -serial mon:stdio \
+# -d int -D qemu.log \
+# -nographic \
+# -drive file=smallfat.bin,if=sd,format=raw \
+# -gdb tcp::${MYGDBPORT} -S
+
+# -usb -device usb-kbd \
+
+# qemu, no grahpics, no kb, with sd
 ${QEMU} -M raspi3b \
 -kernel ./kernel/kernel8-rpi3qemu.img -serial null -serial mon:stdio \
 -d int -D qemu.log \
 -nographic \
 -drive file=smallfat.bin,if=sd,format=raw \
 -gdb tcp::${MYGDBPORT} -S
-
-# -usb -device usb-kbd \
-
-# qemu, no grahpics, no kb, with sd
-# ${QEMU} -M raspi3b \
-# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio \
-# -d int -D qemu.log \
-# -nographic \
-# -drive file=smallfat.bin,if=sd,format=raw \
-# -gdb tcp::${MYGDBPORT} -S

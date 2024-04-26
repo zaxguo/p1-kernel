@@ -90,7 +90,7 @@ pipewrite(struct pipe *pi, uint64 addr, int n)
       sleep(&pi->nwrite, &pi->lock);
     } else {
       char ch;
-      if(copyin(&(pr->mm), &ch, addr + i, 1) == -1) // xzl: one char at a time..why? slow..
+      if(copyin(pr->mm, &ch, addr + i, 1) == -1) // xzl: one char at a time..why? slow..
         break;
       pi->data[pi->nwrite++ % PIPESIZE] = ch;
       i++;
@@ -121,7 +121,7 @@ piperead(struct pipe *pi, uint64 addr, int n)
     if(pi->nread == pi->nwrite)
       break;
     ch = pi->data[pi->nread++ % PIPESIZE];
-    if(copyout(&(pr->mm), addr + i, &ch, 1) == -1)
+    if(copyout(pr->mm, addr + i, &ch, 1) == -1)
       break;
   }
   wakeup(&pi->nwrite);  //DOC: piperead-wakeup

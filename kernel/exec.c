@@ -14,8 +14,7 @@
 static int loadseg(struct mm_struct *mm, uint64 va, struct inode *ip, 
   uint offset, uint sz);
 
-int flags2perm(int flags)
-{
+static int flags2perm(int flags) {
     // elf, https://refspecs.linuxbase.org/elf/gabi4+/ch5.pheader.html#p_flags
 #define   PF_X    1
 #define   PF_W    2
@@ -36,25 +35,23 @@ int flags2perm(int flags)
 }
 
 
-// we'll prepare a fresh pgtable tree "on the side", and allocates/
-// maps new pages along the way. if everything
-// works out, "swap" it with the existing pgtable tree. as a result,
+// Called from sys_exec
+// Main idea: we'll prepare a fresh pgtable tree "on the side". In doing so,
+// we allocates/maps new pages along the way. if everything
+// works out, "swap" the fresh tree with the existing pgtable tree. as a result,
 // all existing user pages are freed and their mappings wont be 
 // in the new pgtable tree. 
 // 
-// to implement this, we duplicate the task's mm, and clean all 
+// to implement this, we duplicate the task's mm; clean all 
 //  info for user pages; keep the info for kernel pages.
 // in the end, we free all user pages (no need to unmap them).
 //
-// the caveat is, the pages backing the old pgtables are still kept
-// in mm; they wont be free'd until the task exit()s. 
+// the caveat is, the pages backing the *old* pgtables are still kept
+// in mm; they wont be free'd until the task exit()s and whole mm is freed. TODO
 //
-
-// xzl: directly read from inode (namei, readi, ...)
-// for now, dont support exec() for fat
-int
-exec(char *path, char **argv)   // called from sys_exec
-{
+// Limitation: directly read from inode (namei, readi, ...)
+// for now, no support for exec() on fat fs
+int exec(char *path, char **argv) {
   char *s, *last;
   int i, off;
   uint64 argc, sz = 0, sz1, sp, ustack[MAXARG], argbase; 
@@ -75,6 +72,8 @@ exec(char *path, char **argv)   // called from sys_exec
   }
   ilock(ip);
 
+  acquire(&p->mm->lock); // no need to lock tmpmm->lock -- tmpmm is private
+
   // Check ELF header
   if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
@@ -82,39 +81,34 @@ exec(char *path, char **argv)   // called from sys_exec
   if(elf.magic != ELF_MAGIC)
     goto bad;
 
-  if(p->mm.pgd == 0)
+  if(p->mm->pgd == 0)
     goto bad;
 
-  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  // otherwise, need more memory for mm....
-  
+  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  // otherwise, need more memory for mm....  
   tmpmm = kalloc(); BUG_ON(!tmpmm); 
+  initlock(&tmpmm->lock, "tmpmmlock"); // actually dont care, but APIs like copyout(tmpmm) will grab mm->lock
+  
   // we will only remap user pages, so copy over kernel pages bookkeeping info
   //  the caveat is that some of the kernel pages (eg for the old pgtables) will become unused and will not be
   //  freed until exit()
-  tmpmm->kernel_pages_count = p->mm.kernel_pages_count; 
-  memcpy(&tmpmm->kernel_pages, &p->mm.kernel_pages, sizeof(tmpmm->kernel_pages)); 
+  tmpmm->kernel_pages_count = p->mm->kernel_pages_count; 
+  memcpy(&tmpmm->kernel_pages, &p->mm->kernel_pages, sizeof(tmpmm->kernel_pages)); 
   tmpmm->pgd = 0; // start from a fresh pgtable tree...
 
-  // Load program into memory.  xzl: log segs assume seg vaddr are in ascending order...
+  // Load program into memory.  (Code below assumes: seg vaddrs are in ascending order...
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
     if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
     if(ph.type != ELF_PROG_LOAD)
       continue;
-    V("%lx %lx", ph.vaddr, sz);
-    BUG_ON(ph.vaddr < sz); // sz: last seg's va end (exclusive)      
-    if(ph.memsz < ph.filesz)
+    V("%lx %lx", ph.vaddr, sz); BUG_ON(ph.vaddr < sz); // sz: last seg's va end (exclusive)
+    if(ph.memsz < ph.filesz)  // memsz: seg size in mem; filesz: seg bytes to load from file
       goto bad;
-      // xzl: TODO: load this seg only (vaddr,+memsz)
     // seg start must be page aligned, but end does not have to 
     if(ph.vaddr + ph.memsz < ph.vaddr)
       goto bad;
     if(ph.vaddr % PAGE_SIZE != 0) 
       goto bad;
-    // if((sz1 = uvmalloc(pagetable, sz /*old*/, ph.vaddr + ph.memsz /*new*/, flags2perm(ph.flags))) == 0)
-    //   goto bad;
-    // sz = sz1;
-    // xzl: TODO: also respect seg permission... flags2perm()
     for (sz1 = ph.vaddr; sz1 < ph.vaddr + ph.memsz; sz1 += PAGE_SIZE) {
       kva = allocate_user_page_mm(tmpmm, sz1, flags2perm(ph.flags)); 
       BUG_ON(!kva); 
@@ -181,23 +175,31 @@ exec(char *path, char **argv)   // called from sys_exec
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
     
-  // Commit to the user image. free previous user mapping, pages. if any
+  // Commit to the user VM. free previous user mapping, pages. if any
   regs->pc = elf.entry;  // initial program counter = main
   regs->sp = sp; // initial stack pointer
   V("init sp 0x%lx", sp);
-  free_task_pages(&p->mm, 1 /*useronly*/); 
-  p->mm = *tmpmm; 
-  p->mm.sz = p->mm.codesz = sz; 
+  free_task_pages(p->mm, 1 /*useronly*/);  
+
+  // Careful: transfer refcnt/lock from existing mm
+  tmpmm->ref = p->mm->ref; 
+  tmpmm->lock = p->mm->lock; 
+
+  *(p->mm) = *tmpmm;  // commit
+  p->mm->sz = p->mm->codesz = sz; 
   kfree(tmpmm); 
 
-  set_pgd(p->mm.pgd);
+  set_pgd(p->mm->pgd);
+  release(&p->mm->lock);
 
   V("exec succeeds argc=%ld", argc);
   return argc; // this ends up in x0, the first argument to main(argc, argv)
 
  bad:
+  release(&p->mm->lock);
+
   if(tmpmm && tmpmm->pgd) { // new pgtable tree ever allocated .. 
-    free_task_pages(tmpmm, 1 /*useronly*/);    
+    free_task_pages(tmpmm, 1 /*useronly*/);   
   }
   if (tmpmm)
     kfree(tmpmm); 
@@ -213,9 +215,10 @@ exec(char *path, char **argv)   // called from sys_exec
 // va must be page-aligned
 // and the pages from va to va+sz must already be mapped.
 // Returns 0 on success, -1 on failure.
-static int
-loadseg(struct mm_struct* mm, uint64 va, struct inode *ip, uint offset, uint sz)
-{
+// 
+// Caller must hold mm->lock
+static int loadseg(struct mm_struct* mm, uint64 va, struct inode *ip, 
+  uint offset, uint sz) {
   uint i, n;
   uint64 pa;
 
@@ -237,4 +240,3 @@ loadseg(struct mm_struct* mm, uint64 va, struct inode *ip, uint offset, uint sz)
   
   return 0;
 }
-

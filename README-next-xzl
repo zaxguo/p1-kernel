@@ -1099,3 +1099,25 @@ in the lib, all syscalls are made in this fashion
 (or the kernel's syscall interface shallbe consistent with Linux...0
 
 NOT QUITE 'EMBEDDED' AS NEWLIB...
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+new task_struct mm design
+
+use things like inode table. .. a fixed number of slots.
+in this way, task_struct::state have a flag, indicating if the slot is in use. 
+    with task_struct::lock, this results in a simple design. 
+
+this avoid the race condition from dynamically allocating & freeing task_struct. 
+    once free()d,  nothing prevents the memory for task_struct from being reused by other kernel d/s therefore even unlocking becomes unsafe (may corrupt other kernel d/s)
+
+    the same rpblem applies to mm struct. 
+
+    one workdaround is to lock the mm allocator in the midst of freeing task_struct & mm_struct (i.e. pausing mem alloc). its possible, but seem overly complex (esp has to take care of freeing both task_struct and mm).
+
+    so a static array with fixed # of slots could do. 
+    each task_struct: 4KB, with MAX_NR_TASKS=128, that's only 512KB
+    mm_struct is around 1KB each (does not even need a whole page). so x128 is 128KB. 
+    NOT BAD
+
+
+

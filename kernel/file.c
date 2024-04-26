@@ -118,7 +118,7 @@ int filestat(struct file *f, uint64 addr) {
         ilock(f->ip);
         stati(f->ip, &st);
         iunlock(f->ip);
-        if (copyout(&p->mm, addr, (char *)&st, sizeof(st)) < 0) // copy to user
+        if (copyout(p->mm, addr, (char *)&st, sizeof(st)) < 0) // copy to user
             return -1;
         return 0;
     }

@@ -14,7 +14,6 @@ CONFIG_FAT ?= 1
 BUILD_DIR = build
 SRC_DIR = .
 
-
 ARMGNU ?= aarch64-linux-gnu
 COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -I$(SRC_DIR) \
@@ -109,7 +108,6 @@ C_OBJS = $(BUILD_DIR)/bio_c.o
 C_OBJS += $(BUILD_DIR)/console_c.o
 C_OBJS += $(BUILD_DIR)/exec_c.o
 C_OBJS += $(BUILD_DIR)/file_c.o
-C_OBJS += $(BUILD_DIR)/fork_c.o
 C_OBJS += $(BUILD_DIR)/fs_c.o
 C_OBJS += $(BUILD_DIR)/gic_c.o
 C_OBJS += $(BUILD_DIR)/irq_c.o

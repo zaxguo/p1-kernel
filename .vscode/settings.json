@@ -87,7 +87,10 @@
         "compare": "c",
         "ratio": "c",
         "*.py": "c",
-        "nplayerc": "c"
+        "nplayerc": "c",
+        "condition_variable": "c",
+        "future": "c",
+        "mutex": "c"
     },
     "files.exclude": {
         "docs/**": true,

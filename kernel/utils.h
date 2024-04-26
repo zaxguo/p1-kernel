@@ -104,8 +104,9 @@ void memzero(void *src, unsigned long n);   // util.S
 void memcpy(void* dst, const void* src, unsigned long n);
 unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page, int alloc, 
     unsigned long perm);
-int copy_virt_memory(struct task_struct *dst); 
-void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm); 
+// int copy_virt_memory(struct task_struct *dst); // become dup_current_vir.. 
+int dup_current_virt_memory(struct mm_struct *dstmm);
+// void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm); 
 void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned long perm);
 void free_task_pages(struct mm_struct *mm, int useronly); 
 unsigned long walkaddr(struct mm_struct *mm, unsigned long va);

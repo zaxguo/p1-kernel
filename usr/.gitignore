@@ -1,3 +1,4 @@
 build/*
 mkfs
+*.a
 **/*.a

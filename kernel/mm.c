@@ -11,6 +11,8 @@
 /* allocate & map a page to user. return kernel va of the page, 0 if failed.
 	@mm: the user's task->mm
 	@va: the user va to map the page to 
+
+	caller must hold mm->lock
 */
 void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned long perm) {
 	unsigned long page;
@@ -33,9 +35,9 @@ void *allocate_user_page_mm(struct mm_struct *mm, unsigned long va, unsigned lon
 	}
 }
 
-void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm) {
-	return allocate_user_page_mm(&task->mm, va, perm);
-}
+// void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned long perm) {
+// 	return allocate_user_page_mm(&task->mm, va, perm);
+// }
 
 /*
 	Virtual memory implementation
@@ -51,8 +53,8 @@ void *allocate_user_page(struct task_struct *task, unsigned long va, unsigned lo
    NB: the found pte can be invalid 
    */
 static 
-unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa, 
-			unsigned long perm) {
+unsigned long * map_table_entry(unsigned long *pte, unsigned long va, 
+	unsigned long pa, unsigned long perm) {
 	unsigned long index = va >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
 	if (pa) {
@@ -76,8 +78,7 @@ unsigned long * map_table_entry(unsigned long *pte, unsigned long va, unsigned l
    	out: 1 means a new pgtable is allocated; 0 otherwise   
    @desc [out]: ptr (kern va) to the pgtable descriptor installed/located
 */
-static 
-unsigned long map_table(unsigned long *table, unsigned long shift, 
+static unsigned long map_table(unsigned long *table, unsigned long shift, 
 	unsigned long va, int* alloc, unsigned long **pdesc) {
 	unsigned long index = va >> shift;
 
@@ -104,108 +105,6 @@ unsigned long map_table(unsigned long *table, unsigned long shift,
 	}
 }
 
-#if 0 // obsoeletd. ref desgin
-/* Walk a task's pgtable tree. Find and (optionally) update the pte corresponding to a user va 
-   @mm: the user virt addd under question, can be obtained via task_struct::mm
-   @va: given user va 
-   @page: the phys addr of the page start. if 0, do not map (just locate the pte)
-   @alloc: if 1, alloate any absent pgtables if needed.
-   @perm: permission, only matters page!=0 & alloc!=0
-   return: kernel va of the pte set or found; 0 if failed (cannot proceed w/o pgtable alloc)
-   */
-unsigned long *map_page_old(struct mm_struct *mm, unsigned long va, unsigned long page,
-				int alloc, unsigned long perm) {
-	unsigned long pgd, *desc; 
-	BUG_ON(!mm); 
-
-	// pointers to pgtable descriptors installed during walk. kern va. max four
-	// for reversing them in case we bail out
-	int nk = mm->kernel_pages_count, k = 0; 
-	unsigned long *ker_pages[4] = {0}; 
-	unsigned long alloc_kern_pages[4] = {0}; // pa
-
-	// reached limit for user pages 
-	if (page != 0 && alloc == 1 && mm->user_pages_count >= MAX_TASK_USER_PAGES)
-		return 0; 
-
-	/* start from the task's top-level pgtable. allocate if absent 
-		this is how a task's pgtable tree gets allocated
-	*/
-	if (!mm->pgd) { 
-		if (alloc) {
-			mm->pgd = get_free_page();
-			BUG_ON(!mm->pgd || mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
-			mm->kernel_pages[mm->kernel_pages_count++] = mm->pgd;
-		} else 
-			goto no_alloc; 
-	} 
-	
-	int allocated = alloc; 
-	pgd = mm->pgd;
-	/* move to the next level pgtable. allocate one if absent */
-	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, 
-		va, &allocated, &desc);
-	if (pud) {
-		if (allocated) { /* we've allocated a new kernel page. take it into account for future reclaim */
-			BUG_ON(mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
-			mm->kernel_pages[mm->kernel_pages_count++] = pud;
-		}
-		else
-			; /* use existing -- fine */
-	} else { /* !pud */
-		if (!alloc) /* failed b/c we reached nonexisting pgtable, and asked not to alloc */
-			goto no_alloc;
-		else	/* asked to alloc but still failed. low kernel mem? shouldn't happen */
-			panic("map_page - pud"); 
-	}
-
-	/* next level ... same logic as above */
-	allocated = alloc; 
-	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &allocated);
-	if (pmd) {
-		if (allocated) {
-			BUG_ON(mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
-			mm->kernel_pages[mm->kernel_pages_count++] = pmd;
-		}
-	} else {
-		if (!alloc)
-			goto no_alloc; 
-		else 
-			panic("map_page - pmd");
-	}
-	
-	/* next level ... same logic as above */
-	allocated = alloc; 
-	unsigned long pt = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &allocated);
-	if (pt) {
-		if (allocated) {
-			BUG_ON(mm->kernel_pages_count >= MAX_TASK_KER_PAGES); 
-			mm->kernel_pages[mm->kernel_pages_count++] = pt;
-		}
-	} else {
-		if (!alloc)
-			goto no_alloc; 
-		else
-			panic("map_page - pte"); 
-	}
-
-	/* reached pt, the bottom level of pgtable tree */
-	unsigned long *pte_va = 
-		map_table_entry((unsigned long *)(pt + VA_START), va, page /*=0 for finding entry only*/, perm);
-	if (page) { /* a page just installed, bookkeeping.. */
-		struct user_page p = {page, va};
-		BUG_ON(mm->user_pages_count >= MAX_TASK_USER_PAGES); // shouldn't happen, as we checked above
-		mm->user_pages[mm->user_pages_count++] = p;
-	}
-	return pte_va;
-
-no_alloc:
-	// xzl: TODO: reverse allocated pgtables during tree walk
-	E("failed. TODO: reverse allocated pgtables during tree walk"); 
-	return 0; 	
-}
-#endif
-
 /* Walk a task's pgtable tree. Find and (optionally) update the pte corresponding to a user va 
    @mm: the user virt addd under question, can be obtained via task_struct::mm
    @va: given user va 
@@ -215,9 +114,13 @@ no_alloc:
    
    return: kernel va of the pte set or found; 0 if failed (cannot proceed w/o pgtable alloc)
 	the located pte could be invalid
+
+	Caller must hold mm->lock 
+
+	XXX rename to like "locate_page"
    */
-unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page,
-				int alloc, unsigned long perm) {
+unsigned long *map_page(struct mm_struct *mm, unsigned long va, 
+	unsigned long page, int alloc, unsigned long perm) {
 	unsigned long *desc; 
 	BUG_ON(!mm); 
 
@@ -311,45 +214,58 @@ fail:
 /* duplicate the contents of the @current task's user pages to the @dst task, at same va.
 	allocate & map pages for @dsk on demand
 	return 0 on success
+
+	Assumption: current->mm is active 
+
+	Caller must hold dstmm->lock 
 */
-int copy_virt_memory(struct task_struct *dst) {
+int dup_current_virt_memory(struct mm_struct *dstmm) {
 	struct pt_regs *regs = task_pt_regs(current);
-	struct task_struct* src = current;
-	// go through the @dst task's virt pages, allocate & map phys pages, then copy the content
-	// from the corresponding va from the @current task
-	for (unsigned long i = 0; i < src->mm.sz; i += PAGE_SIZE) {
+	struct mm_struct* srcmm = current->mm; BUG_ON(!srcmm); 
+
+	acquire(&srcmm->lock); 
+
+	// go through the @dst task's virt pages, allocate & map phys pages, 
+	// then copy the content from the corresponding va from the @current task
+	for (unsigned long i = 0; i < srcmm->sz; i += PAGE_SIZE) {
 		// locate src pte, extract perm bits, copy over. 
-		unsigned long *pte = map_page(&src->mm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
+		unsigned long *pte = map_page(srcmm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
 		BUG_ON(!pte);  // bad user mapping? 
 		unsigned long perm = PTE_TO_PERM(*pte); 
-		void *kernel_va = allocate_user_page(dst, i, perm);
+		void *kernel_va = allocate_user_page_mm(dstmm, i, perm);
 		if(kernel_va == 0)
-			goto no_mem; 
-		// xzl: src uses user va. this assumes the current task's va is active
+			goto no_mem;  
+		// NB: src uses user va. this assumes the src's va is active
 		memmove(kernel_va, (void *)i, PAGE_SIZE);
 	}
 
 	// copy user stack 
 	V("regs->sp %lx", regs->sp);
 	for (unsigned long i = PGROUNDDOWN(regs->sp); i < USER_VA_END; i+=PAGE_SIZE) {
-		unsigned long *pte = map_page(&src->mm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
+		unsigned long *pte = map_page(srcmm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
 		BUG_ON(!pte);  // bad user mapping (stack)? 	
-		void *kernel_va = allocate_user_page(dst, i, MM_AP_RW | MM_XN);
+		void *kernel_va = allocate_user_page_mm(dstmm, i, MM_AP_RW | MM_XN);
 		if(kernel_va == 0)
 			goto no_mem; 
-		// xzl: src uses user va. this assumes the current task's va is active
+		// NB: src uses user va. this assumes the src's va is active
 		V("kern va %lx i %x", kernel_va, i);
 		memmove(kernel_va, (void *)i, PAGE_SIZE);
 	}
 
+	dstmm->sz = srcmm->sz; dstmm->codesz = srcmm->codesz;
+
+	release(&srcmm->lock);
 	return 0;
 no_mem: 	// TODO: revserse allocation .. 
+	release(&srcmm->lock);
 	return -1; 
 }
 
 // Look up a virtual address, return the physical address,
 // or 0 if not mapped or invalid. 
 // Can only be used to look up user pages.
+//
+// Caller must hold mm->lock 
 unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 	unsigned long *pte = map_page(mm, va, 0/*dont map, just locate*/, 0/*don't alloc*/, 0/*perm*/);
 	if (!pte)
@@ -375,9 +291,11 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 // void
 // uvmclear(pagetable_t pagetable, uint64 va)
 
-// Copy from kernel to user.
+// Copy from kernel to user. Called by various syscalls, drivers.
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
+// 
+// Caller must NOT hold mm->lock
 int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
     uint64_t n, va0, pa0;
 
@@ -386,11 +304,12 @@ int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
 		return -1; 
 	} 
 
+	acquire(&mm->lock); 
     while (len > 0) {
         va0 = PGROUNDDOWN(dstva); // va0 pagebase
         pa0 = walkaddr(mm, va0);
         if (pa0 == 0)
-            return -1;
+            {release(&mm->lock); return -1;}
         n = PAGE_SIZE - (dstva - va0); // n: remaining bytes on the page
         if (n > len)
             n = len;
@@ -400,12 +319,15 @@ int copyout(struct mm_struct * mm, uint64_t dstva, char *src, uint64_t len) {
         src += n;
         dstva = va0 + PAGE_SIZE;
     }
+	release(&mm->lock);
     return 0;
 }
 
-// Copy from user to kernel.
+// Copy from user to kernel. Called by various syscalls, drivers.
 // Copy len bytes to dst from virtual address srcva in a given page table.
 // Return 0 on success, -1 on error.
+//
+// Caller must NOT hold mm->lock
 int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
     uint64 n, va0, pa0;
 
@@ -415,11 +337,12 @@ int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
 	}
 	V("%lx %lx", srcva, len);
 
+	acquire(&mm->lock); 
     while (len > 0) {
         va0 = PGROUNDDOWN(srcva);  // xzl: user virt page base...
         pa0 = walkaddr(mm, va0); // xzl: phys addr for user va pagebase
         if (pa0 == 0)
-            return -1;
+            {release(&mm->lock); return -1;}
         n = PAGE_SIZE - (srcva - va0);
         if (n > len)
             n = len;
@@ -429,6 +352,7 @@ int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
         dst += n;
         srcva = va0 + PAGE_SIZE;
     }
+	release(&mm->lock);
     return 0;
 }
 
@@ -436,6 +360,8 @@ int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
 // Copy bytes to dst from virtual address srcva in a given page table,
 // until a '\0', or max.
 // Return 0 on success, -1 on error.
+//
+// Caller must NOT hold mm->lock
 int copyinstr(struct mm_struct *mm, char *dst, uint64 srcva, uint64 max) {
     uint64 n, va0, pa0;
     int got_null = 0;
@@ -445,11 +371,12 @@ int copyinstr(struct mm_struct *mm, char *dst, uint64 srcva, uint64 max) {
 		return -1; 
 	}
 
+	acquire(&mm->lock); 
     while (got_null == 0 && max > 0) {
         va0 = PGROUNDDOWN(srcva);
         pa0 = walkaddr(mm, va0);
         if (pa0 == 0)
-            return -1;
+            {release(&mm->lock); return -1;}
         n = PAGE_SIZE - (srcva - va0);
         if (n > max)
             n = max;
@@ -471,6 +398,7 @@ int copyinstr(struct mm_struct *mm, char *dst, uint64 srcva, uint64 max) {
 
         srcva = va0 + PAGE_SIZE;
     }
+	release(&mm->lock);
     if (got_null) {
         return 0;
     } else {
@@ -488,7 +416,7 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 {
   struct task_struct *p = myproc();
   if(user_dst){
-    return copyout(&p->mm, dst, src, len);
+    return copyout(p->mm, dst, src, len);
   } else {
     memmove((char *)dst, src, len);
     return 0;
@@ -498,13 +426,12 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 // Copy from either a user address, or kernel address,
 // depending on usr_src.
 // Returns 0 on success, -1 on error.
-// xzl: cf above
-int
-either_copyin(void *dst, int user_src, uint64 src, uint64 len)
+// cf above
+int either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 {
   struct task_struct *p = myproc();
   if(user_src){
-    return copyin(&p->mm, dst, src, len);
+    return copyin(p->mm, dst, src, len);
   } else {
     memmove(dst, (char*)src, len);
     return 0;
@@ -513,29 +440,28 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 
 // free user pages only if useronly=1, otherwise free user/kernel pages
 // NB: wont update pgtables for umapping freed user pages
+// Used to destroy a task's existing virtual mem 
+//
+// Caller must hold mm->lock 
 void free_task_pages(struct mm_struct *mm, int useronly) {
 	unsigned long page; 
+	unsigned long sz; 
 	BUG_ON(!mm); 
 
-	unsigned long sz = mm->sz; 
-
-	V("%s enter sz %lu", __func__, sz);
+	// acquire(&mm->lock); 	
+	sz = mm->sz; V("%s enter sz %lu", __func__, sz);
 
 	if (growproc(mm, -sz) == (unsigned long)(void *)-1) {
 		BUG(); 
+		// release(&mm->lock); 
 		return; 
 	}
 	// TODO: free stack pages.... 
 	
 	if (!useronly) {
 		// free kern pages. must handle with care. 
-		// task_struct and mm all live on the kernel pages. so once we 
-		// free them, they could be grabbed away by other contexts. 
-		// as a result we may have bad mm in the loop below. 
-		// alloc_lock does not help: it only protects single page alloc/free.
-		// we need to lock the whole mem allocator. 
-		// for now, just disable irq...
-		push_off(); 
+		// NB: task_struct and mm no longer live on the kernel pages. so we won't
+		//	be corrupting them here 
 		for (int i = 0; i < mm->kernel_pages_count; i++) {
 			page = mm->kernel_pages[i]; 
 			BUG_ON(!page);
@@ -544,22 +470,22 @@ void free_task_pages(struct mm_struct *mm, int useronly) {
 		memzero(&mm->kernel_pages, sizeof(mm->kernel_pages));
 		mm->kernel_pages_count = 0;
 		mm->pgd = 0; // should we do this? 
-		pop_off(); 
 	}
+	// release(&mm->lock); 
 }
 
-/* unmap and free user pages. 
-	caller must flush tlb (e.g. via set_pgd(mm->pgd))
+/* unmap and free user pages. e.g. to shrink task vm 
 	reutrn # of freed pages on success. -1 on failure 
-
-	start_va and size must be page aligned 
+	
+	1. caller later must flush tlb (e.g. via set_pgd(mm->pgd))
+	2. caller must hold mm->lock
+	3. start_va and size must be page aligned 
 
 	TODO: make it transactional. now if any page fails to unmap, it will abort 
 		there. 
 	TODO: need to grab any lock?
 */
-static 
-int free_user_page_range(struct mm_struct *mm, unsigned long start_va, 
+static int free_user_page_range(struct mm_struct *mm, unsigned long start_va, 
 		unsigned long size) {
 	unsigned long *pte; 
 	unsigned long page; // pa; 
@@ -583,13 +509,16 @@ bad:
 }
 
 /* 
-	On success, sbrk() returns the previous program break. 
-	(If the break was increased, then this value is a pointer to the start of 
-	the newly allocated memory). On error, (void *) -1 is returned, 
-	https://linux.die.net/man/2/sbrk
+	primarily for sbrk(). 
 
 	incr can be pos or neg. 
 	allows incr == -sz, i.e. free all user pages.
+	cf: https://linux.die.net/man/2/sbrk
+	"On success, sbrk() returns the previous program break. 
+	(If the break was increased, then this value is a pointer to the start of 
+	the newly allocated memory). On error, (void *) -1 is returned"
+
+	caller must hold mm->lock
 */
 unsigned long growproc (struct mm_struct *mm, int incr) {
 	unsigned long sz = mm->sz, sz1; 
@@ -632,7 +561,7 @@ unsigned long growproc (struct mm_struct *mm, int incr) {
 	}
 	sz1 = mm->sz; // old sz
 	mm->sz += incr; 	
-	if (&current->mm == mm)
+	if (current->mm == mm)
 		set_pgd(mm->pgd); // tlb flush
 
 	V("succeeds. return old brk %lx new brk %lx", sz1, mm->sz); 
@@ -673,7 +602,9 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 			E("do_mem_abort: insufficient mem"); 
 			goto exit; 
 		}
-		map_page(&(current->mm), addr & PAGE_MASK, page, 1/*alloc*/, MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
+		acquire(&current->mm->lock);
+		map_page(current->mm, addr & PAGE_MASK, page, 1/*alloc*/, MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
+		release(&current->mm->lock);
 		ind++; // return to user, give it a second chance
 		if (ind > 5) {  // repeated fault
 		    E("do_mem_abort: too many mem faults. ind %d", ind); 

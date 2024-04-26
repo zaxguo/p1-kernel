@@ -56,6 +56,7 @@ void kernel_main()
 	printf("------ kernel boots ------ \n\r");
 	
 	paging_init(); 
+	sched_init();  // must be before schedule() or timertick() 
 	fb_init(); 		// reserve fb memory other page allocations
 	consoleinit(); 	
 	binit();         // buffer cache

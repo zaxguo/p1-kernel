@@ -673,8 +673,8 @@ int sys_pipe(unsigned long fdarray) {
     fileclose(wf);
     return -1;
   }
-  if(copyout(&(p->mm), fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
-     copyout(&(p->mm), fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
+  if(copyout(p->mm, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
+     copyout(p->mm, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
     p->ofile[fd0] = 0;
     p->ofile[fd1] = 0;
     fileclose(rf);

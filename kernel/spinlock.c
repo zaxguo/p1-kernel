@@ -87,6 +87,9 @@ holding(struct spinlock *lk)
 // it takes two pop_off()s to undo two push_off()s.  Also, if interrupts
 // are initially off, then push_off, pop_off leaves them off.
 
+// xzl: in many places we can't do disable_irq()/enable_irq() here b/c the func may be called with
+// another spinlock held (which already disabled irq), cf. releasesleep()
+// if so, the enable_irq below would prematurely "release" that spinlock -- bad.
 void
 push_off(void)
 {
