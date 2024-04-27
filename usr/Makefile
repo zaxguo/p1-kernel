@@ -4,6 +4,7 @@ ARMGNU ?= aarch64-linux-gnu
 # xv6 userspace lib, minimalist, no dep on libc
 ULIB = ulib.o printf.o usys_s.o umalloc.o tinyprintf.o uio.o
 
+# all these programs only depend on ULIB above, no libc, etc
 UPROGS = \
 	build/echo \
 	build/ls \
@@ -24,6 +25,8 @@ UPROGS = \
 COPS = -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only
 COPS += -O0
+
+ASMOPS = -g
 
 .PRECIOUS: $(ULIB)
 

@@ -2,8 +2,8 @@
 
 #include "utils.h"
 
-void*
-memset(void *dst, int c, uint n)
+// c: the fill value (byte); n: size, in bytes
+void* memset(void *dst, int c, uint n)
 {
   char *cdst = (char *) dst;
   int i;
@@ -11,6 +11,10 @@ memset(void *dst, int c, uint n)
     cdst[i] = c;
   }
   return dst;
+}
+
+void memzero(void *dst, uint n) {
+  memset(dst, 0, n); 
 }
 
 int
@@ -53,14 +57,14 @@ memmove(void *dst, const void *src, uint n)
   return dst;
 }
 
-#if 0 // we already had one 
 // memcpy exists to placate GCC.  Use memmove.
+// NB: gcc will gen code to invoke memcpy for struct assignment. so the 
+// func below must be right (e.g. cannot assume any alignment)
 void*
 memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
-#endif
 
 int
 strncmp(const char *p, const char *q, uint n)

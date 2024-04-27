@@ -69,13 +69,14 @@ el3:
 
 el1_entry:
 	// bss_begin/end are linking addr (kernel virt). convert them to phys
+	// they are (at least) 8 bytes aligned in link script
 	ldr	x0, =bss_begin
 	ldr	x1, =bss_end
 	ldr x2, =VA_START
 	sub x0, x0, x2
 	sub x1, x1, x2
 	sub	x1, x1, x0
-	bl 	memzero
+	bl 	memzero_aligned
 
 #if defined(PLAT_VIRT) || defined(PLAT_RPI3QEMU)
 // A workaround for QEMU's quirks on MMU emulation, which also showcases how __create_page_tables
@@ -231,7 +232,7 @@ __create_idmap:
 	
 	adrp	x0, idmap_dir		// idmap_dir allocated in linker-qemu.ld, 3 pages. 
 	mov	x1, #PG_DIR_SIZE		// 3pgs, PGD|PUD|PMD
-	bl	memzero
+	bl	memzero_aligned
 
 	adrp	x0, idmap_dir
 	mov	x1, xzr					// starting mapping from 0x0 (phys device base)
@@ -254,7 +255,7 @@ __create_page_tables_virt: // for qemu's virt plat
 	// clear the mem region backing pgtables
 	adrp 	x0, pg_dir
 	mov		x1, #PG_DIR_SIZE
-	bl 		memzero
+	bl 		memzero_aligned
 
 	// allocate one PUD; link PGD (pg_dir)->PUD
 	adrp	x0, pg_dir
@@ -288,7 +289,7 @@ __create_page_tables_rpi3: // for rpi3
 	// clear the mem region backing pgtables
 	adrp 	x0, pg_dir
 	mov		x1, #PG_DIR_SIZE
-	bl 		memzero
+	bl 		memzero_aligned
 
 	// allocate PUD & PMD1; link PGD (pg_dir)->PUD, and PUD->PMD1
 	adrp	x0, pg_dir

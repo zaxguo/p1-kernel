@@ -63,8 +63,8 @@ COPS1 += -O0
 #################################
 
 # generic
-# COPS += -O2
-COPS += -O0
+COPS += -O2
+# COPS += -O0
 
 all : $(KERNEL)
 

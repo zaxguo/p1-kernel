@@ -37,16 +37,16 @@
 // (32 * 1024)  ok, but results in a very large ramdisk...
 
 // Large user vm, works, but usertests slow b/c freecount()
-#define USER_VA_END         (128 * 1024 * 1024) // == user stack top, 128MB user va
-#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
-#define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-#define MAX_TASK_KER_PAGES       96      //max kernel pages per task. (128 seems to corrupt kernel stack
-
-// Small user vm (simple tests, slider - ok; too small for liteNes)
-// #define USER_VA_END         (4 * 1024 * 1024) // == user stack top, 128MB user va
+// #define USER_VA_END         (128 * 1024 * 1024) // == user stack top, 128MB user va
 // #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
 // #define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
-// #define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 
+// #define MAX_TASK_KER_PAGES       96      //max kernel pages per task. (128 seems to corrupt kernel stack
+
+// Small user vm (simple tests, slider - ok; too small for liteNes)
+#define USER_VA_END         (4 * 1024 * 1024) // == user stack top, 128MB user va
+#define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 
+#define MAX_TASK_USER_PAGES		(USER_VA_END / PAGE_SIZE)      // max userpages per task, 
+#define MAX_TASK_KER_PAGES      16       //max kernel pages per task. 
 
 // keep them here b/c needed by lots of files. moved from mmu.h. 
 #define VA_START 			0xffff000000000000

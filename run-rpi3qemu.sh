@@ -27,23 +27,29 @@ KERNEL=./kernel/kernel8-rpi3qemu.img
 # -d int -D qemu.log 
 
 #### qemu v8, console only
-# ${QEMU} -M raspi3b \
-# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic \
-# -d int -D qemu.log 
+qemu_min () {
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -serial null -serial mon:stdio -nographic \
+    -d int -D qemu.log 
+}    
 
 ### qemu v8, no grahpics, no kb, with sd
-# ${QEMU} -M raspi3b \
-# -kernel ${KERNEL} -serial null -serial mon:stdio \
-# -d int -D qemu.log \
-# -nographic \
-# -drive file=smallfat.bin,if=sd,format=raw
+qemu_small () {
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -serial null -serial mon:stdio \
+    -d int -D qemu.log \
+    -nographic \
+    -drive file=smallfat.bin,if=sd,format=raw
+}    
 
 ### qemu v8, + grahpics, + kb, + sdls
-${QEMU} -M raspi3b \
--kernel ${KERNEL} -serial null -serial mon:stdio \
--d int -D qemu.log \
--usb -device usb-kbd \
--drive file=smallfat.bin,if=sd,format=raw
+qemu_full () {
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -serial null -serial mon:stdio \
+    -d int -D qemu.log \
+    -usb -device usb-kbd \
+    -drive file=smallfat.bin,if=sd,format=raw
+}
 
 # -nographic \
 
@@ -62,3 +68,16 @@ ${QEMU} -M raspi3b \
 # -d int -D qemu.log \
 # -nographic \
 # -usb -device usb-kbd
+
+
+if [ "$1" = "min" ]
+then
+    qemu_min
+elif [ "$1" = "small" ]
+then
+    qemu_small
+else
+    qemu_full
+fi
+
+    

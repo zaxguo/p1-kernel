@@ -225,6 +225,8 @@ int dup_current_virt_memory(struct mm_struct *dstmm) {
 
 	acquire(&srcmm->lock); 
 
+	W("pid %d src>mm %lx p->mm->sz %lu", current->pid, (unsigned long)srcmm, srcmm->sz);
+
 	// go through the @dst task's virt pages, allocate & map phys pages, 
 	// then copy the content from the corresponding va from the @current task
 	for (unsigned long i = 0; i < srcmm->sz; i += PAGE_SIZE) {
@@ -232,6 +234,7 @@ int dup_current_virt_memory(struct mm_struct *dstmm) {
 		unsigned long *pte = map_page(srcmm, i, 0/*just locate*/, 0/*no alloc*/, 0); 
 		BUG_ON(!pte);  // bad user mapping? 
 		unsigned long perm = PTE_TO_PERM(*pte); 
+		W("dup user page at userva %lx", i); 
 		void *kernel_va = allocate_user_page_mm(dstmm, i, perm);
 		if(kernel_va == 0)
 			goto no_mem;  
@@ -332,7 +335,7 @@ int copyin(struct mm_struct * mm, char *dst, uint64 srcva, uint64 len) {
     uint64 n, va0, pa0;
 
 	if (srcva > USER_VA_END) {
-		W("// illegal user va. a kernel va??");
+		W("illegal user va. is it a kernel va??");
 		return -1; 
 	}
 	V("%lx %lx", srcva, len);

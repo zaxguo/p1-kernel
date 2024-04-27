@@ -21,7 +21,7 @@ SECTIONS
 	.text :  { *(.text) }
 	.rodata : { *(.rodata) }
 	.data : { *(.data) }
-	. = ALIGN(0x8);
+	. = ALIGN(0x8);	 /* bss begin/end must be aligned: cleared with memzero_aligned*/
 	bss_begin = .;
 	.bss : { *(.bss*) } 
 	bss_end = .;

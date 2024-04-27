@@ -63,6 +63,7 @@ int exec(char *path, char **argv) {
   struct task_struct *p = myproc();
 
   I("exec called. path %s", path);
+W("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
 
   begin_op();
 
@@ -92,7 +93,7 @@ int exec(char *path, char **argv) {
   //  the caveat is that some of the kernel pages (eg for the old pgtables) will become unused and will not be
   //  freed until exit()
   tmpmm->kernel_pages_count = p->mm->kernel_pages_count; 
-  memcpy(&tmpmm->kernel_pages, &p->mm->kernel_pages, sizeof(tmpmm->kernel_pages)); 
+  memmove(&tmpmm->kernel_pages, &p->mm->kernel_pages, sizeof(tmpmm->kernel_pages)); 
   tmpmm->pgd = 0; // start from a fresh pgtable tree...
 
   // Load program into memory.  (Code below assumes: seg vaddrs are in ascending order...
@@ -121,7 +122,7 @@ int exec(char *path, char **argv) {
   end_op();
   ip = 0;
   
-  sz = PGROUNDUP(sz);  
+  sz = PGROUNDUP(sz);
   
   // User stack 
   assert(sz + PAGE_SIZE + USER_MAX_STACK <= USER_VA_END); 
@@ -130,7 +131,7 @@ int exec(char *path, char **argv) {
     BUG(); 
     goto bad; 
   }
-  memzero(kva, PAGE_SIZE); 
+  memzero_aligned(kva, PAGE_SIZE); 
   // map a guard page near USER_MAX_STACK as non accessible
   if (!(kva=allocate_user_page_mm(tmpmm, USER_VA_END - USER_MAX_STACK - PAGE_SIZE, MMU_PTE_FLAGS | MM_AP_EL1_RW))) {
     BUG(); 
@@ -185,8 +186,11 @@ int exec(char *path, char **argv) {
   tmpmm->ref = p->mm->ref; 
   tmpmm->lock = p->mm->lock; 
 
-  *(p->mm) = *tmpmm;  // commit
-  p->mm->sz = p->mm->codesz = sz; 
+  *(p->mm) = *tmpmm;  // commit <----- wht's wrong with THIS????? 
+  // memmove(p->mm, tmpmm, sizeof(struct mm_struct)); 
+  W("pid %d p->mm %lx", p->pid,(unsigned long)p->mm);
+  p->mm->sz = p->mm->codesz = sz;  
+  // W("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
   kfree(tmpmm); 
 
   set_pgd(p->mm->pgd);

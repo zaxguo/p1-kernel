@@ -100,8 +100,11 @@ void free (void *p);
 void dump_mem_info (void);
 
 // ----------------  mm.c ---------------------- //
-void memzero(void *src, unsigned long n);   // util.S
-void memcpy(void* dst, const void* src, unsigned long n);
+//src/n must be 8 bytes aligned   util.S
+void memzero_aligned(void *src, unsigned long n);  
+//dst/src/n must be 8 bytes aligned    util.S
+void* memcpy_aligned(void* dst, const void* src, unsigned int n);
+
 unsigned long *map_page(struct mm_struct *mm, unsigned long va, unsigned long page, int alloc, 
     unsigned long perm);
 // int copy_virt_memory(struct task_struct *dst); // become dup_current_vir.. 
@@ -203,7 +206,9 @@ int to_fatpath(const char *path, char *fatpath, int dev);
 // string.c
 int             memcmp(const void*, const void*, uint);
 void*           memmove(void*, const void*, uint);
+void*           memcpy(void*, const void*, uint);
 void*           memset(void*, int, uint);
+void            memzero(void*, uint); 
 char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);

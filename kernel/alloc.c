@@ -43,7 +43,7 @@ unsigned long get_free_page() {
 			mem_map[i] = 1;
 			release(&alloc_lock);
 			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
-			memzero(PA2VA(page), PAGE_SIZE);
+			memzero_aligned(PA2VA(page), PAGE_SIZE);
 			return page;
 		}
 	}

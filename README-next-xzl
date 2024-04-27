@@ -1034,4 +1034,12 @@ static char kernel_stacks[NR_TASKS][THREAD_SIZE] __attribute__ ((aligned (THREAD
 now mario can run 
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+fixed a nasty bug ... 
+old memcpy() in util.S copy multiply of 8 bytes (!!) which silently corrrupt mem... and 
+casues -O2 kernel to fail to set user VM>.....
+
+rename old memcpy (and memzero, which is a latent bug) with _aligned. 
+default ones have no alignment requimrenets. 
+and change all call sites. 
+
 

@@ -207,7 +207,7 @@ int fileread(struct file *f, uint64 addr, int n) {
 // https://man7.org/linux/man-pages/man2/lseek.2.html
 #include "fb.h"
 int filelseek(struct file *f, int offset, int whence) {
-    int newoff; uint size; 
+    int newoff; uint size=0; 
 
     // sanity checks 
     if (f->type == FD_PIPE)     

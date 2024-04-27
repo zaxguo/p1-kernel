@@ -3214,11 +3214,11 @@ countfree()
   if(pid == 0){
     close(fds[0]);
     
-    // xzl: use a loop to count pages. for each page write a char to the pipe
+    // xzl: use a loop to sbrk() & count pages. for each page write a char to the pipe
     while(1){
       uint64 a = (uint64) sbrk(4096);
-      if(a == 0xffffffffffffffff){
-        break;
+      if(a == 0xffffffffffffffff){ // failed to alloc, quit
+        break; 
       }
 
       // modify the memory to make sure it's really allocated.
@@ -3280,7 +3280,7 @@ drivetests(int quick, int continuous, char *justone) {
       }
     }
     if((free1 = countfree()) < free0) { // xzl: will count free again...
-      printf("FAILED -- lost some free pages %d (out of %d)\n", free1, free0);
+      printf("Lost some pages. Now free pages %d (previous %d)\n", free1, free0);
       if(continuous != 2) {
         return 1;
       }

@@ -78,19 +78,22 @@ get_pgd:
 	ret
 
 // ---------------------- misc -------------------------------------------- //
-.globl memcpy
-memcpy:
-	ldr x3, [x1], #8
-	str x3, [x0], #8
+// the _aligned funcs are faster than normal variants, but must be used with 
+// care (unaligned addr will corrupt/miss contents) to avoid nasty bugs. 
+// unless the buf is large, the extra speed is not worth it
+.globl memcpy_aligned
+memcpy_aligned:
+ 	ldr x3, [x1], #8
+ 	str x3, [x0], #8
 	subs x2, x2, #8
-	b.gt memcpy
-	ret
+ 	b.gt memcpy_aligned
+ 	ret
 
-.globl memzero
-memzero:
+.globl memzero_aligned
+memzero_aligned:
 	str xzr, [x0], #8
 	subs x1, x1, #8
-	b.gt memzero
+	b.gt memzero_aligned
 	ret
 
 .globl get_el

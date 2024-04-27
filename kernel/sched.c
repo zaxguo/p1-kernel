@@ -209,6 +209,8 @@ void switch_to(struct task_struct * next) {
         acquire(&next->mm->lock); 
 	    set_pgd(next->mm->pgd);
         release(&next->mm->lock); 
+        // now, next->mm should be effective. 
+        // can use gdb to inspect user mapping here
     }
     release(&next->lock); 
 
@@ -390,7 +392,7 @@ void exit_process(int status) {
 // including user & kernel pages. 
 // sched_lock must be held.
 static void freeproc(struct task_struct *p) {
-    BUG_ON(!p || !p->mm); I("%s entered. target pid %d", __func__, p->pid);
+    BUG_ON(!p || !p->mm); W("%s entered. pid %d", __func__, p->pid);
 
     p->state = TASK_UNUSED; // mark the slot as unused
     // no need to zero task_struct, which is among the task's kernel page
@@ -399,6 +401,7 @@ static void freeproc(struct task_struct *p) {
     acquire(&p->mm->lock);
     p->mm->ref --; BUG_ON(p->mm->ref<0);
     if (p->mm->ref == 0) { // this marks p->mm as unused
+        W("free mm"); 
         free_task_pages(p->mm, 0 /* free all user and kernel pages*/);        
     } 
     release(&p->mm->lock); 
@@ -569,97 +572,8 @@ static struct mm_struct *alloc_mm(void) {
     // now we hold mm->lock
     mm->ref = 1; 
     mm->kernel_pages_count = 0;
+    W("alloc_mm %lx", (unsigned long)mm); 
     return mm;
-}
-
-// for creating both user and kernel tasks
-// return pid on success, <0 on err
-int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
-{
-	struct task_struct *p = 0; int pid; 
-	// push_off();	// stil need this for entire task array. may remove later
-	acquire(&sched_lock);
-	
-	// find an empty tcb slot
-	for (pid = 0; pid < NR_TASKS; pid++) {
-		p = task[pid]; BUG_ON(!p); 
-		if (p->state == TASK_UNUSED)
-			break; 
-	}	
-	if (pid >= NR_TASKS) 
-		return -1; 
-
-	// task[pid] = p;	// take the spot. scheduler cannot kick in
-	memset(p, 0, sizeof(struct task_struct));
-	initlock(&p->lock, "proc");
-	// pop_off();
-
-	acquire(&p->lock);	
-    acquire(&current->lock);	
-
-	// (UPDATE) no longer doing so, as we free mm and task_struct separately
-	// in order to support threading	
-	// bookkeep the 1st kernel page (kern stack)
-	// p->mm.kernel_pages[0] = VA2PA(p); 	
-	// p->mm.kernel_pages_count = 0; 
-	struct pt_regs *childregs = task_pt_regs(p);
-
-	if (clone_flags & PF_KTHREAD) { /* create a kernel task */
-		p->cpu_context.x19 = fn;
-		p->cpu_context.x20 = arg;
-    } else { /* fork user tasks */
-        struct pt_regs *cur_regs = task_pt_regs(current);
-        *childregs = *cur_regs; // copy over the entire pt_regs
-        childregs->regs[0] = 0; // return value (x0) for child
-        if (clone_flags & PF_UTHREAD) {	// fork a "thread", i.e. sharing an existing mm
-            p->mm = current->mm; BUG_ON(!p->mm);
-            acquire(&p->mm->lock);
-            p->mm->ref++;
-            release(&p->mm->lock);
-        } else {	// for a "process", alloc a new mm of its own
-            struct mm_struct *mm = alloc_mm();
-            if (!mm) {BUG(); return -1;}  // XXX reverse task allocation
-			// now we hold mm->lock
-            p->mm = mm; 			
-            dup_current_virt_memory(mm); // duplicate virt memory (inc contents)
-            release(&mm->lock);
-        }
-        // that's it, no modifying pc/sp/etc
-
-		// user task only: dup fds (kernel tasks won't need them)
-		// 		increment reference counts on open file descriptors.
-		for (int i = 0; i < NOFILE; i++)
-			if (current->ofile[i])
-				p->ofile[i] = filedup(current->ofile[i]);
-		p->cwd = idup(current->cwd);		
-    }
-
-    // also inherit task name
-	safestrcpy(p->name, current->name, sizeof(current->name));		
-
-	p->flags = clone_flags;
-	p->counter = p->priority = current->priority;
-	p->preempt_count = 1; //disable preemption until schedule_tail
-	
-	// TODO: init more field here
-	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
-
-	p->cpu_context.pc = (unsigned long)ret_from_fork;
-	p->cpu_context.sp = (unsigned long)childregs;	
-	p->pid = pid; 
-    release(&current->lock);
-	release(&p->lock);
-
-  	acquire(&wait_lock);
- 	p->parent = current;
-  	release(&wait_lock);
-
-	// the last thing ... hence scheduler can pick up
-	p->state = TASK_RUNNABLE;
-
-	release(&sched_lock);
-
-	return pid;
 }
 
 /*
@@ -719,4 +633,94 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	fsinit(SECONDDEV); // fat
 	
 	return 0;
+}
+
+// for creating both user and kernel tasks
+// return pid on success, <0 on err
+int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
+{
+	struct task_struct *p = 0; int pid; 
+	// push_off();	// stil need this for entire task array. may remove later
+	acquire(&sched_lock);
+	
+	// find an empty tcb slot
+	for (pid = 0; pid < NR_TASKS; pid++) {
+		p = task[pid]; BUG_ON(!p); 
+		if (p->state == TASK_UNUSED)
+			break; 
+	}	
+	if (pid >= NR_TASKS) 
+		return -1; 
+
+	// task[pid] = p;	// take the spot. scheduler cannot kick in
+	memset(p, 0, sizeof(struct task_struct));
+	initlock(&p->lock, "proc");
+	// pop_off();
+
+	acquire(&p->lock);	
+    acquire(&current->lock);	
+
+	// (UPDATE) no longer doing so, as we free mm and task_struct separately
+	// in order to support threading	
+	// bookkeep the 1st kernel page (kern stack)
+	// p->mm.kernel_pages[0] = VA2PA(p); 	
+	// p->mm.kernel_pages_count = 0; 
+	struct pt_regs *childregs = task_pt_regs(p);
+
+	if (clone_flags & PF_KTHREAD) { /* create a kernel task */
+		p->cpu_context.x19 = fn;
+		p->cpu_context.x20 = arg;
+    } else { /* fork user tasks */
+        struct pt_regs *cur_regs = task_pt_regs(current);
+        *childregs = *cur_regs; // copy over the entire pt_regs
+        childregs->regs[0] = 0; // return value (x0) for child
+        if (clone_flags & PF_UTHREAD) {	// fork a "thread", i.e. sharing an existing mm
+            p->mm = current->mm; BUG_ON(!p->mm);
+            acquire(&p->mm->lock);
+            p->mm->ref++;
+            release(&p->mm->lock);
+        } else {	// for a "process", alloc a new mm of its own
+            struct mm_struct *mm = alloc_mm();
+            if (!mm) {BUG(); return -1;}  // XXX reverse task allocation
+			// now we hold mm->lock
+            p->mm = mm; W("new mm %lx", (unsigned long)mm); 
+            dup_current_virt_memory(mm); // duplicate virt memory (inc contents)
+            release(&mm->lock);
+        }
+        // that's it, no modifying pc/sp/etc
+
+		// user task only: dup fds (kernel tasks won't need them)
+		// 		increment reference counts on open file descriptors.
+		for (int i = 0; i < NOFILE; i++)
+			if (current->ofile[i])
+				p->ofile[i] = filedup(current->ofile[i]);
+		p->cwd = idup(current->cwd);		
+    }
+
+    // also inherit task name
+	safestrcpy(p->name, current->name, sizeof(current->name));		
+
+	p->flags = clone_flags;
+	p->counter = p->priority = current->priority;
+	p->preempt_count = 1; //disable preemption until schedule_tail
+	
+	// TODO: init more field here
+	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
+
+	p->cpu_context.pc = (unsigned long)ret_from_fork;
+	p->cpu_context.sp = (unsigned long)childregs;	
+	p->pid = pid; 
+    release(&current->lock);
+	release(&p->lock);
+
+  	acquire(&wait_lock);
+ 	p->parent = current;
+  	release(&wait_lock);
+
+	// the last thing ... hence scheduler can pick up
+	p->state = TASK_RUNNABLE;
+
+	release(&sched_lock);
+
+	return pid;
 }

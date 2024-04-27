@@ -232,7 +232,7 @@ main(void)
   printf("To create dev/procfs entries ...."); 
   if (create_dev_procfs()==0)
     printf("OK\n"); 
-  logo(); 
+  logo();
   // run_nes();    // xzl: hack
 
   // Read and run input commands.       xzl: very simple main loop

@@ -32,20 +32,42 @@ QEMU8=/u/xl6yq/teaching/p1-kernel-workspace/qemu-8.2-apr2024/build/qemu-system-a
 
 QEMU=${QEMU6}
 
-# qemu, grahpics
-${QEMU} -M raspi3b \
--kernel ./kernel/kernel8-rpi3qemu.img -serial null -serial mon:stdio \
--d int -D qemu.log \
--nographic \
--usb -device usb-kbd \
--drive file=smallfat.bin,if=sd,format=raw \
--gdb tcp::${MYGDBPORT} -S
+KERNEL=./kernel/kernel8-rpi3qemu.img
 
+# qemu, grahpics
+qemu_full() {
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -serial null -serial mon:stdio \
+    -d int -D qemu.log \
+    -nographic \
+    -usb -device usb-kbd \
+    -drive file=smallfat.bin,if=sd,format=raw \
+    -gdb tcp::${MYGDBPORT} -S
+}
 
 # qemu, no grahpics, no kb, with sd
-# ${QEMU} -M raspi3b \
-# -kernel ./kernel/kernel8-rpi3qemu.img -serial null -serial mon:stdio \
-# -d int -D qemu.log \
-# -nographic \
-# -drive file=smallfat.bin,if=sd,format=raw \
-# -gdb tcp::${MYGDBPORT} -S
+qemu_small() {
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -serial null -serial mon:stdio \
+    -d int -D qemu.log \
+    -nographic \
+    -drive file=smallfat.bin,if=sd,format=raw \
+    -gdb tcp::${MYGDBPORT} -S
+}
+
+qemu_min () {
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -serial null -serial mon:stdio -nographic \
+    -d int -D qemu.log \
+    -gdb tcp::${MYGDBPORT} -S
+}
+
+if [ "$1" = "min" ]
+then
+    qemu_min
+elif [ "$1" = "small" ]
+then
+    qemu_small
+else
+    qemu_full
+fi

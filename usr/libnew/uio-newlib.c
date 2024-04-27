@@ -114,7 +114,8 @@ int read_sbctl(struct sbctl_config *cfg) {
                     printf("wrong # of paras read"); fclose(fp); return -1; 
                 } else {
                 fclose(fp); return 0; // done
-            }             
-    } 
+            }
+        } 
+    }
     printf("read file err\n"); fclose(fp); return -1;
 }
