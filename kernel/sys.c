@@ -73,32 +73,35 @@ int sys_wait(unsigned long p /* user va*/) {
 }
 
 unsigned long sys_sbrk(int incr) {
-	unsigned long sz; 
+	unsigned long sz, sz0; 
 	struct pt_regs *regs = task_pt_regs(current);
 	
-	V("cal sys_sbrk");
-
 	acquire(&current->mm->lock); 
-	sz = current->mm->sz; 
-
+	sz = current->mm->sz; sz0=sz;  
+	
+	V("cal sys_sbrk, requestsed brk %lu", sz + incr);
 	// all kinds of checks. careful: sz is unsigned; incr is signed
 	if (incr < 0 && sz + incr < current->mm->codesz) {
-		W("new brk too small. into code/data region"); 
+		W("sys_sbrk failed: requested brk too small. into code/data region"); 
 		goto bad; 
 	}
 	if (incr > 0 && sz + incr > regs->sp - PAGE_SIZE) {
-		W("new brk %lx too large. too close to sp %lx", sz+incr, regs->sp); 
+		W("sys_sbrk failed: requested brk %lx too large. too close to sp %lx", 
+			sz+incr, regs->sp); 
 		goto bad; 
 	} 
-	if (incr == 0) // shortcut 
-		{release(&current->mm->lock); return sz;}
+	if (incr == 0) { // shortcut 
+		W("pid %d user_pages_count %d", current->pid, current->mm->user_pages_count);
+		release(&current->mm->lock); return sz;
+	}
 
 	sz = growproc(current->mm, incr);
 	release(&current->mm->lock);
+	if (sz == (unsigned long)-1) 
+		W("sys_sbrk failed. requestsed brk %lx", sz0 + incr); 
 	return sz; 
 bad:
 	release(&current->mm->lock);
-	W("sys_sbrk failed"); 
 	return (unsigned long)(void *)-1; 	
 }
 

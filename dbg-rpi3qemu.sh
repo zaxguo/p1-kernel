@@ -65,9 +65,9 @@ qemu_min () {
 if [ "$1" = "min" ]
 then
     qemu_min
-elif [ "$1" = "small" ]
+elif [ "$1" = "full" ]
 then
-    qemu_small
-else
     qemu_full
+else
+    qemu_small
 fi

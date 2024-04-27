@@ -3187,7 +3187,7 @@ runtests(struct test *tests, char *justone) {
 }
 
 
-//
+// (spawn a new task; alloc free pages in that task until fail; exit that task) 
 // use sbrk() to count how many free physical memory pages there are.
 // touches the pages to force allocation.
 // because out of memory with lazy allocation results in the process
@@ -3197,7 +3197,8 @@ int
 countfree()
 {
   int fds[2];
-  printf("countfree starts");
+  // printf("countfree starts\n");
+  // printf("countfree starts. brk is 0x%x\n", sbrk(0));
   
   if(pipe(fds) < 0){
     printf("pipe() failed in countfree()\n");
@@ -3213,7 +3214,7 @@ countfree()
 
   if(pid == 0){
     close(fds[0]);
-    
+    printf("countfree starts. brk is 0x%x\n", sbrk(0));
     // xzl: use a loop to sbrk() & count pages. for each page write a char to the pipe
     while(1){
       uint64 a = (uint64) sbrk(4096);

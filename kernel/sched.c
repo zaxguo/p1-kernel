@@ -392,7 +392,7 @@ void exit_process(int status) {
 // including user & kernel pages. 
 // sched_lock must be held.
 static void freeproc(struct task_struct *p) {
-    BUG_ON(!p || !p->mm); W("%s entered. pid %d", __func__, p->pid);
+    BUG_ON(!p || !p->mm); V("%s entered. pid %d", __func__, p->pid);
 
     p->state = TASK_UNUSED; // mark the slot as unused
     // no need to zero task_struct, which is among the task's kernel page
@@ -401,7 +401,7 @@ static void freeproc(struct task_struct *p) {
     acquire(&p->mm->lock);
     p->mm->ref --; BUG_ON(p->mm->ref<0);
     if (p->mm->ref == 0) { // this marks p->mm as unused
-        W("free mm"); 
+        V("free mm"); 
         free_task_pages(p->mm, 0 /* free all user and kernel pages*/);        
     } 
     release(&p->mm->lock); 
@@ -571,8 +571,10 @@ static struct mm_struct *alloc_mm(void) {
     if (mm == mm_tables + NR_MMS) {E("no free mm"); BUG(); return 0;}  
     // now we hold mm->lock
     mm->ref = 1; 
+    mm->pgd = 0; 
     mm->kernel_pages_count = 0;
-    W("alloc_mm %lx", (unsigned long)mm); 
+    mm->user_pages_count = 0;
+    V("alloc_mm %lx", (unsigned long)mm); 
     return mm;
 }
 
@@ -683,7 +685,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
             struct mm_struct *mm = alloc_mm();
             if (!mm) {BUG(); return -1;}  // XXX reverse task allocation
 			// now we hold mm->lock
-            p->mm = mm; W("new mm %lx", (unsigned long)mm); 
+            p->mm = mm; V("new mm %lx", (unsigned long)mm); 
             dup_current_virt_memory(mm); // duplicate virt memory (inc contents)
             release(&mm->lock);
         }

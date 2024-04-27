@@ -58,8 +58,10 @@ struct user_page {
 
 #include "spinlock.h"
 
+
 // a user task's VM. a VM can be shared by multi user tasks
-// kernel thread has no such a thing
+// kernel thread has no such a thing, task_struct::mm=0
+// will be allocated in a static table, cf mm_tables
 // TODO: the size grows with MAX_TASK_XXX_PAGES, could be problem for larger user programs in the future...
 struct mm_struct {
 	int ref; // how many task_structs point to me. 0 means invalid
@@ -77,10 +79,6 @@ struct mm_struct {
 
 	struct spinlock lock; // to protect the whole mm_struct
 };
-// we'll kalloc() a dedicated page for each mm (except the init task's mm, which
-// is static and won't go away). 
-// so our scheduler/mm don't rely on kmalloc()
-_Static_assert(sizeof(struct mm_struct) <= 4096);
 
 // the metadata describing a task
 struct task_struct {

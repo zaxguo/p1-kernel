@@ -1042,4 +1042,6 @@ rename old memcpy (and memzero, which is a latent bug) with _aligned.
 default ones have no alignment requimrenets. 
 and change all call sites. 
 
-
+~~~~~~~~~~~~~~~~~~~~~~~
+fix a bug: when mm_struct slot reused, user_page_count must be reset to 0. 
+otherwise it just keeps growing
