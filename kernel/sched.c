@@ -36,6 +36,7 @@ static char kernel_stacks[NR_TASKS][THREAD_SIZE] __attribute__ ((aligned (THREAD
 struct task_struct *init_task, *current; 
 struct task_struct *task[NR_TASKS];
 struct spinlock sched_lock = {.locked=0, .cpu=0, .name="sched"};
+int lastpid=0; // a hint for the next free tcb slot. slowdown pid reuse for dbg ease
 
 struct cpu cpus[NCPU]; 
 
@@ -390,7 +391,8 @@ void exit_process(int status) {
 // xzl: destroys a task: task_struct, kernel stack, etc. 
 // free a proc structure and the data hanging from it,
 // including user & kernel pages. 
-// sched_lock must be held.
+//
+// sched_lock must be held.  p->lock must be held
 static void freeproc(struct task_struct *p) {
     BUG_ON(!p || !p->mm); V("%s entered. pid %d", __func__, p->pid);
 
@@ -401,10 +403,19 @@ static void freeproc(struct task_struct *p) {
     acquire(&p->mm->lock);
     p->mm->ref --; BUG_ON(p->mm->ref<0);
     if (p->mm->ref == 0) { // this marks p->mm as unused
-        V("free mm"); 
+        V("<<<< free mm %lu", p->mm-mm_tables); 
         free_task_pages(p->mm, 0 /* free all user and kernel pages*/);        
     } 
     release(&p->mm->lock); 
+    
+    p->mm = 0; 
+    p->flags = 0; 
+    p->killed = 0; 
+    p->counter = 0; 
+    p->preempt_count = 0; 
+    p->chan = 0; 
+    p->pid = 0; 
+    p->xstate = 0; 
 }
 
 // Wait for a child process to exit and return its pid.
@@ -569,13 +580,14 @@ static struct mm_struct *alloc_mm(void) {
         else 
             release(&mm->lock);
     }
-    if (mm == mm_tables + NR_MMS) {E("no free mm"); BUG(); return 0;}  
+    if (mm == mm_tables + NR_MMS) 
+        {E("no free mm"); BUG(); return 0;}  
     // now we hold mm->lock
     mm->ref = 1; 
     mm->pgd = 0; 
     mm->kernel_pages_count = 0;
     mm->user_pages_count = 0;
-    V("alloc_mm %lx", (unsigned long)mm); 
+    V(">>>> alloc_mm %lu", mm-mm_tables); 
     return mm;
 }
 
@@ -642,17 +654,18 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 // return pid on success, <0 on err
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
-	struct task_struct *p = 0; int pid; 
+	struct task_struct *p = 0; int i, pid; 
 	// push_off();	// stil need this for entire task array. may remove later
 	acquire(&sched_lock);
 	
 	// find an empty tcb slot
-	for (pid = 0; pid < NR_TASKS; pid++) {
+	for (i = 0; i < NR_TASKS; i++) {
+        pid = (lastpid+1+i) % NR_TASKS; 
 		p = task[pid]; BUG_ON(!p); 
 		if (p->state == TASK_UNUSED)
-			break; 
+			{V("alloc pid %d", pid); lastpid=pid; break;}
 	}	
-	if (pid >= NR_TASKS) 
+	if (i == NR_TASKS) 
 		{release(&sched_lock); return -1;}
 
 	// task[pid] = p;	// take the spot. scheduler cannot kick in

@@ -2823,7 +2823,7 @@ struct test {
   {rmdot, "rmdot"},
   {dirfile, "dirfile"},
   {iref, "iref"},
-  {forktest, "forktest"},   // cf comments
+  {forktest, "forktest"},   // [x]
   {sbrkbasic, "sbrkbasic"}, // [x]
   {sbrkmuch, "sbrkmuch"},   // [x]
   {kernmem, "kernmem"},     // [x]
