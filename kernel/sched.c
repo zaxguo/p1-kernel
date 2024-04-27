@@ -341,8 +341,8 @@ void reparent(struct task_struct *p) {
     release(&sched_lock); 
 }
 
-// xzl: this only makes a task zombie, the actual destruction happens
-// when parent calls wait() successfully
+// becomes a zombie task and schedule() a different task 
+// the actual destruction happens when parent calls wait() this zombie task successfully
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
@@ -434,7 +434,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
                 if (p0->state == TASK_ZOMBIE) {
                     // Found one.
                     pid = p0->pid;
-                    V("found zombie pid=%d", pid); BUG_ON(addr!=0 && !p->mm);//addr!=0 implies user task; mm must exist
+                    I("found zombie pid=%d", pid); BUG_ON(addr!=0 && !p->mm);//addr!=0 implies user task; mm must exist
                     if (addr != 0 && copyout(p->mm, addr, (char *)&(p0->xstate),
                                              sizeof(p0->xstate)) < 0) {
                         release(&p0->lock);
@@ -502,7 +502,8 @@ int kill(int pid) {
     return -1;
 }
 
-// used to mark a task as "killed" (e.g. a faulty one)
+// mark a task as "killed" (e.g. a faulty one)
+// causes exit_process() to be called in ret_from_syscall (entry.S)
 void setkilled(struct task_struct *p) {
     acquire(&p->lock);
 	// push_off(); 
@@ -652,7 +653,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 			break; 
 	}	
 	if (pid >= NR_TASKS) 
-		return -1; 
+		{release(&sched_lock); return -1;}
 
 	// task[pid] = p;	// take the spot. scheduler cannot kick in
 	memset(p, 0, sizeof(struct task_struct));

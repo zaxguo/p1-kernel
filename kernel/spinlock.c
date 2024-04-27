@@ -26,6 +26,10 @@ initlock(struct spinlock *lk, char *name)
 void
 acquire(struct spinlock *lk)
 {
+  // ex code for debugging deadlock
+  // if (lk->name[0]=='s' && lk->name[1]=='c' && current->pid==3)
+  //   W("pid %d acquire %lx %s", current->pid, (unsigned long)lk, lk->name);
+  
   push_off(); // disable interrupts to avoid deadlock.
   if(!lk || holding(lk))
     {printf("%s ", lk->name); panic("acquire");}
@@ -47,6 +51,10 @@ acquire(struct spinlock *lk)
 void
 release(struct spinlock *lk)
 {
+  // ex code for debugging deadlock
+  // if (lk->name[0]=='s' && lk->name[1]=='c' && current->pid==3)
+  //   W("pid %d rls %lx %s", current->pid, (unsigned long)lk, lk->name);
+
   if(!lk || !holding(lk))
     panic("release");
 

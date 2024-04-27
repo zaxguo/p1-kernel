@@ -225,10 +225,9 @@ el0_svc:
 ni_sys:
 	handle_invalid_entry 0, SYSCALL_ERROR
 ret_from_syscall:
-	/* --- deal with killed() tasks ---
-	if (current->killed) 
-		exit_process(-1);
-	*/
+	// --- deal with killed tasks ---
+	// if (current->killed) 
+	//	exit_process(-1);	
 	mov x27, sp
 	and x26, x27, #0xfffffffffffff000	// page mask
 	add x26, x26, #THREAD_CPU_CONTEXT
@@ -238,10 +237,10 @@ ret_from_syscall:
 	ldr w27, [x26]
 	cmp w27, #0
 	b.eq cont_exit
-	// exit_process(-1)
+	// below: call exit_process(-1)
 	mov x25, x0 	// preserve x0 
 	mov x0, #0xffffffffffffffff	
-	bl exit_process
+	bl exit_process // becomes zombie & reschedule a diff task
 	mov x0, x25
 cont_exit: 
 	bl	disable_irq				
@@ -258,7 +257,23 @@ el0_da:
 	b.eq 1f
 	handle_invalid_entry 0, DATA_ABORT_ERROR
 1:
-	bl disable_irq				
+	// --- deal with killed tasks (cf: ret_from_syscall above) ---
+	mov x27, sp
+	and x26, x27, #0xfffffffffffff000	// page mask
+	add x26, x26, #THREAD_CPU_CONTEXT
+	// x26 points to task_struct *current
+	add x26, x26, #TASK_STRUCT_KILLED_OFFSET
+	// x26 points to current->killed
+	ldr w27, [x26]
+	cmp w27, #0
+	b.eq 2f
+	// below: call exit_process(-1)
+	mov x25, x0 	// preserve x0 
+	mov x0, #0xffffffffffffffff	
+	bl exit_process // becomes zombie & reschedule a diff task
+	mov x0, x25
+2: 
+	bl disable_irq
 	kernel_exit 0
 	
 // the first instructions to be executed by a new task 

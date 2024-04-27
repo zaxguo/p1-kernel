@@ -91,7 +91,7 @@ unsigned long sys_sbrk(int incr) {
 		goto bad; 
 	} 
 	if (incr == 0) { // shortcut 
-		W("pid %d user_pages_count %d", current->pid, current->mm->user_pages_count);
+		V("pid %d user_pages_count %d", current->pid, current->mm->user_pages_count);
 		release(&current->mm->lock); return sz;
 	}
 

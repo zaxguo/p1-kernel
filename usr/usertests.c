@@ -236,6 +236,7 @@ copyinstr3(char *s)
 // application doesn't have anymore, because it returned it.
 // xzl: meaning the app has "returned" the brk memory already 
 //  (via a neg increment to sbrk())
+// NB: code below assumes a pre-existing txt file 
 void
 rwsbrk()
 {
@@ -255,7 +256,7 @@ rwsbrk()
 
   fd = open("rwsbrk", O_CREATE|O_WRONLY);
   if(fd < 0){
-    printf("open(rwsbrk) failed\n");
+    printf("open(rwsbrk) 1 failed\n");
     exit(1);
   }
   n = write(fd, (void*)(a+4096), 1024);
@@ -266,9 +267,9 @@ rwsbrk()
   close(fd);
   unlink("rwsbrk");
 
-  fd = open("README", O_RDONLY);
+  fd = open("logo.txt", O_RDONLY);
   if(fd < 0){
-    printf("open(rwsbrk) failed\n");
+    printf("open(rwsbrk) 2 failed\n");
     exit(1);
   }
   n = read(fd, (void*)(a+4096), 10);
@@ -1982,7 +1983,7 @@ forktest(char *s)
   for(n=0; n<N; n++){
     pid = fork();
     if(pid < 0)
-      break;
+      break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
     if(pid == 0)
       exit(0);
   }
@@ -2215,7 +2216,7 @@ sbrkfail(char *s)
       // allocate a lot of memory
       sbrk(BIG - (uint64)sbrk(0));
       write(fds[1], "x", 1);
-      // sit around until killed
+      // sit around until killed (will kill below)
       for(;;) sleep(1000);
     }
     if(pids[i] != -1)
@@ -2797,8 +2798,8 @@ struct test {
   {writebig, "writebig"},   // [?] fat 
   {createtest, "createtest"}, // [x] fat
   {dirtest, "dirtest"}, // [x] fat
-  {exectest, "exectest"},
-  {pipe1, "pipe1"},
+  {exectest, "exectest"}, // [x]
+  {pipe1, "pipe1"},   // [x]
   {killstatus, "killstatus"}, // [x]
   {preempt, "preempt"},
   {exitwait, "exitwait"},
@@ -2822,12 +2823,12 @@ struct test {
   {rmdot, "rmdot"},
   {dirfile, "dirfile"},
   {iref, "iref"},
-  {forktest, "forktest"},
+  {forktest, "forktest"},   // cf comments
   {sbrkbasic, "sbrkbasic"}, // [x]
   {sbrkmuch, "sbrkmuch"},   // [x]
   {kernmem, "kernmem"},     // [x]
   {MAXVAplus, "MAXVAplus"},
-  {sbrkfail, "sbrkfail"},   // [ ] need kill
+  {sbrkfail, "sbrkfail"},   // [x]
   {sbrkarg, "sbrkarg"},     // [x]
   {validatetest, "validatetest"},
   {bsstest, "bsstest"},

@@ -274,7 +274,7 @@ unsigned long walkaddr(struct mm_struct *mm, unsigned long va) {
 	if (!pte)
 		return 0; 
 	if ((*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)) != MMU_PTE_FLAGS) {
-		W("pte found but invalid %016lx, %016x", 
+		W("fail: pte found but invalid %016lx, %016x", 
 			(*pte & (~PAGE_MASK) & (~(unsigned long)MM_AP_MASK)), MMU_PTE_FLAGS);
 		return 0; 
 	}
@@ -579,11 +579,13 @@ bad:
 }
 
 // called from el0_da, which was from data abort exception 
+// return 0 on handled (inc task killed), otherwise causes kernel panic
+//
 // @addr: FAR from the exception 
 // @esr: value of error syndrome register, indicating the error reason
-// xzl: limitations -- didn't check whether @addr is a legal user va
-// 		@ind is global. at least, it should be per task or per addr (?)
-//	TODO
+// xzl: TODO check whether @addr is a legal user va;
+//		TODO check if @addr is the same addr (diff addr may be ok	
+// 		TODO @ind is global. at least, it should be per task or per addr (?)
 static int ind = 1; // # of times we tried memory access
 int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(current);	 
@@ -593,7 +595,7 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 		E("do_mem_abort: bad user va? faulty addr 0x%lx > USER_VA_END %x", addr, 
 			USER_VA_END); 
 		E("esr 0x%lx, elr 0x%lx", esr, elr); 
-		goto exit; 
+		goto bad; 
 	}
 
 	/* whether the current exception is actually a translation fault? */		
@@ -601,25 +603,28 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 		unsigned long page = get_free_page();
 		if (page == 0) {
 			E("do_mem_abort: insufficient mem"); 
-			goto exit; 
+			goto bad; 
 		}
 		acquire(&current->mm->lock);
-		map_page(current->mm, addr & PAGE_MASK, page, 1/*alloc*/, MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
+		map_page(current->mm, addr & PAGE_MASK, page, 1/*alloc*/, 
+			MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
 		release(&current->mm->lock);
 		ind++; // return to user, give it a second chance
 		if (ind > 5) {  // repeated fault
-		    E("do_mem_abort: too many mem faults. ind %d", ind); 
-			return -1;  // likely a bug?
+		    E("do_mem_abort: pid %d too many mem faults. ind %d. killed", 
+				current->pid, ind); 
+			goto bad; 	
 		}
 		W("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
 		return 0;
-	} 
+	}
 	/* other causes, e.g. permission... */
 	E("do_mem_abort: cannot handle: not translation fault.\r\nFAR 0x%016lx\r\nESR 0x%08lx\r\nELR 0x%016lx", 
 		addr, esr, elr); 
 	E("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
 	debug_hexdump((void *)elr, 32); 
-exit: 	
-	exit_process(-1); 
-	return -1;
+bad: 	
+	setkilled(current);
+	// exit_process(-1);
+	return 0; // handled
 }

@@ -63,7 +63,6 @@ int exec(char *path, char **argv) {
   struct task_struct *p = myproc();
 
   I("exec called. path %s", path);
-W("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
 
   begin_op();
 
@@ -186,11 +185,9 @@ W("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
   tmpmm->ref = p->mm->ref; 
   tmpmm->lock = p->mm->lock; 
 
-  *(p->mm) = *tmpmm;  // commit <----- wht's wrong with THIS????? 
-  // memmove(p->mm, tmpmm, sizeof(struct mm_struct)); 
-  W("pid %d p->mm %lx", p->pid,(unsigned long)p->mm);
+  *(p->mm) = *tmpmm;  // commit (NB: this calls memcpy under hood)
   p->mm->sz = p->mm->codesz = sz;  
-  // W("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
+  V("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
   kfree(tmpmm); 
 
   set_pgd(p->mm->pgd);
