@@ -90,7 +90,8 @@
         "nplayerc": "c",
         "condition_variable": "c",
         "future": "c",
-        "mutex": "c"
+        "mutex": "c",
+        "dwhciframescheduler.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

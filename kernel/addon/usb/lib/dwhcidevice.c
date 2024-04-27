@@ -725,7 +725,7 @@ void DWHCIDeviceFlushRxFIFO (TDWHCIDevice *pThis)
 // 		to a blocking call if desired. 
 boolean DWHCIDeviceTransferStage (TDWHCIDevice *pThis, TUSBRequest *pURB, boolean bIn, boolean bStatusStage)
 {
-	unsigned sec, msec, sec1, msec1; 
+	unsigned sec, msec, sec1, msec1, sec2, msec2; 
 	current_time(&sec, &msec); 
 
 	assert (pThis != 0);
@@ -743,21 +743,25 @@ boolean DWHCIDeviceTransferStage (TDWHCIDevice *pThis, TUSBRequest *pURB, boolea
 		return FALSE;
 	}
 
+	current_time(&sec2, &msec2); 
+	// LogWrite("DWHCIDeviceTransferStage:", LOG_NOTICE, "start to wait");
+
 	while (pThis->m_bWaiting)		// xzl: to be set by completion routine below
 	{
 		// do nothing
 	}
 
 	current_time(&sec1, &msec1);
-	int u = sec1*1000+msec1-sec*1000-msec; 
+	int u = sec2*1000+msec2-sec*1000-msec; 
+	int u1 = sec1*1000+msec1-sec2*1000-msec2; 
 	if (u>1000)
-		LogWrite("DWHCIDeviceTransferStage:", LOG_INFO, "warn: takes %d ms. %s", 
-			u, pThis->m_RootPort.m_pDevice->m_ProductString);
+		LogWrite("DWHCIDeviceTransferStage:", LOG_NOTICE, "warn: setup %d ms wait %d ms", 
+			u, u1);
 
 	return USBRequestGetStatus (pURB);
 }
 
-// xzl: called by isr
+// xzl: called by isr, which is DWHCIDeviceInterruptHandler()
 void DWHCIDeviceCompletionRoutine (TUSBRequest *pURB, void *pParam, void *pContext)
 {
 	TDWHCIDevice *pThis = (TDWHCIDevice *) pContext;
@@ -772,6 +776,8 @@ boolean DWHCIDeviceTransferStageAsync (TDWHCIDevice *pThis, TUSBRequest *pURB, b
 	assert (pThis != 0);
 	assert (pURB != 0);
 	
+	// LogWrite("DWHCIDeviceTransferStageAsync:", LOG_NOTICE, "xzl 1");
+
 	unsigned nChannel = DWHCIDeviceAllocateChannel (pThis);
 	if (nChannel >= pThis->m_nChannels)
 	{
@@ -783,6 +789,8 @@ boolean DWHCIDeviceTransferStageAsync (TDWHCIDevice *pThis, TUSBRequest *pURB, b
 
 	DWHCIDeviceEnableChannelInterrupt (pThis, nChannel);
 	
+	// LogWrite("DWHCIDeviceTransferStageAsync:", LOG_NOTICE, "xzl 2");
+
 	if (!DWHCITransferStageDataIsSplit (pStageData))	// xzl: not a "split" data xfer...
 	{
 		DWHCITransferStageDataSetState (pStageData, StageStateNoSplitTransfer);
@@ -809,8 +817,12 @@ boolean DWHCIDeviceTransferStageAsync (TDWHCIDevice *pThis, TUSBRequest *pURB, b
 		pFrameScheduler->StartSplit (pFrameScheduler);
 	}
 
-	DWHCIDeviceStartTransaction (pThis, pStageData);	
+	// LogWrite("DWHCIDeviceTransferStageAsync:", LOG_NOTICE, "xzl 3");
+
+	DWHCIDeviceStartTransaction (pThis, pStageData);	// xzl: slow
 	
+	// LogWrite("DWHCIDeviceTransferStageAsync:", LOG_NOTICE, "xzl 4");
+
 	return TRUE;
 }
 
@@ -823,12 +835,16 @@ void DWHCIDeviceStartTransaction (TDWHCIDevice *pThis, TDWHCITransferStageData *
 	unsigned nChannel = DWHCITransferStageDataGetChannelNumber (pStageData);
 	assert (nChannel < pThis->m_nChannels);
 	
+	// LogWrite("DWHCIDeviceStartTransaction:", LOG_NOTICE, "xzl 1");
+
 	// channel must be disabled, if not already done but controller
 	TDWHCIRegister Character;
 	DWHCIRegister (&Character, DWHCI_HOST_CHAN_CHARACTER (nChannel));
 	DWHCIRegisterRead (&Character);
 	if (DWHCIRegisterIsSet (&Character, DWHCI_HOST_CHAN_CHARACTER_ENABLE))
 	{
+		// LogWrite("DWHCIDeviceStartTransaction:", LOG_NOTICE, "xzl 2");
+
 		DWHCITransferStageDataSetSubState (pStageData, StageSubStateWaitForChannelDisable);
 		
 		DWHCIRegisterAnd (&Character, ~DWHCI_HOST_CHAN_CHARACTER_ENABLE);
@@ -844,12 +860,16 @@ void DWHCIDeviceStartTransaction (TDWHCIDevice *pThis, TDWHCITransferStageData *
 	}
 	else		// xzl: if chan was disabled, then start one chan anew?
 	{
+		// LogWrite("DWHCIDeviceStartTransaction:", LOG_NOTICE, "xzl 3");
 		DWHCIDeviceStartChannel (pThis, pStageData);
 	}
+
+	// LogWrite("DWHCIDeviceStartTransaction:", LOG_NOTICE, "xzl 4");
 
 	_DWHCIRegister (&Character);
 }
 
+// xzl: this is the problem. can be relly slow
 void DWHCIDeviceStartChannel (TDWHCIDevice *pThis, TDWHCITransferStageData *pStageData)
 {
 	assert (pThis != 0);
@@ -945,7 +965,7 @@ void DWHCIDeviceStartChannel (TDWHCIDevice *pThis, TDWHCITransferStageData *pSta
 	TDWHCIFrameScheduler *pFrameScheduler = DWHCITransferStageDataGetFrameScheduler (pStageData);
 	if (pFrameScheduler != 0)
 	{
-		pFrameScheduler->WaitForFrame (pFrameScheduler);
+		pFrameScheduler->WaitForFrame (pFrameScheduler); // xzl: the problme?
 
 		if (pFrameScheduler->IsOddFrame (pFrameScheduler))
 		{
@@ -1192,6 +1212,8 @@ void DWHCIDeviceInterruptHandler (void *pParam)
 {
 	TDWHCIDevice *pThis = (TDWHCIDevice *) pParam;
 	assert (pThis != 0);
+
+	// LogWrite("xzl", LOG_INFO, "DWHCIDeviceInterruptHandler called"); 
 
 	DataMemBarrier ();
 

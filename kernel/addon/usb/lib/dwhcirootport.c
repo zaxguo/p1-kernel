@@ -78,7 +78,7 @@ boolean DWHCIRootPortInitialize (TDWHCIRootPort *pThis) // xzl: entry for usb in
 		return FALSE;
 	}
 
-	LogWrite ("", LOG_ERROR, "xzl: %s %d", __func__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d", __func__, __LINE__);
 
 	if (!USBDeviceConfigure (pThis->m_pDevice))  // xzl: will configure standard hub...
 	{

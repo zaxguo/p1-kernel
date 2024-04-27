@@ -196,4 +196,4 @@ $(KERNEL): $(LINKSCR) $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 	@$(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
 	@nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym
 	@echo KERNEL INSTALL
-	@cp $(KERNEL) /mnt/d/tmp/$(KERNEL)
+	cp $(KERNEL) /mnt/d/tmp/$(KERNEL)

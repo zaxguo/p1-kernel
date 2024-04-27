@@ -66,23 +66,39 @@ void DWHCIFrameSchedulerNoSplitWaitForFrame (TDWHCIFrameScheduler *pBase)
 	TDWHCIFrameSchedulerNoSplit *pThis = (TDWHCIFrameSchedulerNoSplit *) pBase;
 	assert (pThis != 0);
 
+	unsigned sec, msec, sec2, msec2;  /// xzl 
+	current_time(&sec, &msec); 
+
 	TDWHCIRegister FrameNumber;
 	DWHCIRegister (&FrameNumber, DWHCI_HOST_FRM_NUM);
 
 	// xzl: below - tried to wait for the next frame 
 	// however, on qemu, the assumption that cpu runs much faster than io is broken. 
-	// cpu won't read continuous frame numbers
+	// cpu won't read continuous frame numbers. 
+	// given that DWHCI_MAX_FRAME_NUMBER is 3fff, there is also a chance to wrap around (?)
+#if defined(PLAT_RPI3QEMU)
+	unsigned cur_frame = DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER;
 	pThis->m_nNextFrame = (DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber))+1) & DWHCI_MAX_FRAME_NUMBER;
-
 	if (!pThis->m_bIsPeriodic)
 	{
-		
-		// while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) != pThis->m_nNextFrame)
-		while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) < pThis->m_nNextFrame)
+		// as long as the frame # changes, wait is over
+		while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) == cur_frame)
+			; // do nothing		
+	}
+#else	// actual hardware
+	pThis->m_nNextFrame = (DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber))+1) & DWHCI_MAX_FRAME_NUMBER;
+	if (!pThis->m_bIsPeriodic)
+	{
+		while ((DWHCI_HOST_FRM_NUM_NUMBER (DWHCIRegisterRead (&FrameNumber)) & DWHCI_MAX_FRAME_NUMBER) != pThis->m_nNextFrame)
 		{
 			// do nothing		
 		}
 	}
+#endif
+	current_time(&sec2, &msec2);
+	if (sec2*1000+msec2-sec*1000-msec>500)
+		LogWrite(">>>>>>>>>>>>>> DWHCIFrameSchedulerNoSplitWaitForFrame:", LOG_WARNING, 
+			"warn: wait %d s - %d s", sec, sec2);
 
 	_DWHCIRegister (&FrameNumber);
 }

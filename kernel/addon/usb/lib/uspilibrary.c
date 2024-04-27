@@ -99,7 +99,7 @@ int USPiInitialize (void)
 
 	current_time(&sec1, &msec1);
 	int u = sec1*1000+msec1-sec*1000-msec; 
-	LogWrite("", LOG_INFO, "%d ms", u);
+	LogWrite("USPiInitialize()", LOG_NOTICE, "%d ms", u);
 
 	usb_init = 1; 
 	return 1;

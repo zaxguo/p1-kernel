@@ -58,11 +58,25 @@ ARCH	?= -march=armv8-a -mtune=cortex-a53 -mlittle-endian -mcmodel=small -DAARCH6
 endif
 
 OPTIMIZE ?= -O2
+# OPTIMIZE ?= -O0
 
 AFLAGS	+= $(ARCH) -DRASPPI=$(RASPPI)
 CFLAGS	+= $(ARCH) -Wall -Wno-psabi -fsigned-char -fno-builtin -nostdinc -nostdlib \
 	   -std=gnu99 -undef -DRASPPI=$(RASPPI) -I $(USPIHOME)/include $(OPTIMIZE) #-DNDEBUG
-CFLAGS += -g -mstrict-align		# xzl
+# xzl	   
+CFLAGS += -g -mstrict-align
+
+ifndef PLAT
+$(error PLAT must be set to rpi3qemu|rpi3. e.g. export PLAT=rpi3qemu)
+endif
+
+ifeq (${PLAT}, rpi3qemu)
+CFLAGS += -DPLAT_RPI3QEMU
+endif
+
+ifeq (${PLAT}, rpi3)
+CFLAGS += -DPLAT_RPI3
+endif
 
 %.o: %.S
 	@echo "  AS    $@"

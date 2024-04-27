@@ -163,7 +163,7 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 
 	assert (pThis->m_nPorts > 0);
 
-	LogWrite ("", LOG_ERROR, "xzl: USBStandardHubEnumeratePorts %s %d", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: USBStandardHubEnumeratePorts %s %d", __FILE__, __LINE__);
 
 	// first power on all ports
 	for (unsigned nPort = 0; nPort < pThis->m_nPorts; nPort++)
@@ -178,18 +178,18 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 		}
 	}
 
-	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	// pThis->m_pHubDesc->bPwrOn2PwrGood delay seems to be not enough
 	// for some low speed devices, so we use the maximum here
 	MsDelay (510);
 
-	LogWrite ("", LOG_ERROR, "xzl: %s %d detect devices...", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d detect devices...", __FILE__, __LINE__);
 
 	// now detect devices, reset and initialize them
 	for (unsigned nPort = 0; nPort < pThis->m_nPorts; nPort++)
 	{
-		LogWrite ("", LOG_ERROR, "xzl: %s %d %u", __FILE__, __LINE__, nPort);
+		LogWrite ("", LOG_DEBUG, "xzl: %s %d %u", __FILE__, __LINE__, nPort);
 
 		assert (pThis->m_pStatus[nPort] == 0);
 		pThis->m_pStatus[nPort] = malloc (sizeof (TUSBPortStatus));
@@ -297,12 +297,12 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 		}
 	}
 
-	LogWrite ("", LOG_ERROR, "xzl:  %s %d configure devices", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl:  %s %d configure devices", __FILE__, __LINE__);
 
 	// now configure devices
 	for (unsigned nPort = 0; nPort < pThis->m_nPorts; nPort++)
 	{
-		LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+		LogWrite ("", LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 		if (pThis->m_pDevice[nPort] == 0)
 		{
@@ -311,7 +311,7 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 
 		if (!USBDeviceConfigure (pThis->m_pDevice[nPort]))
 		{
-			LogWrite (FromHub, LOG_ERROR, "Port %u: Cannot configure device", nPort+1);
+			LogWrite (FromHub, LOG_DEBUG, "Port %u: Cannot configure device", nPort+1);
 
 			_USBDevice (pThis->m_pDevice[nPort]);
 			free (pThis->m_pDevice[nPort]);
@@ -324,7 +324,7 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 	}
 
 	// again check for over-current
-	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	TUSBHubStatus *pHubStatus = malloc (sizeof (TUSBHubStatus));
 	assert (pHubStatus != 0);
@@ -340,7 +340,7 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 		return FALSE;
 	}
 
-	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	if (pHubStatus->wHubStatus & HUB_OVER_CURRENT__MASK)
 	{
@@ -363,17 +363,17 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 
 	boolean bResult = TRUE;
 
-	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	for (unsigned nPort = 0; nPort < pThis->m_nPorts; nPort++)
 	{
-		LogWrite ("", LOG_ERROR, "xzl: %s %d nPort %u", __FILE__, __LINE__, nPort);
+		LogWrite ("", LOG_DEBUG, "xzl: %s %d nPort %u", __FILE__, __LINE__, nPort);
 
 		if (DWHCIDeviceControlMessage (pHost, pEndpoint0,
 			REQUEST_IN | REQUEST_CLASS | REQUEST_TO_OTHER,
 			GET_STATUS, 0, nPort+1, pThis->m_pStatus[nPort], 4) != 4)
 		{
-			LogWrite ("", LOG_ERROR, "xzl: %s %d nPort %u continue", __FILE__, __LINE__, nPort);
+			LogWrite ("", LOG_DEBUG, "xzl: %s %d nPort %u continue", __FILE__, __LINE__, nPort);
 			continue;
 		}
 
@@ -387,10 +387,10 @@ boolean USBStandardHubEnumeratePorts (TUSBStandardHub *pThis)
 
 			bResult = FALSE;
 		}
-		LogWrite ("", LOG_ERROR, "xzl: %s %d nPort %u done", __FILE__, __LINE__, nPort);
+		LogWrite ("", LOG_DEBUG, "xzl: %s %d nPort %u done", __FILE__, __LINE__, nPort);
 	}
 
-	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	LogWrite ("", LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	return bResult;
 }

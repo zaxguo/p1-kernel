@@ -5,9 +5,9 @@
         {
             "name": "cs4414",
             "includePath": [
-                "${workspaceFolder}/src/current",
-                "${workspaceFolder}/src/current/src",
-                "${workspaceFolder}/src/current/addon/usb/include",
+                "${workspaceFolder}/kernel",
+                "${workspaceFolder}/usr",
+                "${workspaceFolder}/kernel/addon/usb/include"
                 // "${workspaceFolder}/src/exp9/addon/sound/ampi",
                 // "${workspaceFolder}/src/exp9/addon/circle/include/"
             ],
@@ -16,7 +16,7 @@
             "cStandard": "c11",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "linux-gcc-arm64",
-            "configurationProvider": "ms-vscode.makefile-tools",
+            "configurationProvider": "ms-vscode.makefile-tools"
         }
     ],
     "version": 4

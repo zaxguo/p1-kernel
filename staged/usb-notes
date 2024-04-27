@@ -1,0 +1,120 @@
+usb: 
+DWHCIFrameSchedulerNoSplitWaitForFrame
+fixed this before
+^^ 
+
+--- 
+notes on USB lib init
+
+init log
+~~~~~~~~~
+uspi:Initializing USPi library 2.00
+usbdev0-1:Device ven424-9514, dev9-0-2 found        // from USBDeviceInitialize()
+usbdev0-1:Interface int9-0-1 found
+usbdev0-1:Function is not supported
+usbdev0-1:Interface int9-0-2 found
+usbdev:Using device/interface int9-0-2
+usbdev0-1:Device ven424-ec00 found
+usbdev:Using device/interface ven424-ec00
+usbdev1-3:Device ven413c-2113 found
+usbdev1-3:Interface int3-1-1 found
+usbdev:Using device/interface int3-1-1
+usbdev1-3:Interface int3-0-0 found
+usbdev:Using device/interface int3-0-0
+smsc951x:MAC address is B8:27:EB:A6:C7:D7
+usbhub:Port 1: Device configured
+usbhub:Port 3: Device configured
+dwroot:Device configured            // DWHCIRootPortInitialize() dwroot is configured at last????
+uspi:USPi library successfully initialized
+
+UPDATE 4/13 
+AFTER FIXING THE MAJOR ISSUE, THE SLOWDOWN
+BELOW SEEM TOERABLE. TO BE PURSUED LATER
+>>>>> qemu 
+usbdev0-1:Interface int9-0-0 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int9-0-0
+usbdev0-1:xzl: OK 136
+usbdev0-1:xzl: OK 153
+usbdev0-1:xzl: OK 166
+usbdev0-1:xzl: OK 2
+usbdev0-1:xzl: OK 204
+usbdev0-1:xzl: OK 208
+(sometimes slow here??)
+usbdev0-1:xzl: OK 228
+usbdev0-1:xzl: OK 247
+usbdev0-1:xzl: OK 281
+usbdev0-1:xzl: OK 299
+usbdev0-1:Device ven627-1 found [from USBDeviceInitialize()]
+usbdev0-1:xzl: OK 307
+usbdev0-1:Interface int3-1-1 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int3-1-1
+(... here, slow .... )
+usbhub:Port 1: Device configured
+dwroot:Device configured
+uspi:done ... initialize USB host controller interface
+uspi:done ... get storage
+uspi:done ... get eth
+uspi:USPi library successfully initialized
+
+~~~~~~~~~~~~~~~~~~
+
+	LogWrite ("", LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+
+
+uspi:Initializing USPi library 2.00
+<... very long time .... >
+
+    1st call to USBDeviceInitialize     from rootport init..  the "default" device...   ven409 is a rootport device??
+    #0  USBDeviceInitialize (pThis=0xffff00003ee01020) at usbdevice.c:127
+    #1  0xffff00000049807c in DWHCIRootPortInitialize (pThis=pThis@entry=0xffff00003ee00b28) at dwhcirootport.c:72
+    #2  0xffff00000048cea0 in DWHCIDeviceInitialize (pThis=0xffff00003ee00018) at dwhcidevice.c:188
+    #3  0xffff0000004896b4 in USPiInitialize () at uspilibrary.c:49
+    #4  0xffff00000047b62c in usbkb_init () at src/kb.c:155
+    #5  0xffff000000470ab4 in kernel_main () at src/kernel.c:75
+
+usbdev0-1:Device ven409-55aa, dev9-0-0 found [from USBDeviceInitialize()]
+usbdev0-1:Interface int9-0-0 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int9-0-0
+usbdev0-1:----- USBDeviceInitialize: Done with a device ------ ]
+
+<... very long time .... >
+
+"configure" the defaeult device, which will enuemrte its "functions". if this is a standard hub, 
+this goes on to enumreate hub, functions, etc...
+if this is a stanard hub, will configure hub, enumerate ports, configure devices....
+
+    2nd call to USBDeviceInitialize
+    #0  USBDeviceInitialize (pThis=0xffff00003ee01d40) at usbdevice.c:127
+    #1  0xffff000000491558 in USBStandardHubEnumeratePorts (pThis=pThis@entry=0xffff00003ee01930) at usbstandardhub.c:282
+    #2  0xffff000000491ba0 in USBStandardHubConfigure (pUSBFunction=0xffff00003ee01930) at usbstandardhub.c:144
+    #3  0xffff00000048ffd0 in USBDeviceConfigure (pThis=0xffff00003ee01020) at usbdevice.c:422
+    #4  0xffff00000049808c in DWHCIRootPortInitialize (pThis=pThis@entry=0xffff00003ee00b28) at dwhcirootport.c:81
+    #5  0xffff00000048cea0 in DWHCIDeviceInitialize (pThis=0xffff00003ee00018) at dwhcidevice.c:188
+    #6  0xffff0000004896b4 in USPiInitialize () at uspilibrary.c:49
+    #7  0xffff00000047b62c in usbkb_init () at src/kb.c:155
+    #8  0xffff000000470ab4 in kernel_main () at src/kernel.c:75
+
+
+usbdev0-1:Device ven627-1 found [from USBDeviceInitialize()]
+usbdev0-1:Interface int3-1-1 found
+usbdev USBDeviceFactoryGetDevice:Using device/interface int3-1-1
+<... very long time .... >
+
+
+
+usbhub:Port 1: Device configured
+
+<... very long time .... >
+
+dwroot:Device configured
+uspi:USPi library successfully initialized
+~~~~~~~~~~~~~~~~~~
+CONCLUSION 4/19/24
+the bottnecks -- 
+[4.390] DWHCIDeviceTransferStage::warn: takes 2553 ms.  >            
+[10.608] DWHCIDeviceTransferStage::warn: takes 6218 ms.  >
+[15.018] DWHCIDeviceTransferStage::warn: takes 4410 ms.  >           
+it's wwait for a tansfer stage t ocomplete (blocking wait). and the delay is undeterminstic. somtimes can be long
+the problems could be in how qemu implement these registers?? and timing. 
+
+TBD>... look into qemu usb code

@@ -66,13 +66,13 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 
 // must be called before any schedule() or timertick() occurs
 void sched_init(void) {
-    acquire(&sched_lock);
+    acquire(&sched_lock);    
     for (int i = 0; i < NR_TASKS; i++) {
         task[i] = (struct task_struct *)(&kernel_stacks[i][0]); 
-        BUG_ON((unsigned long)task[i] & ~PAGE_MASK);  // must be page aligned
+        BUG_ON((unsigned long)task[i] & ~PAGE_MASK);  // must be page aligned. see above
         memset(task[i], 0, sizeof(struct task_struct)); // zero everything
         initlock(&(task[i]->lock), "task");
-        init_task->state = TASK_UNUSED;
+        task[i]->state = TASK_UNUSED;
     }
 
     memset(mm_tables, 0, sizeof(mm_tables)); 
@@ -97,7 +97,6 @@ void sched_init(void) {
     // init_task->ofile // already zeroed
     safestrcpy(init_task->name, "init", 5);
     release(&init_task->lock);
-
     release(&sched_lock);
 }
 
@@ -345,7 +344,7 @@ void reparent(struct task_struct *p) {
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
-    W("pid %d (%s): exit_process status %d", current->pid, current->name, status);
+    V("pid %d (%s): exit_process status %d", current->pid, current->name, status);
 
     if (p == init_task)
         panic("init exiting");
@@ -432,7 +431,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
                 if (p0->state == TASK_ZOMBIE) {
                     // Found one.
                     pid = p0->pid;
-                    W("found zombie pid=%d", pid); BUG_ON(addr!=0 && !p->mm);//addr!=0 implies user task; mm must exist
+                    V("found zombie pid=%d", pid); BUG_ON(addr!=0 && !p->mm);//addr!=0 implies user task; mm must exist
                     if (addr != 0 && copyout(p->mm, addr, (char *)&(p0->xstate),
                                              sizeof(p0->xstate)) < 0) {
                         release(&p0->lock);

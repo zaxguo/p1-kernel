@@ -49,9 +49,10 @@ typedef enum
 TUSBSpeed;
 
 // Setup Data
+// xzl: cf: https://www.beyondlogic.org/usbnutshell/usb6.shtml
 typedef struct
 {
-	unsigned char	bmRequestType;
+	unsigned char	bmRequestType;	// xzl: see below "Request types"
 	unsigned char	bRequest;
 	unsigned short	wValue;
 	unsigned short	wIndex;

@@ -103,7 +103,7 @@ int GetMACAddress (unsigned char Buffer[6]);	// "get board MAC address"
 #define LOG_WARNING	2
 #define LOG_NOTICE	3
 #define LOG_DEBUG	4
-
+#define LOG_CURRNET LOG_NOTICE	 // xzl
 // void LogWrite (const char *pSource,		// short name of module
 // 	       unsigned	   Severity,		// see above
 // 	       const char *pMessage, ...);	// uses printf format options
@@ -118,13 +118,15 @@ extern void tfp_printf(char *fmt, ...);		// printf.c
 	} while (0)
 
 extern void current_time(unsigned *sec, unsigned *msec); // timer.c
-#define LogWrite(src, se, fmt, arg...)  		\
+#define LogWrite(src, lv, fmt, arg...)  		\
 		do { 									\
-		unsigned sec, msec;						\
-		current_time(&sec, &msec); 				\
-		tfp_printf("[%u.%03u] %s:", sec, msec, src);	\
-		tfp_printf((char *)fmt, ##arg); 		\
-		tfp_printf("\n");						\
+		if (lv <= LOG_CURRNET) {	\
+			unsigned _sec, _msec;						\
+			current_time(&_sec, &_msec); 				\
+			tfp_printf("[%u.%03u] %s:", _sec, _msec, src);	\
+			tfp_printf((char *)fmt, ##arg); 		\
+			tfp_printf("\n");						\
+		} \
 	} while (0)
 
 //

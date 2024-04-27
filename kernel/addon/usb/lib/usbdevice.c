@@ -390,7 +390,7 @@ boolean USBDeviceInitialize (TUSBDevice *pThis)
 		return FALSE;
 	}
 
-	USBDeviceLogWrite (pThis, LOG_NOTICE, "----- USBDeviceInitialize: Done with a device ------ ]");
+	USBDeviceLogWrite (pThis, LOG_DEBUG, "----- USBDeviceInitialize: Done with a device ------ ]");
 	return TRUE;
 }
 
@@ -406,7 +406,7 @@ boolean USBDeviceConfigure (TUSBDevice *pThis)
 		return FALSE;
 	}
 
-	USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	USBDeviceLogWrite (pThis, LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	if (!DWHCIDeviceSetConfiguration (pThis->m_pHost, pThis->m_pEndpoint0, pThis->m_pConfigDesc->bConfigurationValue))
 	{
@@ -416,7 +416,7 @@ boolean USBDeviceConfigure (TUSBDevice *pThis)
 		return FALSE;
 	}
 
-	USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+	USBDeviceLogWrite (pThis, LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 
 	boolean bResult = FALSE;
 
@@ -424,14 +424,14 @@ boolean USBDeviceConfigure (TUSBDevice *pThis)
 	{
 		if (pThis->m_pFunction[nFunction] != 0)
 		{
-			USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+			USBDeviceLogWrite (pThis, LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 			// xzl: if this is a stanard hub, will configure hub, enumerate ports, configure devices....
 			//		below goes to USBStandardHubConfigure()
 			//				USBKeyboardDeviceConfigure() 
 			if (!(*pThis->m_pFunction[nFunction]->Configure) (pThis->m_pFunction[nFunction]))
 			{
 				//LogWrite (LOG_ERROR, "Cannot configure device");
-				USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+				USBDeviceLogWrite (pThis, LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 				_USBFunction (pThis->m_pFunction[nFunction]);
 				free (pThis->m_pFunction[nFunction]);
 				pThis->m_pFunction[nFunction] = 0;				
@@ -439,7 +439,7 @@ boolean USBDeviceConfigure (TUSBDevice *pThis)
 			else
 			{
 				bResult = TRUE;
-				USBDeviceLogWrite (pThis, LOG_ERROR, "xzl: %s %d", __FILE__, __LINE__);
+				USBDeviceLogWrite (pThis, LOG_DEBUG, "xzl: %s %d", __FILE__, __LINE__);
 			}
 		}
 	}
