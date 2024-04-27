@@ -38,6 +38,9 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);      // return # of schedule ticks since boot
 int lseek(int, int, int whence); // return -1 on failure. otherwise offset
+// https://man7.org/linux/man-pages/man2/clone.2.html#NOTES
+// return -1 on failure, otherwise pid (or 0)
+int clone(int (*fn)(void *), void *stack, int flags, void *arg); 
 
 // ulib.c
 int stat(const char*, struct stat*);

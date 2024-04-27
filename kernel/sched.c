@@ -347,7 +347,7 @@ void reparent(struct task_struct *p) {
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
-    V("pid %d (%s): exit_process status %d", current->pid, current->name, status);
+    I("pid %d (%s): exit_process status %d", current->pid, current->name, status);
 
     if (p == init_task)
         panic("init exiting");
@@ -652,6 +652,9 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 
 // for creating both user and kernel tasks
 // return pid on success, <0 on err
+// clone_flags: PF_KTHREAD for kernel thread, PF_UTHREAD for user thread
+// fn: only matters for PF_KTHREAD. task func entry 
+// arg: arg to kernel thread; or stack (userva) for user thread
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
 	struct task_struct *p = 0; int i, pid; 
@@ -695,6 +698,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
             acquire(&p->mm->lock);
             p->mm->ref++;
             release(&p->mm->lock);
+            childregs->sp = arg; W("childregs->sp %lx", childregs->sp);
         } else {	// for a "process", alloc a new mm of its own
             struct mm_struct *mm = alloc_mm();
             if (!mm) {BUG(); return -1;}  // XXX reverse task allocation

@@ -441,7 +441,24 @@ essentially becomes message passing ...
                      int *parent_tid, unsigned long tls,
                      int *child_tid);
 
+In Linux 2.4 and earlier, clone() does not take arguments
+       parent_tid, tls, and child_tid.
+
+CLONE_SETTLS        
+tls -- The TLS (Thread Local Storage) descriptor is set to tls.
+
+for now, only supprot 
+CLONE_VM 
+
 https://man7.org/linux/man-pages/man2/clone.2.html
+
+
+NB: newlib has no pthread (very old version had)
+glibc has pthread impl
+https://sourceware.org/git/?p=glibc.git;a=tree;f=nptl;h=d0ce23d37e9b77d6ff82ffdee0f7a1f8f137aa41;hb=HEAD
+
+musl also has pthread
+https://git.musl-libc.org/cgit/musl/tree/src/thread
 
 --------------------
 DEBUG SUPPORT 
@@ -856,6 +873,8 @@ sd_readblock lba 0x0 num 0x1
 
 ~~~~~~
 libc, newlib        (choice of Zehyper, realtime OS...
+office manual
+https://sourceware.org/newlib/libc.html
 
 https://github.com/bminor/newlib/tree/master/newlib/libc
 modules:

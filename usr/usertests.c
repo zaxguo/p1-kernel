@@ -2011,6 +2011,51 @@ forktest(char *s)
   }
 }
 
+// xzl add
+// for __atomic built-ins, search for "6.55 Built-in Functions for Memory Model Aware Atomic Operations"
+int counter = 100; 
+int thread_func(void *arg) {
+  int val = __atomic_add_fetch(&counter, 1, __ATOMIC_SEQ_CST);
+  printf("thread here val %d\n", val); 
+  return 1; 
+}
+
+char stacks[4*128]; 
+void clonetest(char *s) {
+  enum{ N = 4 };
+  int n, pid;
+
+  for(n=0; n<N; n++){
+    pid = clone(thread_func, stacks+n*124, CLONE_VM, 0);
+    if(pid < 0)
+      break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
+  }
+
+  if (n == 0) {
+    printf("%s: no fork at all!\n", s);
+    exit(1);
+  }
+
+  // if(n == N){
+  //   printf("%s: fork claimed to work 1000 times!\n", s);
+  //   exit(1);
+  // }
+
+  for(; n > 0; n--){
+    // printf("wait %d", n);
+    if(wait(0) < 0){
+      printf("%s: wait stopped early\n", s);
+      exit(1);
+    }
+  }
+
+  if(wait(0) != -1){
+    printf("%s: wait got too many\n", s);
+    exit(1);
+  }
+  // printf("all done");
+}
+
 void
 sbrkbasic(char *s)
 {
@@ -2846,6 +2891,7 @@ struct test {
   {fbstatic, "fb"},
   {seektest, "seek"},
   {pipe3, "pipe3"},  // [x]  
+  {clonetest, "clonetest"},   // [ ]
   { 0, 0},
 };
 

@@ -159,3 +159,8 @@
     svc #0
     ret          
           
+.globl syscall_clone
+    syscall_clone:
+    mov x8, #SYS_clone
+    svc #0
+    ret

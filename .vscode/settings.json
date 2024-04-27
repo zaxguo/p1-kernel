@@ -92,7 +92,8 @@
         "future": "c",
         "mutex": "c",
         "dwhciframescheduler.h": "c",
-        "cstring": "c"
+        "cstring": "c",
+        "syscall.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

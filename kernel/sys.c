@@ -4,6 +4,7 @@
 #include "plat.h"
 #include "utils.h"
 #include "sched.h"
+#include "fcntl.h"
 #include "syscall.h"
 #include "mmu.h"
 
@@ -60,6 +61,16 @@ int argstr(uint64 addr, char *buf, int max) {return fetchstr(addr, buf, max);};
 
 int sys_fork(void) {
 	return copy_process(0 /*clone_flags*/, 0 /*fn*/, 0 /*arg*/);
+}
+
+// https://man7.org/linux/man-pages/man2/clone.2.html
+// so far, ignore parent_tid/tls/child_tid
+// return -1 on failure, otherwise child pid
+long sys_clone(unsigned long flags, unsigned long userstack,
+                     unsigned long parent_tid, unsigned long usertls,
+                     unsigned long child_tid) {
+	if (flags != CLONE_VM) return -1; 
+	return copy_process(PF_UTHREAD, 0 /*fn*/, userstack); 
 }
 
 int sys_exit(int c){
@@ -154,6 +165,9 @@ extern int sys_chdir(unsigned long upath);
 extern int sys_exec(unsigned long upath, unsigned long uargv);
 extern int sys_pipe(unsigned long fdarray);
 extern int sys_fork();		// sys.c
+extern long sys_clone(unsigned long flags, unsigned long userstack,
+                     unsigned long parent_tid, unsigned long usertls,
+                     unsigned long child_tid); // sys.c
 
 // mm.c
 extern unsigned long sys_sbrk(int incr); 
@@ -185,4 +199,5 @@ void * const sys_call_table[] = {
 	[SYS_mkdir]   sys_mkdir,
 	[SYS_close]   sys_close,	
 	[SYS_lseek]   sys_lseek,	
+	[SYS_clone]   sys_clone,
 };

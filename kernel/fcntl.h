@@ -16,6 +16,8 @@
 #define	SEEK_CUR	1	/* set file offset to current plus offset */
 #define	SEEK_END	2	/* set file offset to EOF plus offset */
 
+#define CLONE_VM	0x00000100		// linux/sched.h
+
 // major num for devices
 // modeled after: https://github.com/NJU-ProjectN/navy-apps/blob/master/README.md
 // TODO: make procfs a seperate file type (not just a major dev number...)
