@@ -368,6 +368,7 @@ problem still in
 
 [ ] multicore
 https://github.com/babbleberry/rpi4-osdev/tree/master/part10-multicore
+https://github.com/bztsrc/raspi3-tutorial/tree/master/02_multicorec
 
 
 [ ] network, tcpip
@@ -459,6 +460,12 @@ https://sourceware.org/git/?p=glibc.git;a=tree;f=nptl;h=d0ce23d37e9b77d6ff82ffde
 
 musl also has pthread
 https://git.musl-libc.org/cgit/musl/tree/src/thread
+
+
+clone() works. a few things
+- there must be a user wrapper (like musl clone.s). when child task returns to userspace, it shall not use the parent stack nor resume from the callsite of clone (unlike fork) ... will cause problems 
+
+- the thread stack... does not have to be a static array. instead, can be a VA in the middle of user VM (unmapped). then rely on the damdn paging to alloc stack page
 
 --------------------
 DEBUG SUPPORT 

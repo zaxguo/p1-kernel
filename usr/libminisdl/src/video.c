@@ -8,7 +8,7 @@
 #include "assert.h"
 #include "sdl-video.h"
 // newlib
-#include "fcntl.h"
+#include "fcntl.h"      // not kernel/fcntl.h
 #include "stdio.h"
 #include "unistd.h"
 #include "stdlib.h"
@@ -17,11 +17,11 @@
 //////////////////////////////////////////
 //// new APIs
 
+// flags are ignored. expected to be SDL_WINDOW_FULLSCREEN
 SDL_Window *SDL_CreateWindow(const char *title,
                              int x, int y, int w,
                              int h, Uint32 flags) {
     assert(x == 0 && y == 0); // only support this. TBD
-    assert(flags & SDL_WINDOW_FULLSCREEN);
 
     int n, fb;
 
@@ -220,3 +220,110 @@ int SDL_RenderCopy(SDL_Renderer *rdr,
 void SDL_SetWindowTitle(SDL_Window *window,
                         const char *title) 
     { printf("window title set %s", title); }
+
+//////////////////////////////////////////
+//// SDL_Surface APIs 
+
+// (xzl) unlike window/texture, surface APIs are more "direct", 
+// allows app to access surface-provided pixels, which are 
+// then written to /dev/fb. so less buffering vs. window APIs
+
+
+// https://wiki.libsdl.org/SDL2/SDL_CreateRGBSurface
+// XXX ignored: flags, R/G/B/A mask, 
+// depth: the depth of the surface in bits (only support 32 XXX)
+// return 0 on failure
+SDL_Surface* SDL_CreateRGBSurface(uint32_t flags, int w, int h, int depth,
+    uint32_t Rmask, uint32_t Gmask, uint32_t Bmask, uint32_t Amask) {
+    
+    int n, fb; 
+    int dispinfo[MAX_DISP_ARGS]; 
+
+    if (depth!=32) return 0;
+    
+    if ((fb = open("/dev/fb/", O_RDWR)) <= 0)
+        return 0;
+
+    // ask for a vframebuf that scales the window (viewport) by 2x
+    if (config_fbctl(w, h,     // desired viewport ("phys")
+                     w, h * 2, // two fbs, each contig, each can be written to /dev/fb in a write()
+                     0, 0) != 0) {
+        return 0;
+    }
+
+    SDL_Surface * suf = calloc(1, sizeof(SDL_Surface)); assert(suf); 
+    
+    read_dispinfo(dispinfo, &n); assert(n > 0);
+    suf->w = dispinfo[VWIDTH]; assert(w<=dispinfo[VWIDTH]);
+    suf->h = h;  assert(2*h <= dispinfo[VHEIGHT]); 
+    suf->pitch = dispinfo[PITCH];   // app must respect this
+    // if (suf->w * sizeof(PIXEL) != suf->pitch) {printf("TBD"); return 0;}
+
+    suf->pixels = calloc(suf->h, suf->pitch); assert(suf->pixels); 
+    suf->fb = fb; 
+    suf->cur_id = 0; 
+
+    return suf; 
+}
+
+SDL_Surface* SDL_SetVideoMode(int w, int h, int bpp, uint32_t flags) {
+    return SDL_CreateRGBSurface(flags, w, h, bpp, 0, 0, 0, 0); 
+}
+
+void SDL_FreeSurface(SDL_Surface *s) {
+    if (!s) return; 
+    if (s->pixels) free(s->pixels); 
+    if (s->fb) close(s->fb); 
+    free(s); 
+}
+
+// Perform a fast fill of a rectangle with a specific color.
+// https://wiki.libsdl.org/SDL2/SDL_FillRect
+// rect==NULL to fill the entire surface
+// Returns 0 on success or a negative error code on failure
+int SDL_FillRect(SDL_Surface *suf, SDL_Rect *rect, uint32_t color) {
+    if (rect) {printf("TBD"); return -1;}
+
+    for (int y = 0; y < suf->h; y++)
+        for (int x = 0; x < suf->w; x++)
+            setpixel((char *)suf->pixels, x, y, suf->pitch, color);            
+    return 0; 
+}
+
+// legacy: Makes sure the given area is updated on the given screen.
+// Makes sure the given area is updated on the given screen. 
+// The rectangle must be confined within the screen boundaries (no clipping is done).
+// If 'x', 'y', 'w' and 'h' are all 0, SDL_UpdateRect will update the entire screen.
+// https://www.libsdl.org/release/SDL-1.2.15/docs/html/sdlupdaterect.html
+void SDL_UpdateRect(SDL_Surface *suf, int x, int y, int w, int h) {
+    int n; 
+    assert(x==0 && y==0 && w==0 && h==0); // only support full scr now
+    int sz = suf->h * suf->pitch; 
+
+    n = lseek(suf->fb, suf->cur_id * sz, SEEK_SET);
+    assert(n == suf->cur_id * sz); 
+    if ((n = write(suf->fb, suf->pixels, sz)) != sz) {
+        printf("%s: failed to write to hw fb. fb %d sz %d ret %d\n",
+               __func__, suf->fb, sz, n);
+    }
+    // make the cur fb visible
+    n = config_fbctl(0, 0, 0, 0 /*dc*/, 0 /*xoff*/, suf->cur_id * suf->h /*yoff*/);
+    assert(n == 0);
+    suf->cur_id = 1 - suf->cur_id;
+}
+
+// https://wiki.libsdl.org/SDL2/SDL_LockSurface
+// "Between calls to SDL_LockSurface() / SDL_UnlockSurface(), 
+// you can write to and read from surface->pixels, using the pixel format 
+// stored in surface->format. Once you are done accessing the surface, 
+// you should use SDL_UnlockSurface() to release it."
+
+// Set up a surface for directly accessing the pixels.
+// Returns 0 on success
+int SDL_LockSurface(SDL_Surface *s) {
+    return 0; 
+}
+
+// Release a surface after directly accessing the pixels.
+void SDL_UnlockSurface(SDL_Surface *s) {
+}

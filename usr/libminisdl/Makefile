@@ -20,7 +20,7 @@ libminisdl.a: $(OBJS)
 
 %.o: src/%.c
 	@echo  USER CC $< "->" $@
-	@$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
+	$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
 
 clean: 
 	rm -f *.o $(OBJS) src/*.d *.sym *.asm

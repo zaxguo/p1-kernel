@@ -3,6 +3,8 @@
 #include "stdio.h"
 
 extern int sdl_init_audio(void); // audio.c 
+extern void sdl_fini_audio(void); // audio.c
+
 int SDL_Init(uint32_t flags) {
   if (flags & SDL_INIT_AUDIO)
     sdl_init_audio(); 
@@ -10,8 +12,8 @@ int SDL_Init(uint32_t flags) {
 }
 
 void SDL_Quit() {
-  // NDL_Quit();
   printf("sdl quit\n"); 
+  sdl_fini_audio(); 
 }
 
 char *SDL_GetError() {

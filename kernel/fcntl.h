@@ -74,6 +74,7 @@ enum {
   SB_CMD_INIT, 
   SB_CMD_START, 
   SB_CMD_CANCEL, 
+  SB_CMD_WR_FMT, 
   SB_CMD_TEST = 9
 }; 
 

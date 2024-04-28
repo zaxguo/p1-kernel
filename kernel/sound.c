@@ -1094,6 +1094,7 @@ static void sound_drv_fini(struct sound_drv *this) {
 // Other sound formats will be converted on the fly.
 #define SAMPLE_RATE		44100
 
+// nChunkSize=0 means using default
 struct sound_drv * sound_init(unsigned nChunkSize)
 {   
     struct sound_drv *drv = 0; 
@@ -1290,6 +1291,7 @@ void test_sound() {
 #include "fcntl.h"
 // format: command [drvid]
 // command: 0-fini, 1-init, 2-start, 3-cancel, 9-test
+// unused/extra args will be ignored
 // return 0 on error 
 int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {  
     int id = -1; 
@@ -1328,13 +1330,22 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
     case SB_CMD_CANCEL: // arg1=devid
         id = args[1]; 
         if (id>=MAX_SOUND_DRV) return 0; 
-        if (!drvs[id].valid) return 0;    
+        if (!drvs[id].valid) return 0;
         // acquire(&(drvs+id)->m_SpinLock); // xzl XXX shouldn't lock.
         W("sound_cancel drv %d", id);
         sound_cancel(drvs+id);
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
         break; 
+    case SB_CMD_WR_FMT: // arg1=devid, arg2=write fmt, arg3=channels
+        id = args[1]; 
+        if (id>=MAX_SOUND_DRV) return 0; 
+        if (!drvs[id].valid) return 0;
+        if (args[2]>=SoundFormatUnsigned32 || args[3]>2) return 0;         
+        W("SetWriteFormat drv %d wrfmt %d nchans %d", id, args[2], args[3]);
+        SetWriteFormat(drvs+id, args[2], args[3]); 
+        ret = 2; 
+        break;
     case SB_CMD_TEST:  // play sound samples built-in the kernel
         W("test sound");
         test_sound(); 

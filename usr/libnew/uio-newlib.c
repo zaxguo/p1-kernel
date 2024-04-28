@@ -80,15 +80,16 @@ int read_kb_event(int events, int *evtype, unsigned int *scancode) {
 }
 
 // 0 on success
+// not all commands use 4 args. kernel will ignore unused args
 // cf kernel/sound.c procfs_parse_sbctl()
-int config_sbctl(int arg0, int arg1) {
-    char line[128]; 
+int config_sbctl(int cmd, int arg1, int arg2, int arg3) {
+    char line[64]; 
     int len1; 
 
     int sbctl = open("/proc/sbctl", O_RDWR);
     if (sbctl <= 0) {printf("open err\n"); return -1;}
     
-    sprintf(line, "%d %d\n", arg0, arg1); len1 = strlen(line); 
+    sprintf(line, "%d %d %d %d\n", cmd, arg1, arg2, arg3); len1 = strlen(line); 
     if ((len1 = write(sbctl, line, len1)) < 0) {
         printf("write to sbctl failed with %d. shouldn't happen", len1);
         exit(1);
@@ -99,7 +100,7 @@ int config_sbctl(int arg0, int arg1) {
 
 // 0 on success
 #define TXTSIZE  256 
-int read_sbctl(struct sbctl_config *cfg) {
+int read_sbctl(struct sbctl_info *cfg) {
     char line[TXTSIZE]; 
     FILE *fp = fopen("/proc/sbctl", "r"); 
     if (!fp) {printf("open err\n"); return -1;}

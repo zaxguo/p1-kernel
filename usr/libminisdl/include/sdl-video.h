@@ -292,28 +292,30 @@ typedef struct {
 	SDL_PixelFormat *format;
 	int w, h;
 	uint16_t pitch;
-	uint8_t *pixels;
+	uint8_t *pixels;  // xzl: accessed by app. inc possible padding. app takes care of pitch. written to /dev/fb. 
+    int fb; 
+    int cur_id; // 0 or 1
+    int dispinfo[MAX_DISP_ARGS]; 
 } SDL_Surface;
 
+// SDL2 API for create surface
 SDL_Surface* SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int depth,
     int pitch, uint32_t Rmask, uint32_t Gmask, uint32_t Bmask, uint32_t Amask);
 SDL_Surface* SDL_CreateRGBSurface(uint32_t flags, int width, int height, int depth,
     uint32_t Rmask, uint32_t Gmask, uint32_t Bmask, uint32_t Amask);
 
-// obsoleted? 	
+// legacy API to create surface
 SDL_Surface* SDL_SetVideoMode(int width, int height, int bpp, uint32_t flags);
 
 
 void SDL_FreeSurface(SDL_Surface *s);
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);
-void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color);
-
-// obsoleted? 
-void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h);
-
+int  SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color);
 void SDL_SoftStretch(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);
 
-// obsoelted?
+// legacy
+void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h);
+
 void SDL_SetPalette(SDL_Surface *s, int flags, SDL_Color *colors, int firstcolor, int ncolors);
 SDL_Surface *SDL_ConvertSurface(SDL_Surface *src, SDL_PixelFormat *fmt, uint32_t flags);
 uint32_t SDL_MapRGBA(SDL_PixelFormat *fmt, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
@@ -333,6 +335,7 @@ typedef unsigned int PIXEL;
 typedef struct {
 	int dispinfo[MAX_DISP_ARGS]; 
 	int fb; 
+    const char *title; 
 } SDL_Window; 
 
 typedef enum SDL_WindowFlags {

@@ -2891,7 +2891,7 @@ struct test {
   {fbstatic, "fb"},
   {seektest, "seek"},
   {pipe3, "pipe3"},  // [x]  
-  {clonetest, "clonetest"},   // [ ]
+  {clonetest, "clonetest"},   // [x]
   { 0, 0},
 };
 

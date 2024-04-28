@@ -93,7 +93,12 @@
         "mutex": "c",
         "dwhciframescheduler.h": "c",
         "cstring": "c",
-        "syscall.h": "c"
+        "syscall.h": "c",
+        "sdl-audio.h": "c",
+        "sdl-general.h": "c",
+        "sdl-scancode.h": "c",
+        "sdl-event.h": "c",
+        "sdl-keycode.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

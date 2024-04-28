@@ -20,7 +20,8 @@ UPROGS = \
 	build/wc	\
 	build/slider	\
 	build/buzz	\
-	build/nes 
+	build/nes \
+	build/nplayer
 
 COPS = -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only
@@ -32,7 +33,7 @@ ASMOPS = -g
 
 all: sd.bin
 
-sd.bin: $(UPROGS) mkfs
+sd.bin: $(UPROGS) mkfs build/nes build/nplayer
 	@rm -f sd.bin
 	cd build && ../mkfs ../sd.bin `ls` || (echo "sd.bin FAILED"; rm -f ../sd.bin; exit 1)
 
@@ -56,6 +57,11 @@ build/nes: ulib.o printf.o usys_s.o umalloc.o uio.o tinyprintf.o
 	cd LiteNES && $(MAKE)
 	cp LiteNES/nes build/
 
+# TODO complete dependency
+build/nplayer:
+	cd nplayer && $(MAKE)
+	cp nplayer/nplayer build/
+	
 # to prevent makefile from its implicit rule which is shorter & preferred
 # https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html
 % : %.c

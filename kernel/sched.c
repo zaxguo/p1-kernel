@@ -679,11 +679,6 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	acquire(&p->lock);	
     acquire(&current->lock);	
 
-	// (UPDATE) no longer doing so, as we free mm and task_struct separately
-	// in order to support threading	
-	// bookkeep the 1st kernel page (kern stack)
-	// p->mm.kernel_pages[0] = VA2PA(p); 	
-	// p->mm.kernel_pages_count = 0; 
 	struct pt_regs *childregs = task_pt_regs(p);
 
 	if (clone_flags & PF_KTHREAD) { /* create a kernel task */
@@ -698,7 +693,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
             acquire(&p->mm->lock);
             p->mm->ref++;
             release(&p->mm->lock);
-            childregs->sp = arg; W("childregs->sp %lx", childregs->sp);
+            childregs->sp = arg; V("childregs->sp %lx", childregs->sp);
         } else {	// for a "process", alloc a new mm of its own
             struct mm_struct *mm = alloc_mm();
             if (!mm) {BUG(); return -1;}  // XXX reverse task allocation

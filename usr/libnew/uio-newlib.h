@@ -14,7 +14,7 @@ int config_fbctl(int w, int d, int vw, int vh, int offx, int offy);
 int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs);
 
 // /proc/sbctl
-struct sbctl_config {
+struct sbctl_info {
     int id;
     int hw_fmt;
     int sample_rate; 
@@ -23,4 +23,26 @@ struct sbctl_config {
     int write_fmt;
     int write_channels; 
 }; 
-int read_sbctl(struct sbctl_config *cfg); 
+int read_sbctl(struct sbctl_info *cfg); 
+int config_sbctl(int cmd, int arg1, int arg2, int arg3); 
+
+// /proc/sbctl command, cf kernel/sound.c
+enum {
+  SB_CMD_FINI = 0, 
+  SB_CMD_INIT, 
+  SB_CMD_START, 
+  SB_CMD_CANCEL, 
+  SB_CMD_WR_FMT, 
+  SB_CMD_TEST = 9
+}; 
+
+#define CLONE_VM	0x00000100		// linux/sched.h
+
+// syscall-newlib.c
+extern unsigned int uptime_ms(void);  
+extern unsigned int msleep(unsigned int msec); 
+
+// not in libc (newlib)
+// https://man7.org/linux/man-pages/man2/clone.2.html#NOTES
+// return -1 on failure, otherwise pid (or 0)
+int clone(int (*fn)(void *), void *stack, int flags, void *arg); 

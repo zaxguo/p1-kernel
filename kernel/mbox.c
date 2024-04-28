@@ -505,6 +505,7 @@ void lfb_proprint(int x, int y, char *s)
 #define IMG_DATA header_data      
 #define IMG_HEIGHT height
 #define IMG_WIDTH width
+#define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
 
 // #include "rev_uva_logo_color3-resized.h"
 // #define IMG_DATA img_data      
@@ -521,7 +522,8 @@ void fb_showpicture()
 
     // xzl: copy the image pixels to the start (top) of framebuf    
     //ptr += (vheight-img_fb_height)/2*pitch + (vwidth-img_fb_width)*2;  
-    ptr += (the_fb.vwidth-img_fb_width)*2;  
+    ptr += (the_fb.vwidth-img_fb_width)/2*PIXELSIZE;  // top center
+    ptr += (the_fb.vheight-img_fb_height)/2*the_fb.pitch; 
     
     for(y=0;y<img_fb_height;y++) {
         for(x=0;x<img_fb_width;x++) {
@@ -534,6 +536,10 @@ void fb_showpicture()
         }
         ptr+=the_fb.pitch-img_fb_width*4;
     }
+
+    x = (the_fb.vwidth-img_fb_width)/2;
+    y = the_fb.vheight/2 + img_fb_height/2;
+    fb_print(&x, &y, "UVA OS");
     __asm_flush_dcache_range(the_fb.fb, the_fb.fb + the_fb.size); 
 }
 
