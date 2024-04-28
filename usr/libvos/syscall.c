@@ -1,6 +1,7 @@
 // newlib glue.
 // syscall expected by newlib
-// b/c of newlib dependency, the build rules, path, lib differ from xv6 user programs...
+// b/c of newlib dependency, the build rules, path, lib differ from "bare" 
+// xv6 user programs...
 
 // cf: https://sourceware.org/newlib/libc.html#Syscalls
 // https://github.com/NJU-ProjectN/navy-apps/blob/master/libs/libos/src/syscall.c
@@ -17,7 +18,7 @@
 #include <errno.h>
 #include <reent.h>
 #include <assert.h>
-// #include <signal.h>
+// #include <signal.h>    // TBD
 // #include <unistd.h>
 #include <sys/wait.h>
 
@@ -36,15 +37,14 @@
 // xzl: as crt0
 extern int main();
 int exit(int) __attribute__((noreturn));
-void
-_main()
+
+void _main()
 {
   main();
   exit(0);
 }
 
-// usys-newlib.S
-
+// usys.S
 int syscall_fork(void);
 int syscall_exit(int) __attribute__((noreturn));
 int syscall_wait(int*);
@@ -99,7 +99,7 @@ off_t _lseek(int fd, off_t offset, int whence) {
 }
 
 int _gettimeofday(struct timeval *tv, struct timezone *tz) {
-  // XXX xzl TBD XXXX
+  // TBD
   return 0;
 }
 
@@ -108,13 +108,14 @@ int _execve(const char *fname, char * const argv[], char *const envp[]) {
   return syscall_exec(fname, (char **)argv); 
 }
 
-// xzl: careful -- check stat definition  XXX
+// our stat (kernel/stat.h) different from libc's stat
+// xzl: XXX conversion
 int _fstat(int fd, struct stat *buf) {
   return syscall_fstat(fd, buf); 
 }
 
 // Status of a file (by name). we can do it. TBD XXX note the different def of
-// "stat"
+// "stat" cf _fstat() above
 int _stat(const char *fname, struct stat *st) {
   int fd, ret = -1;
   if ((fd = syscall_open(fname, O_RDONLY))) {
@@ -167,7 +168,7 @@ int _isatty(int file) {
   return 1;     // TBD 
 }
 
-// // xzl: newlib no pipe() def??
+// newlib no pipe() def??
 int pipe(int pipefd[2]) {
   return syscall_pipe(pipefd); 
 }
@@ -198,13 +199,13 @@ unsigned int uptime_ms(void) {
 //   return -1;
 // }
 
-// xzl: only in libc/posix
+// only in libc/posix
 // unsigned int sleep(unsigned int seconds) {
 //   assert(0);
 //   return -1;
 // }
 
-// xzl: added here to support SDL/doom
+// needed for SDL/doom
 // return 0 on success
 unsigned int msleep(unsigned int msec) {
   syscall_sleep(1 + SCHED_TICK_HZ * msec / 1000); 

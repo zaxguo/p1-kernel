@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "uio-newlib.h" 
+#include "vos.h" 
 
 typedef bool SDL_bool;
 typedef uint8_t  Uint8;

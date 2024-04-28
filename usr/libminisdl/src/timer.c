@@ -1,8 +1,8 @@
 #include "stdio.h"
 #include "stdint.h"
 
+#include "vos.h"
 #include "sdl-timer.h"
-#include "uio-newlib.h"
 
 SDL_TimerID SDL_AddTimer(uint32_t interval, SDL_NewTimerCallback callback, void *param) {
   return NULL;

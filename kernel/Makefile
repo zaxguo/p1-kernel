@@ -90,7 +90,7 @@ $(BUILD_DIR)/%_psf.o: %.psf
 
 # ramdisk build rules
 #$(BUILD_DIR)/%_bin.o: %.bin
-$(BUILD_DIR)/sd_bin.o: $(USR_PATH)/sd.bin
+$(BUILD_DIR)/sd_bin.o: $(USER_PATH)/sd.bin
 	@mkdir -p $(@D)
 	@$(ARMGNU)-ld -r -b binary -o $@ $<
 

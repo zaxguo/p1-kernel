@@ -1,3 +1,5 @@
+// non-standard OS interfaces, e.g. not part of libc
+
 /////////////// uio.c
 
 // USB keyboard 
@@ -10,7 +12,6 @@ int read_kb_event(int events, int *evtype, unsigned *scancode);
 enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
     PITCH,DEPTH,ISRGB,MAX_DISP_ARGS}; 
 int config_fbctl(int w, int d, int vw, int vh, int offx, int offy);
-
 int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs);
 
 // /proc/sbctl
@@ -38,7 +39,7 @@ enum {
 
 #define CLONE_VM	0x00000100		// linux/sched.h
 
-// syscall-newlib.c
+// syscall.c
 extern unsigned int uptime_ms(void);  
 extern unsigned int msleep(unsigned int msec); 
 

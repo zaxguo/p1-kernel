@@ -1,3 +1,5 @@
+# a "bare" user program. no dependency on libc (newlib) 
+
 CC      := aarch64-linux-gnu-gcc-9
 CFLAGS  := -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 CFLAGS  += -nostartfiles -ffreestanding -mgeneral-regs-only

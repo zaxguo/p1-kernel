@@ -11,7 +11,7 @@
 #include "stdio.h"
 #include "string.h"
 
-#include "uio-newlib.h"
+#include "vos.h"
 
 // #include "../../../kernel/fcntl.h"  // refactor this
 

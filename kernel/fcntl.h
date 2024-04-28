@@ -46,8 +46,8 @@ struct proc_dev_info {
   const char * path; // 0 no specific path
 }; 
 
-// lookup table. define as macro here so that it can be included
-// in both user & kernel. and the macro is only instantiated in specific files 
+// procfs/devfs lookup table. define as macro here so that it can be included
+// in both user (sh creates them) & kernel. the macro is only instantiated in specific files 
 // as needed. 
 #define PROC_DEV_TABLE  \
 static struct proc_dev_info pdi[] =            \

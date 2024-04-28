@@ -4,16 +4,17 @@ CC = $(ARMGNU)-gcc-9
 VOS_HOME ?= /home/xzl/workspace-p1-kernel
 
 VOS_REPO_PATH ?= $(VOS_HOME)/p1-kernel-next/
+
 KERNEL_PATH ?= $(VOS_HOME)/p1-kernel-next/kernel
-USR_PATH ?= $(VOS_HOME)/p1-kernel-next/usr
+USER_PATH ?= $(VOS_HOME)/p1-kernel-next/usr
 
-NEWLIB_HOME ?= $(VOS_HOME)/newlib
-NEWLIB_INC_PATH ?= $(NEWLIB_HOME)/newlib/libc/include 
-NEWLIB_BUILD_PATH ?= $(NEWLIB_HOME)/build
+LIBC_HOME ?= $(VOS_HOME)/newlib
+LIBC_INC_PATH ?= $(LIBC_HOME)/newlib/libc/include 
+LIBC_BUILD_PATH ?= $(LIBC_HOME)/build
 
-# newlib glue
-LIBNEW_PATH=${USR_PATH}/libnew
+LIBVOS_PATH=${USER_PATH}/libvos
+LIBVORBIS_PATH=${USER_PATH}/libvorbis
+LIBMINISDL_PATH=${USER_PATH}/libminisdl
 
-LIBVORBIS_PATH=${USR_PATH}/libvorbis
-
-LIBMINISDL_PATH=${USR_PATH}/libminisdl
+# for all built static libs 
+LIB_BUILD_PATH=${USER_PATH}/build-lib
