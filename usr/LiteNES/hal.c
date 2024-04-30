@@ -94,6 +94,11 @@ void wait_for_frame()
             break;
         }
     }
+    // xzl: TODO: support graceful exit. can be a project idea
+    // for a special key press (e.g. 'q'), returns from this func and goes 
+    // back to fce_run which further exits the program
+    // but before that, need to tell the timer task & event task to quit too; 
+    // has to wait() them to quit.     
 }
 
 // id: fb 0 or 1

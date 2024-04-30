@@ -179,10 +179,20 @@ extern volatile unsigned char _binary_font_sfn_start; // linker script
 // said to support up to 1920x1080
 struct fb_struct the_fb = {
     .fb = 0,
+#ifdef PLAT_RPI3QEMU
+    // these are just initial fb sizes; app will ask for diff
+    // sizes based on their logic. so we keep them small for qemu
+    // to avoid a big blank screen upon boot
+    .width = 320,
+    .height = 240, 
+    .vwidth = 320, 
+    .vheight = 240,
+#else // rpi3 hw
     .width = 1024,
     .height = 768, 
     .vwidth = 1024, 
     .vheight = 768,
+#endif
     .scr_width = 0,
     .scr_height = 0, 
     .depth = 32, 

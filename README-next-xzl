@@ -1136,3 +1136,26 @@ notes on ctor/dtor "priorties (cf usercpp.ld)
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+demo idea
+
+Raspberry Pi 400 ... ideal. but based on pi4 compute module (hence no rpi3 support
+
+gamehat for rpi3
+https://www.amazon.com/Waveshare-Game-HAT-Resolution-Experience/dp/B07G57BC3R
+++ has display, speaker (!)
+++ battery 
+-- no keyboard, gamepad needs extra driver
+
+
+SmartiPi Touch 2 - Case for The Official Raspberry Pi 7" Touchscreen Display - with Cooling Fan
+.. display only, still no kb 
+
+additoinal usb kb cheap?? (kidna everywhere
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+litenes nes project idea
+// xzl: TODO: support graceful exit. can be a project idea
+    // for a special key press (e.g. 'q'), returns from this func and goes 
+    // back to fce_run which further exits the program
+    // but before that, need to tell the timer task & event task to quit too; 
+    // has to wait() them to quit.     
