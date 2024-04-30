@@ -1,5 +1,8 @@
+# will be included by all targets, kernel & user apps
+
 ARMGNU ?= aarch64-linux-gnu
 CC = $(ARMGNU)-gcc-9
+CPP = $(ARMGNU)-g++-9
 
 VOS_HOME ?= /home/xzl/workspace-p1-kernel
 
@@ -18,3 +21,15 @@ LIBMINISDL_PATH=${USER_PATH}/libminisdl
 
 # for all built static libs 
 LIB_BUILD_PATH=${USER_PATH}/build-lib
+
+CRT0=${LIB_BUILD_PATH}/crt0.o
+CRT0CPP=${LIB_BUILD_PATH}/crt0cpp.o
+CRTI=${LIB_BUILD_PATH}/crti.o
+CRTN=${LIB_BUILD_PATH}/crtn.o
+
+# whether output verbose build commands? V=1 will do
+ifeq ($(V),1)
+        VB=''
+else
+        VB=@
+endif

@@ -4,3 +4,4 @@ mkfs
 *.a
 **/*.a
 doomgeneric/
+libc-testsuite/

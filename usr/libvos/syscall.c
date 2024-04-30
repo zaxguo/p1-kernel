@@ -34,16 +34,6 @@
 //   unsigned long size; // Size of file in bytes
 // };
 
-// xzl: as crt0
-extern int main();
-int exit(int) __attribute__((noreturn));
-
-void _main()
-{
-  main();
-  exit(0);
-}
-
 // usys.S
 int syscall_fork(void);
 int syscall_exit(int) __attribute__((noreturn));

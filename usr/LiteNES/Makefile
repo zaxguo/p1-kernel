@@ -1,9 +1,10 @@
-# a "bare" user program. no dependency on libc (newlib) 
+# a "lean" user program. no dependency on libc (newlib) 
 
-CC      := aarch64-linux-gnu-gcc-9
+include $(abspath ../../config.mk)
+
 CFLAGS  := -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 CFLAGS  += -nostartfiles -ffreestanding -mgeneral-regs-only
-CFLAGS  += -O2  # Os to fit xv6 fs limit. should do -O2
+CFLAGS  += -O2  # Os to fit xv6 fs limit.
 
 LDFLAGS := 
 
@@ -19,8 +20,6 @@ OBJS	+= ../uio.o ../tinyprintf.o
 nes: $(OBJS)
 	@echo + LD "->" $@
 	@aarch64-linux-gnu-ld $(LDFLAGS) -T nes.ld -o $@ $^
-
-# $(CC) $(OBJS) $(LDFLAGS) -o nes
 
 -include $(patsubst %.o, %.d, $(OBJS))
 

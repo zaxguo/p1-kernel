@@ -1,3 +1,4 @@
+# a music player program
 # depends on libc, libnew, libminisdl, libvorbis
 
 include $(abspath ../../config.mk)
@@ -43,10 +44,10 @@ LIBS += -lgcc
 all: $(PROG)
 
 $(PROG): $(OBJS) $(LIBDEP)
-	$(CC) $(LDFLAGS) $(OBJS) $(LIBS)  -o $@
+	$(VB) $(CC) $(LDFLAGS) $(CRT0) $(OBJS) $(LIBS)  -o $@
 
 %.o: %.c
-	$(CC) $(COPS) -o $@ -c $<
+	$(VB) $(CC) $(COPS) -o $@ -c $<
 
 clean:
 	rm -f $(OBJS) $(PROG)

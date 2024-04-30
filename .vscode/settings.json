@@ -148,5 +148,5 @@
         "terminal.background" : "#000000"   // 383737
     },
     // more terminal appearance https://code.visualstudio.com/docs/terminal/appearance
-    "terminal.integrated.fontFamily" : "'Fira Code', monospace",
+    "terminal.integrated.fontFamily" : "'Consolas', monospace",
 }
