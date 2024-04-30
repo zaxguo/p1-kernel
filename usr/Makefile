@@ -37,6 +37,7 @@ all: sd.bin
 
 sd.bin: $(UPROGS) mkfs
 	$(VB) rm -f sd.bin
+	$(VB) cp logo-uva.txt build/logo.txt
 	$(VB) cd build && ../mkfs ../sd.bin `ls` || (echo "sd.bin FAILED"; rm -f ../sd.bin; exit 1)
 
 ulib.a: $(ULIB)

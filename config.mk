@@ -29,7 +29,7 @@ CRTN=${LIB_BUILD_PATH}/crtn.o
 
 # whether output verbose build commands? V=1 will do
 ifeq ($(V),1)
-        VB=''
+        VB=
 else
         VB=@
 endif

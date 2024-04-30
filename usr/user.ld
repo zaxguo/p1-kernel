@@ -4,8 +4,8 @@ ENTRY( _main )
 
 SECTIONS
 {
-  # xzl: maybe text should start from non zero (e.g. 0x1000 cf nes.ld) 
-  # in case some prog take null function pointers and believe it is invalid
+  /* xzl: maybe text should start from non zero (e.g. 0x1000 cf nes.ld) 
+   in case some prog take null function pointers and believe it is invalid  */
  . = 0x0;
  
   .text : {

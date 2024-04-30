@@ -1,4 +1,4 @@
-# copied from user.ld but we start from 0x1000
+/* copied from user.ld but we start from 0x1000 */
 
 OUTPUT_ARCH( "aarch64" )
 ENTRY( _main )
@@ -6,10 +6,10 @@ ENTRY( _main )
 
 SECTIONS
 {
-  # xzl: text should start from non zero 
+  /* # xzl: text should start from non zero 
   # in case prog take null function pointers and believe it is invalid. cf: cpu_run()
   # this happens with gcc-9.4 (Ubuntu 20.04) which links cpu_address_immediate()
-  # to address 0. 
+  # to address 0. */
 
  . = 0x1000;
  

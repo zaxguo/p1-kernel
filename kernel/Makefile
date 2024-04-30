@@ -74,30 +74,30 @@ clean :
 # use -O0 only for user.c (launcher), for which -O2 emits references to kernel va and crashes things
 $(BUILD_DIR)/user_c.o: $(SRC_DIR)/user.c
 	@echo  KERNEL CC $< "->" $@
-	@mkdir -p $(@D)
-	@$(ARMGNU)-gcc-9 $(COPS1) -MMD -c $< -o $@
+	$(VB) mkdir -p $(@D)
+	$(VB) $(ARMGNU)-gcc-9 $(COPS1) -MMD -c $< -o $@
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	@echo  KERNEL CC $< "->" $@
-	@mkdir -p $(@D)
-	@$(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
+	$(VB) mkdir -p $(@D)
+	$(VB) $(ARMGNU)-gcc-9 $(COPS) -MMD -c $< -o $@
 
 # font build rules. 
 # NB: the symbols in the binary will have prefix "_binary". 
 $(BUILD_DIR)/%_psf.o: %.psf
-	@mkdir -p $(@D)
-	@$(ARMGNU)-ld -r -b binary -o $@ $<
+	$(VB) mkdir -p $(@D)
+	$(VB) $(ARMGNU)-ld -r -b binary -o $@ $<
 
 # ramdisk build rules
 #$(BUILD_DIR)/%_bin.o: %.bin
 $(BUILD_DIR)/sd_bin.o: $(USER_PATH)/sd.bin
-	@mkdir -p $(@D)
-	@$(ARMGNU)-ld -r -b binary -o $@ $<
+	$(VB) mkdir -p $(@D)
+	$(VB) $(ARMGNU)-ld -r -b binary -o $@ $<
 
 # asm rule 
 $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
 	@echo  KERNEL AS $< "->" $@
-	@$(ARMGNU)-gcc-9 $(ASMOPS) -MMD -c $< -o $@
+	$(VB) $(ARMGNU)-gcc-9 $(ASMOPS) -MMD -c $< -o $@
 
 # addon: usb lib
 addon/usb/lib/libuspi.a:
@@ -196,4 +196,6 @@ $(KERNEL): $(LINKSCR) $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 	$(VB) $(ARMGNU)-objdump -dS $(BUILD_DIR)/kernel8.elf > kernel8.asm
 	$(VB) nm --numeric-sort $(BUILD_DIR)/kernel8.elf > kernel8.sym
 	$(VB) echo KERNEL INSTALL
+ifeq ($(PLAT),rpi3) 	
 	cp $(KERNEL) /mnt/d/tmp/$(KERNEL)
+endif	
