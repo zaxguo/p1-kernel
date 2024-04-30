@@ -13,6 +13,7 @@
 //   j/down - page down
 //   k/up - page up
 //   gg - first page
+//   q - quit
 //   (xzl): number then j/k to jmp fwd/back by X slides
 
 #include <stdint.h> 
@@ -89,7 +90,7 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 const int N = 10; // max slide num 
 // slides path pattern (starts from 1, per pptx export naming convention)
 // const char *path = "/Slide%d.BMP";
-const char *path = "/d/Slide%d.BMP";  // load from fat
+const char *path = "/d/Slide%d.BMP";  // load from fatfs
 
 int dispinfo[MAX_DISP_ARGS]={0};
 
@@ -106,7 +107,7 @@ void set_bkgnd(unsigned int clr, int w, int h) {
     int n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
 
     if (write(fb, p, w*h*PIXELSIZE) < w*h*PIXELSIZE)
-      printf("failed to fb\n"); 
+      printf("failed to write fb\n"); 
     free(p);
 }
 
@@ -181,7 +182,6 @@ int main() {
   // config fb 
   // n = config_fbctl(fbctl, 1360, 768, W, H, 0, 0); assert(n==0); 
   n = config_fbctl(W, H, W, H, 0, 0); assert(n==0); 
-  // close(fbctl); 
 
   // after config, read dispinfo again (GPU may specify different dims)
   // parse /proc/dispinfo into dispinfo[]
@@ -254,9 +254,18 @@ int main() {
             rep = 0; g = 0;
           }
           break;
+        case KEY_Q:
+          goto cleanup;
+          break; 
       }
     }
   }
 
+cleanup: 
+  if (events) close(events); 
+  if (fb) {
+    set_bkgnd(0x00000000 /*black*/, dispinfo[VWIDTH], dispinfo[VWIDTH]);
+    close(fb); 
+  }
   return 0;
 }
