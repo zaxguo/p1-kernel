@@ -3,7 +3,7 @@
 #include "syscall.h"
 #include "plat.h"
 #include "param.h"
-//#include "mmu.h"
+#include "mmu.h"
 #include "sched.h"
 
 	.macro handle_invalid_entry el, type
@@ -15,13 +15,15 @@
 	b.eq 99f
 	//mov x27, #LOW_MEMORY	// MMU on, use VA 	
 	//mov x28, #VA_START	
-	ldr x27, =kernel_stack_end
+	ldr x27, =kernel_stack_start
+	add x27, x27, PAGE_SIZE
 	mov x28, #0 
 	b 100f 
 99: 	// MMU off, use PA 
 	//mov x27, #LOW_MEMORY	
 	//mov x28, #0			
-	ldr x27, =kernel_stack_end
+	ldr x27, =kernel_stack_start
+	add x27, x27, PAGE_SIZE
 	mov x28, #VA_START	
 100: 
 	//add sp, x27, x28	

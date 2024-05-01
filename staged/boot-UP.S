@@ -9,50 +9,19 @@
 */
 .section ".text.boot"
 
-// reg for cpuid_reg throughout boot.S. shall not be used for other purposes
-cpuid_reg 	.req 	x28 
-
 .globl _start
 _start:
-	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
-	and	cpuid_reg, cpuid_reg, #0xFF	// Check processor id	
-	cbz cpuid_reg, rls_cores	//cpuid==0
+	mrs	x0, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
+	and	x0, x0, #0xFF	// Check processor id
+	cbz	x0, master		// Hang for all non-primary CPU
+	b	proc_hang
 
-	// core1+: wait a bit, until core0 populates kernel pgtables shared
-	// by all cores. 
-	mov x0, #0xfffff  // an emprical value
-	bl delay
-	cmp cpuid_reg, #NCPU
-	b.lo core_config // cpuid_reg<NCPU, continue 
-	// cpuid_reg>=NCPU, hang 
 proc_hang: 
-	wfi 
 	b proc_hang
 
-rls_cores:
-	mov x3, #(NCPU-1)
-	adr x1, _start
-	
-	// rls core1
-	cbz x3, core_config
-	mov x0, #0xe0 	
-	str x1, [x0]
-	
-	// rls core2
-	sub x3, x3, 1
-	cbz x3, core_config
-	mov x0, #0xe8
-	str x1, [x0]
-
-	// rls core3
-	sub x3, x3, 1
-	cbz x3, core_config
-	mov x0, #0xf0
-	str x1, [x0]
-
-core_config:
-	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
-	msr	sctlr_el1, x0
+master:
+	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
+	msr	sctlr_el1, x0		
 	
 	# don't trap EL0/EL1 access to advanced simd, fp registers.
 	# cf: https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CPACR-EL1--Architectural-Feature-Access-Control-Register
@@ -98,9 +67,7 @@ el3:
 
 	eret				
 
-el1_entry:	
-	cbnz cpuid_reg, setup_sp // all cores but cpu0 skip code below
-	
+el1_entry:
 	// bss_begin/end are linking addr (kernel virt). convert them to phys.
 	// they are (at least) 8 bytes aligned in link script
 	ldr	x0, =bss_begin
@@ -133,8 +100,8 @@ el1_entry:
 // Cf: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
 // https://www.raspberrypi.org/forums/viewtopic.php?t=222408
 	bl	__create_idmap
-	//adrp	x0, idmap_dir
-	//msr	ttbr0_el1, x0
+	adrp	x0, idmap_dir
+	msr	ttbr0_el1, x0
 #endif
 
 	// create kernel's pgtable (for memory and IO)
@@ -146,16 +113,12 @@ el1_entry:
 	#error "not implemented"
 #endif	
 
-	// set virt sp = (cpuid_reg+1)*kernel_stack_size + kernel_stack_start
-	// (assuming linear mapping, phys 0 --> virt VA_START)
+	// set virt sp (assuming linear mapping, phys 0 --> virt VA_START)
 	// NB: we won't use sp until mmu is on
-setup_sp: 	
-	add x0, cpuid_reg, #1
-	//lsl x0, x0, #PAGE_SHIFT
-	mov x1, #(PAGE_SIZE * NPAGES_PER_KERNEL_STACK)
-	mul x0, x0, x1
-	ldr x1, =kernel_stack_start	// kernel.c
-	add x0, x0, x1
+	//mov	x0, #VA_START			
+	//ldr x1, =LOW_MEMORY
+	//add	sp, x0, x1		
+	ldr x0, =kernel_stack_end
 	mov sp, x0 
 
 	// load kernel's pgtable
@@ -169,20 +132,17 @@ setup_sp:
 	msr	tcr_el1, x0 
 	isb 		// memory barrier 
 
-	// memory attributes.
+	// memory attributes. we only set two: for mem and for io. cf mmu.h
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el1, x0
 
-	adrp	x0, idmap_dir
-	msr	ttbr0_el1, x0	
-	
 	// load the linking (virt) addr of kernel_main
 	ldr	x2, =kernel_main
 
-	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
-
+	ldr x0, =SCTLR_VALUE
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.
-	// go to the virt addr of kernel_main	
+
+	// go to the virt addr of kernel_main
 	br 	x2
 
 // ------------------------ pgtable utilities below --------------------------- //

@@ -364,13 +364,6 @@ problem still in
     PLAT=xxx has some bugs. sometimes not effective?? (fixed)
     have a build dir, then separate dir for PLAT=virt PLAT=rpi3 etc. also different binary file names
 
-
-
-[ ] multicore
-https://github.com/babbleberry/rpi4-osdev/tree/master/part10-multicore
-https://github.com/bztsrc/raspi3-tutorial/tree/master/02_multicorec
-
-
 [ ] network, tcpip
 https://github.com/babbleberry/rpi4-osdev/tree/master/part15-tcpip-webserver
 
@@ -1159,3 +1152,20 @@ litenes nes project idea
     // back to fce_run which further exits the program
     // but before that, need to tell the timer task & event task to quit too; 
     // has to wait() them to quit.     
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[ ] multicore
+https://github.com/babbleberry/rpi4-osdev/tree/master/part10-multicore
+https://github.com/bztsrc/raspi3-tutorial/tree/master/02_multicorec
+
+core1+ wont run automatically... until core0 writes to 0xe0... (PA).. see links above
+
+at boot.S
+// core1+ has to wait a bit, until core0 populates kernel pgtables shared
+	// by all cores. 
+	// - how about core0 "releases" core1+, after populating pgtables & turning on MMU? wont work
+	//		for whatever reason, writing to VA cannot release core1+
+	// - how about core0 "releases" core1+, after populating pgtables, before turning on MMU?
+	//		core1+ still has to wait a bit. otherwise they seem to hang (using invalid pgtables?
+

@@ -22,9 +22,18 @@ QEMU=${QEMU6}
 
 KERNEL=./kernel/kernel8-rpi3qemu.img
 
-# ${QEMU} -M raspi3 \
-# -kernel ./kernel8-rpi3qemu.img -serial null -serial mon:stdio -nographic \
-# -d int -D qemu.log 
+qemu_mon() {
+    # ${QEMU} -M raspi3b \
+    # -kernel ${KERNEL} -serial null -serial mon:stdio -nographic \
+    # -d int -D qemu.log 
+
+    #### qemuv8 monitor
+    ${QEMU} -M raspi3b \
+    -kernel ${KERNEL} -monitor stdio -serial null \
+    -d int -D qemu.log \
+    -nographic \
+    -usb -device usb-kbd
+}    
 
 #### qemu v8, console only
 qemu_min () {
@@ -38,6 +47,7 @@ qemu_small () {
     ${QEMU} -M raspi3b \
     -kernel ${KERNEL} -serial null -serial mon:stdio \
     -d int -D qemu.log \
+    -smp 4 \
     -nographic \
     -drive file=smallfat.bin,if=sd,format=raw
 }    
@@ -62,12 +72,6 @@ qemu_full () {
 # -nographic \
 # -drive file=fat:rw:/tmp/testdir,if=sd,format=raw
 
-##### qemuv8 monitor
-# ${QEMU8} -M raspi3b \
-# -kernel ./kernel8-rpi3qemu.img -monitor stdio -serial null \
-# -d int -D qemu.log \
-# -nographic \
-# -usb -device usb-kbd
 
 
 if [ "$1" = "min" ]
@@ -76,6 +80,9 @@ then
 elif [ "$1" = "full" ]
 then
     qemu_full
+elif [ "$1" = "mon" ]    
+then
+    qemu_mon
 else
     qemu_small
 fi

@@ -85,6 +85,7 @@ void disable_irq( void );
 int is_irq_masked(void); 
 /*return 1 if irq enabled, 0 otherwise*/
 static inline int intr_get(void) {return 1-is_irq_masked();}; 
+unsigned long cpuid(void);  // must be called with irq disabled
 
 // alloc.c 
 unsigned int paging_init();

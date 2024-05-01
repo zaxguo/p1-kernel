@@ -31,9 +31,9 @@ SECTIONS
 	. = ALIGN(0x00001000);
 	pg_dir = .;
 	.data.pgd : { . += (4 * (1 << 12)); }	/* PG_DIR_SIZE */
-	kernel_stack_start = .;
-	.data.pgd : { . += (4 * (1 << 12)); }	/* kernel stack, 4 pgs*/
-	kernel_stack_end = .;
+	/* kernel_stack_start = .; */
+	/* .data.pgd : { . += (4 * (1 << 12)); } */	/* kernel stack, 4 pgs*/
+	/* kernel_stack_end = .; */
 	kernel_end = .; 
 }
 

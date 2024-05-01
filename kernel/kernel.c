@@ -8,6 +8,10 @@
 #include "mmu.h"
 #include "sched.h"
 
+// needed by boot.S
+__attribute__ ((aligned (4096))) \
+	char kernel_stack_start[PAGE_SIZE * NPAGES_PER_KERNEL_STACK * NCPU];
+
 // unittests.c
 extern void test_ktimer(); 
 extern void test_malloc(); 
@@ -48,12 +52,26 @@ void kernel_process() {
 	// will take effect. 
 }
 
+extern unsigned long _start;
+
 void kernel_main()
 {
-	uart_init();
-	init_printf(NULL, putc);
+	if (cpuid() == 0) {
+		uart_init();
+		init_printf(NULL, putc);
+		printf("------ kernel boots ------ %d\n\r", (int)cpuid());
+	} else {
+		printf("------ kernel boots ------ %d\n\r", (int)cpuid());
+	}
+	// wont work 
+	// put32va(0xe0, _start); 	// let core1 go
+	// __asm_flush_dcache_range(PA2VA(0xe0), PA2VA(0xff));
 
-	printf("------ kernel boots ------ \n\r");
+	// if (cpuid() == 1) {
+	// 	printf("------ kernel boots ------ 1\n"); 
+	// }
+
+	while (1); 
 	
 	paging_init(); 
 	sched_init(); I("sched_init done"); // must be before schedule() or timertick() 
@@ -91,6 +109,6 @@ void kernel_main()
 		} else {
 			I("wait returns pid=%d", wpid);
 			// a parentless task 
-		}		
+		}
 	}	
 }
