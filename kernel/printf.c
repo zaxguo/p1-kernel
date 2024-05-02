@@ -533,6 +533,7 @@ void panic(char *s)
 }
 
 // circle debug.cpp
+// will dump at least 16 bytes....
 void debug_hexdump (const void *pStart, unsigned nBytes)
 {
 	unsigned char *pOffset = (unsigned char *) pStart;

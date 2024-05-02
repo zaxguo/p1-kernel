@@ -3,7 +3,7 @@
 
 // -------------- configuration -------------------------- //
 #define NOFILE          16  // open files per process
-#define NCPU	        4
+#define NCPU	        2
 #define MAXPATH         128   // maximum file path name
 #define NINODE          50  // maximum number of active i-nodes
 // #define NDEV            10  // maximum major device number

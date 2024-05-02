@@ -1169,3 +1169,5 @@ at boot.S
 	// - how about core0 "releases" core1+, after populating pgtables, before turning on MMU?
 	//		core1+ still has to wait a bit. otherwise they seem to hang (using invalid pgtables?
 
+https://github.com/LdB-ECM/Raspberry-Pi/tree/master/Multicore
+provided diskimg does not work??

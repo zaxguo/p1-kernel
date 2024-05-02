@@ -63,15 +63,20 @@ void kernel_main()
 	} else {
 		printf("------ kernel boots ------ %d\n\r", (int)cpuid());
 	}
-	// wont work 
-	// put32va(0xe0, _start); 	// let core1 go
-	// __asm_flush_dcache_range(PA2VA(0xe0), PA2VA(0xff));
+	
+	if (cpuid()==0) {	// works
+		put32va(0xe0, VA2PA(&_start)); 	// let core1 go
+		put32va(0xe8, VA2PA(&_start)); 	// let core2 go
+		put32va(0xf0, VA2PA(&_start)); 	// let core3 go
+		__asm_flush_dcache_range(PA2VA(0xe0), PA2VA(0xff));
+	}	
 
-	// if (cpuid() == 1) {
-	// 	printf("------ kernel boots ------ 1\n"); 
-	// }
-
-	while (1); 
+	while (1) {
+		// printf("%lx\n", (unsigned long *)PA2VA(0xe0));
+		// debug_hexdump(PA2VA(0x100), 8);
+		// delay(100000);
+		;
+	}
 	
 	paging_init(); 
 	sched_init(); I("sched_init done"); // must be before schedule() or timertick() 

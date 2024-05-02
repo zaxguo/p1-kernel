@@ -17,23 +17,12 @@ _start:
 	/* ---------- Below: handle multicore -------------- */
 	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
 	and	cpuid_reg, cpuid_reg, #0xFF	// Check processor id	
-	//cbz cpuid_reg, rls_cores	//cpuid==0, release other cores
-	cbz cpuid_reg, core_config
+	cbz cpuid_reg, rls_cores	//cpuid==0, release other cores
 
-	/* 		will cause unable to boot
-	cmp cpuid_reg, #1
-	bne 1f
-	mov x0, #0xffffffff
-	mov x1, #0x100
-	str x0, [x1]
-	*/
-
-1: 	
 	// core1+: wait a bit, until core0 populates kernel pgtables shared
 	// by all cores. 
 	mov x0, #0xfffff  // an emprical value
 	bl delay
-
 	cmp cpuid_reg, #NCPU
 	b.lo core_config // 0<cpuid<NCPU, continue to configure itself
 core_sleep: // cpuid_reg>=NCPU, sleep forever in a loop
@@ -96,9 +85,9 @@ core_config:
 
 	adr	x0, el1_entry
 	msr	elr_el2, x0
-	eret	// switch to EL1
+	eret	# switch to EL1
 
-el3: 		// current: EL3
+el3: # current: EL3
   	ldr x0, =HCR_VALUE
   	msr hcr_el2, x0
 
@@ -111,7 +100,7 @@ el3: 		// current: EL3
 
 	adr	x0, el1_entry		
 	msr	elr_el3, x0	
-	eret	// switch to EL1				
+	eret	# switch to EL1				
 
 	/* ------- Below: EL1 execution starts ------- */
 el1_entry:	
@@ -189,10 +178,8 @@ setup_sp:
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el1, x0
 
-#ifdef PLAT_RPI3QEMU
 	adrp	x0, idmap_dir
 	msr	ttbr0_el1, x0	
-#endif
 	
 	// load the linking (virt) addr of kernel_main
 	ldr	x2, =kernel_main
