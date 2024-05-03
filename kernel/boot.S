@@ -194,11 +194,32 @@ setup_sp:
 	msr	ttbr0_el1, x0	
 #endif
 	
+	// SIGN OF LIFE....
+	add x0, cpuid_reg, 'A'
+	bl uart_send_pa
+		
+	// Go in through jump_table per our core ID
+#if 0	// buggy?
+	adr	x4, jump_table
+	lsl x2, cpuid_reg, #2
+	ldr x4, [x4, x2]
+	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
+	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.
+	mov x0, cpuid_reg 	// x28=core id as the 1st argument 
+	br 	x4				// Jump to kernel_main() (kernel.c)
+#endif
+	cmp cpuid_reg, #1
+	b.ne 1f
+	ldr x2, =secondary_core_asm
+	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
+	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
+	br 	x2				// Jump to kernel_main() (kernel.c)
+
+1:
+	// ORIGINAL 
 	// load the linking (virt) addr of kernel_main
 	ldr	x2, =kernel_main
-
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
-
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
 	br 	x2				// Jump to kernel_main() (kernel.c)
 
@@ -389,7 +410,15 @@ core_flags:
 	.quad 0
 
 jump_table:  // NB: each entry (insn) 4 bytes
-	bl 	kernel_main
-	bl	secondary_core	
-	bl	secondary_core
-	bl	secondary_core
+	.quad 	kernel_main
+	.quad	secondary_core	
+	.quad	secondary_core
+	.quad	secondary_core
+
+
+secondary_core_asm:
+1:
+	// SIGN OF LIFE....	good 
+	add x0, cpuid_reg, 'X'
+	bl uart_send_va	
+	b 1b
