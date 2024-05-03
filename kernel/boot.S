@@ -54,9 +54,10 @@ check_flag:
 
 core_boot:
 	//cbz cpuid_reg, 1f
-	add x0, cpuid_reg, #65 // A
+	///  SIGN OF LIFE .........
+	add x0, cpuid_reg, 'A'
 	bl uart_send_pa
-	mov x0, #13 // CR
+	mov x0, '\n'
 	bl uart_send_pa
 1:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
