@@ -40,8 +40,11 @@ extern void gen_timer_reset(int interval);
 
 void generic_timer_init ( void )
 {
-	gen_timer_init();
-	gen_timer_reset(interval);	// kickoff 1st time firing
+	// gen_timer_init();
+	unsigned long reg = 1; 
+	asm volatile("msr CNTP_CTL_EL0, %0" : : "r"(reg));
+	// gen_timer_reset(interval);	// kickoff 1st time firing
+	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(interval));	
 }
 
 void handle_generic_timer_irq( void ) 

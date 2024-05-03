@@ -1171,3 +1171,12 @@ at boot.S
 
 https://github.com/LdB-ECM/Raspberry-Pi/tree/master/Multicore
 provided diskimg does not work??
+
+
+rpi firmware arm8stu
+https://leiradel.github.io/2019/01/20/Raspberry-Pi-Stubs.html
+https://andrei.gherzan.ro/linux/raspbian-rpi4-64/#:~:text=The%20armstub%20is%20the%20code,CPU%20before%20running%20the%20kernel.
+
+https://github.com/raspberrypi/tools/blob/master/armstubs/armstub8.S
+
+the code is executed as firmware (by gpu?) after loading the kernel, before executing the kernel 

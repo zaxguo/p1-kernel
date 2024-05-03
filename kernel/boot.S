@@ -55,10 +55,10 @@ check_flag:
 core_boot:
 	//cbz cpuid_reg, 1f
 	///  SIGN OF LIFE .........
-	add x0, cpuid_reg, 'A'
-	bl uart_send_pa
-	mov x0, '\n'
-	bl uart_send_pa
+	//add x0, cpuid_reg, 'A'
+	//bl uart_send_pa
+	//mov x0, '\n'
+	//bl uart_send_pa
 1:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
 	msr	sctlr_el1, x0
@@ -167,7 +167,6 @@ el1_entry:
 	// NB: we won't use sp until mmu is on
 setup_sp: 	
 	add x0, cpuid_reg, #1
-	//lsl x0, x0, #PAGE_SHIFT
 	mov x1, #(PAGE_SIZE * NPAGES_PER_KERNEL_STACK)
 	mul x0, x0, x1
 	ldr x1, =kernel_stack_start	// kernel.c
@@ -193,10 +192,14 @@ setup_sp:
 	adrp	x0, idmap_dir
 	msr	ttbr0_el1, x0	
 #endif
-	
-	// SIGN OF LIFE....
-	add x0, cpuid_reg, 'A'
-	bl uart_send_pa
+
+	// irq_vector_init, each core has to do this
+	ldr x0, =vectors		// load VBAR_EL1 vector table addr (kern VA)
+	msr	vbar_el1, x0	
+
+	// still alive?
+	//add x0, cpuid_reg, 'A'
+	//bl uart_send_pa
 		
 	// Go in through jump_table per our core ID
 #if 0	// buggy?
@@ -208,8 +211,8 @@ setup_sp:
 	mov x0, cpuid_reg 	// x28=core id as the 1st argument 
 	br 	x4				// Jump to kernel_main() (kernel.c)
 #endif
-	cmp cpuid_reg, #1
-	b.ne 1f
+	cmp cpuid_reg, #0
+	b.eq 1f
 	ldr x2, =secondary_core_asm
 	//ldr x2, =secondary_core
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
@@ -217,7 +220,7 @@ setup_sp:
 	br 	x2				// Jump to kernel_main() (kernel.c)
 
 1:
-	// ORIGINAL 
+	// ORIGINAL, core0
 	// load the linking (virt) addr of kernel_main
 	ldr	x2, =kernel_main
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
@@ -425,17 +428,21 @@ core2_state:
 	.quad 0xdeadbeef
 
 secondary_core_asm:
-1:
-	// SIGN OF LIFE....	good 
-	add x0, cpuid_reg, 'X'
-	bl uart_send_va	
-	
+	// now: VM is on, cache is on
+	//add x0, cpuid_reg, 'X'	// are we alive?
+	//bl uart_send_va	
+
+	// invalidate all cache 
+	ldr x0, =VA_START
+	add x1, x0, #(4*SECTION_SIZE)
+	bl __asm_invalidate_dcache_range
+
 	// snapshot
-	adr x1, core2_state
-	mov x0, sp
-	str x0, [x1]
-	ldr x0, =0xeeeeeeee
-	str x0, [x1, #8]
+	//adr x1, core2_state
+	//mov x0, sp
+	//str x0, [x1]
+	//ldr x0, =0xeeeeeeee
+	//str x0, [x1, #8]
 
 	mov x0, cpuid_reg
 	bl secondary_core

@@ -80,7 +80,7 @@ void enable_interrupt_controller( void ); // irq.c
 
 // utils.S
 void irq_vector_init( void );    
-void enable_irq( void );         
+void enable_irq( void ); 
 void disable_irq( void );
 int is_irq_masked(void); 
 /*return 1 if irq enabled, 0 otherwise*/

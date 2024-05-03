@@ -119,11 +119,11 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
                                     | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))    \
                                     | (MT_NORMAL_FLAGS << (8 * MT_NORMAL)))
 
-#define MMU_FLAGS	 		(MM_TYPE_BLOCK | (MT_NORMAL << 2) | MM_ACCESS)	    /* block (section) granuarlity, memory */
-#define MMU_DEVICE_FLAGS	(MM_TYPE_BLOCK | (MT_DEVICE_nGnRnE << 2) | MM_ACCESS)	/* block (section) granuarlity, devices */
+#define MMU_FLAGS	 		(MM_TYPE_BLOCK | (MT_NORMAL << 2) | MM_ACCESS)	    /* block (eg section) granuarlity, memory */
+#define MMU_DEVICE_FLAGS	(MM_TYPE_BLOCK | (MT_DEVICE_nGnRnE << 2) | MM_ACCESS)	/* block (eg section) granuarlity, devices */
 #define MMU_PTE_FLAGS		(MM_TYPE_PAGE | (MT_NORMAL << 2) | MM_ACCESS)	    /* need to be used with MP_AP_xxx, MM_XN */
 
-// https://developer.arm.com/documentation/ddi0595/2021-12/AArch64-Registers/TCR-EL1--Translation-Control-Register--EL1-?lang=en#fieldset_0-31_30
+// https://developer.arm.com/documentation/ddi0601/2024-03/AArch64-Registers/TCR-EL1--Translation-Control-Register--EL1-?lang=en
 #define TCR_T0SZ			(64 - 48)       // The size offset of the memory region addressed by TTBR0_EL1.
 #define TCR_T1SZ			((64 - 48) << 16) // ... for TTBR1_EL1
 #define TCR_TG0_4K			(0 << 14)       // Granule size 4KB for the TTBR0_EL1 

@@ -7,9 +7,10 @@ qemu.log
 **/*.BMP
 **/*.bmp
 
-old/*
 site/*
 todel/*
+
+old/
 
 backup/*
 src/*/build

@@ -17,11 +17,15 @@ You should have received a copy of the GNU Lesser General Public
 License along with this library; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-// xzl: todo add spinlock. w/o it msgs may mix. 
 */
 
 #include "printf.h"
+// spinlock prevents msgs for mixing. it can be commented out, e.g. for 
+// debugging spinlock or deadlock 
+#include "utils.h"
+#include "spinlock.h"
 
+static struct spinlock printlock = {.locked=0, .cpu=0, .name="printlock"};
 
 /*
  * Configuration
@@ -433,10 +437,12 @@ void init_printf(void *putp, putcf putf)
 
 void tfp_printf(char *fmt, ...)
 {
+    acquire(&printlock); 
     va_list va;
     va_start(va, fmt);
     tfp_format(stdout_putp, stdout_putf, fmt, va);
     va_end(va);
+    release(&printlock);
 }
 #endif
 

@@ -58,33 +58,46 @@ extern unsigned long core_flags[4];  // boot.S
 extern unsigned long core2_state[4];  // boot.S
 extern unsigned long start0;
 
+static struct spinlock testlock = {.locked=0, .cpu=0, .name="test_lock"};
+
 void uart_send_string(char* str);
 void secondary_core(int core_id)
 {
-	core2_state[2] = 0xffff000000846000; 
-	uart_send_string("secondary_core()");
-	__asm_flush_dcache_range(core2_state, core2_state+4);
+	uart_send_string("secondary_core()\n");
+	__asm_flush_dcache_range(core2_state, core2_state+4); // need this
+	// __asm volatile ("dmb sy" ::: "memory");	// wont help 
 
 	// not useful
-	// __asm_invalidate_dcache_range((void*)VA_START, (void*)VA_START+0x10000000);
 	// init_printf(NULL, putc);
 
-	printf("hello");
-	uart_send_string("2nd core again");
+	printf("hello printf\n");
 	printf("Hello from core %d\n", core_id);
-	while (1)
-		;
+	while (1) {
+		unsigned long cnt; 
+		delay(1000*100000);
+		cnt = (core2_state[2] ++);
+		acquire(&testlock);
+		printf("core %d: cnt %ld\n", core_id, cnt);
+		release(&testlock);
+	}
 }
 
-static void start_core(int coreid) {
+__attribute__((unused))
+static void start_cores(void) {
 	// only needed for executing on qemu 
 	// does not affect execution on real hw
 	// *(unsigned long *)(0xd8UL + coreid*8) = (unsigned long)&start0; 
-	spin_cpu0[coreid] = VA2PA(&start0); 
-	core_flags[coreid] = 1; 
-	__asm_flush_dcache_range(spin_cpu0, spin_cpu0+4);
-	__asm_flush_dcache_range(core_flags, core_flags+4);
-	asm volatile ("sev");
+	
+	// flush the whole kernel memory 
+	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
+
+	for (int i=1; i <NCPU; i++) {
+		spin_cpu0[i] = VA2PA(&start0); 
+		core_flags[i] = 1; 
+		__asm_flush_dcache_range(spin_cpu0, spin_cpu0+4);
+		__asm_flush_dcache_range(core_flags, core_flags+4);
+		asm volatile ("sev");
+	}
 }
 
 // extern unsigned long _start;
@@ -92,35 +105,10 @@ extern void uart_send_va(char c);
 extern void uart_send_pa(char c); 
 void kernel_main()
 {
-	if (cpuid() == 0) {
-		uart_init();
-		init_printf(NULL, putc);
-		__asm_flush_dcache_range((void *)0xffff00000080e358, 
-			(void *)0xffff00000080e358+8); // must flush printf ptr.. otherwise core1 wont see
-		printf("------ kernel boots111 ------ %d\n\r", (int)cpuid());
-		// for (int i =0; i<5;i++)
-		// 	uart_send_va('c');
-		// printf("here");
-	} else {
-		printf("------ kernel boots ------ %d\n\r", (int)cpuid());
-	}
-	
-	start_core(1);
-	// if (cpuid()==0) {	// works
-	// 	put32va(0xe0, VA2PA(&start0)); 	// let core1 go
-	// 	put32va(0xe8, VA2PA(&start0)); 	// let core2 go
-	// 	put32va(0xf0, VA2PA(&start0)); 	// let core3 go
-	// 	__asm_flush_dcache_range(PA2VA(0xe0), PA2VA(0xff));
-	// }
-
-	while (1) {
-		// printf("%lx\n", (unsigned long *)PA2VA(0xe0));
-		// delay(100*100000);
-		// printf("core2 state %lx %lx %lx %lx\n", 
-		// 	core2_state[0],core2_state[1],core2_state[2],core2_state[3]);
-		;
-	}
-	
+	uart_init();
+	init_printf(NULL, putc);	
+	printf("------ kernel boot ------ %d\n\r", (int)cpuid());
+		
 	paging_init(); 
 	sched_init(); I("sched_init done"); // must be before schedule() or timertick() 
 	fb_init(); 		// reserve fb memory other page allocations
@@ -133,7 +121,7 @@ void kernel_main()
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
 	if (sd_init()!=0) E("sd init failed");
-	irq_vector_init();
+	// irq_vector_init();
 	generic_timer_init(); 	// for sched ticks
 	sys_timer_init(); 		// for kernel timer
 	enable_interrupt_controller();
@@ -147,9 +135,10 @@ void kernel_main()
 		return;
 	}
 
+	start_cores(); 
+
 	int wpid; 
 	while (1) {
-		// schedule();
 		wpid = wait(0 /* does not care about status */); 
 		if (wpid < 0) {
 			W("init: wait failed with %d", wpid);
@@ -158,5 +147,5 @@ void kernel_main()
 			I("wait returns pid=%d", wpid);
 			// a parentless task 
 		}
-	}	
+	}
 }
