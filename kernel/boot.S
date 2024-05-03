@@ -13,57 +13,52 @@
 cpuid_reg 	.req 	x28 
 
 .globl _start
+.globl start0
 _start:
+	b start0  // secondary cores need to see non-zero addr to boot
+start0: 
 	/* ---------- Below: handle multicore -------------- */
 	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
-	and	cpuid_reg, cpuid_reg, #0xFF	// Check processor id	
-	//cbz cpuid_reg, rls_cores	//cpuid==0, release other cores
-	cbz cpuid_reg, core_config
+	and	cpuid_reg, cpuid_reg, #0xFF	// x28: core id
+	b check_flag
+// the mechanism used by firmware that wants to "park" the cores
+// qemu-8 implements this mechanism
+.ltorg // emit literal pool; reuse the padding space
+.org 0xd8  // relative to this section
+.globl spin_cpu0
+spin_cpu0:
+        .quad 1  // emit 8 bytes of 0s. as the placeholder of core0's flag 
+.org 0xe0
+//.globl spin_cpu1
+spin_cpu1:
+        .quad 0 // ditto
+.org 0xe8
+//.globl spin_cpu2
+spin_cpu2:
+        .quad 0 // ditto
+.org 0xf0
+//.globl spin_cpu3
+spin_cpu3:
+        .quad 0 // ditto
 
-	/* 		will cause unable to boot
-	cmp cpuid_reg, #1
-	bne 1f
-	mov x0, #0xffffffff
-	mov x1, #0x100
-	str x0, [x1]
-	*/
+#if 1
+	// mechanism to park core(s) to avoid race condition, which will results in being unable to boot
+	// if cores are already "parked" by firmware, we won't need this. but we dont know
+check_flag:	
+    adr     x5, core_flags	 // spin on core_flags until them become 1	
+	ldr     x4, [x5, cpuid_reg, lsl #3]	// x4: the core's flag. 
+    cbnz    x4, core_boot			// Flag non zero. This core may proceed. 
+	wfe		// wait to be signaled. (low power)
+	b 		check_flag
+#endif
 
-1: 	
-	// core1+: wait a bit, until core0 populates kernel pgtables shared
-	// by all cores. 
-	mov x0, #0xfffff  // an emprical value
-	bl delay
-
-	cmp cpuid_reg, #NCPU
-	b.lo core_config // 0<cpuid<NCPU, continue to configure itself
-core_sleep: // cpuid_reg>=NCPU, sleep forever in a loop
-	wfi 
-	b core_sleep
-
-	// upon power on, core1-3 are "on hold", until core0 writes 
-	// to 0xe0/0xe8/exf0 to let them go
-rls_cores: 
-	mov x3, #(NCPU-1)
-	adr x1, _start	// core1-3 starts execute from this address (PA)
-	
-	// rls core1
-	cbz x3, core_config
-	mov x0, #0xe0 	
-	str x1, [x0]
-	
-	// rls core2
-	sub x3, x3, 1
-	cbz x3, core_config
-	mov x0, #0xe8
-	str x1, [x0]
-
-	// rls core3
-	sub x3, x3, 1
-	cbz x3, core_config
-	mov x0, #0xf0
-	str x1, [x0]
-
-core_config:
+core_boot:
+	//cbz cpuid_reg, 1f
+	add x0, cpuid_reg, #65 // A
+	bl uart_send_pa
+	mov x0, #13 // CR
+	bl uart_send_pa
+1:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
 	msr	sctlr_el1, x0
 	
@@ -113,10 +108,14 @@ el3: 		// current: EL3
 	msr	elr_el3, x0	
 	eret	// switch to EL1				
 
-	/* ------- Below: EL1 execution starts ------- */
+	/* ------- Below: EL1 execution ------- */
 el1_entry:	
 	cbnz cpuid_reg, setup_sp // all cores but cpu0 skip code below
 	
+	//adr x0, start0 
+	//adr x1, spin_cpu1
+	//str x0, [x1]
+
 	// bss_begin/end are linking addr (kernel virt). convert them to phys.
 	// they are (at least) 8 bytes aligned in link script
 	ldr	x0, =bss_begin
@@ -380,3 +379,16 @@ __create_page_tables_rpi3: // for rpi3
 	mov	x30, x29						// restore return address
 	ret
 #endif
+
+.globl core_flags
+core_flags: 
+	.quad 1	// 8 bytes
+	.quad 0
+	.quad 0
+	.quad 0
+
+jump_table:  // NB: each entry (insn) 4 bytes
+	bl 	kernel_main
+	bl	secondary_core	
+	bl	secondary_core
+	bl	secondary_core

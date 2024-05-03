@@ -180,3 +180,36 @@ __asm_invalidate_dcache_range:
     b.lo    1b
     dsb    sy
     ret
+
+//////////// uart.S 
+#define VA_START 			0xffff000000000000
+#define PBASE   0x3F000000
+#define AUX_MU_LSR_REG  (PBASE+0x00215054)
+#define AUX_MU_IO_REG   (PBASE+0x00215040)
+
+// useful for secondary cores early debugging (on hw) w/o stack, 
+// but after core0 has done uart_init()
+// void uart_send_pa(char c); 
+.globl uart_send_pa
+uart_send_pa:
+1:
+	ldr x1, =AUX_MU_LSR_REG
+	ldr w2, [x1]
+	and w2, w2, #0x20
+	cbz w2, 1b
+	ldr x1, =AUX_MU_IO_REG
+	str w0, [x1]
+	ret 
+
+// NB: must write 32, not 64
+.globl uart_send_va
+uart_send_va:
+1:
+	ldr x4, =VA_START
+	ldr x1, =AUX_MU_LSR_REG
+	ldr w2, [x1, x4]
+	and w2, w2, #0x20
+	cbz w2, 1b
+	ldr x1, =AUX_MU_IO_REG
+	str w0, [x1, x4]
+	ret 

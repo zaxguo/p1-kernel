@@ -52,24 +52,52 @@ void kernel_process() {
 	// will take effect. 
 }
 
-extern unsigned long _start;
+void secondary_core(int core_id)
+{
+	printf("Hello from core %d\n", core_id);
+	while (1)
+		;
+}
 
+// extern unsigned long *spin_cpu1;  // boot.S
+extern unsigned long spin_cpu0[4];  // boot.S
+extern unsigned long core_flags[4];  // boot.S
+extern unsigned long start0;
+
+static void start_core(int coreid) {
+	// only needed for executing on qemu 
+	// does not affect execution on real hw
+	// *(unsigned long *)(0xd8UL + coreid*8) = (unsigned long)&start0; 
+	spin_cpu0[coreid] = VA2PA(&start0); 
+	core_flags[coreid] = 1; 
+	__asm_flush_dcache_range(spin_cpu0, spin_cpu0+4);
+	__asm_flush_dcache_range(core_flags, core_flags+4);
+	asm volatile ("sev");
+}
+
+// extern unsigned long _start;
+extern void uart_send_va(char c); 
+extern void uart_send_pa(char c); 
 void kernel_main()
 {
 	if (cpuid() == 0) {
 		uart_init();
 		init_printf(NULL, putc);
-		printf("------ kernel boots ------ %d\n\r", (int)cpuid());
+		printf("------ kernel boots111 ------ %d\n\r", (int)cpuid());
+		// for (int i =0; i<5;i++)
+		// 	uart_send_va('c');
+		// printf("here");
 	} else {
 		printf("------ kernel boots ------ %d\n\r", (int)cpuid());
 	}
 	
-	if (cpuid()==0) {	// works
-		put32va(0xe0, VA2PA(&_start)); 	// let core1 go
-		put32va(0xe8, VA2PA(&_start)); 	// let core2 go
-		put32va(0xf0, VA2PA(&_start)); 	// let core3 go
-		__asm_flush_dcache_range(PA2VA(0xe0), PA2VA(0xff));
-	}	
+	start_core(1);
+	// if (cpuid()==0) {	// works
+	// 	put32va(0xe0, VA2PA(&start0)); 	// let core1 go
+	// 	put32va(0xe8, VA2PA(&start0)); 	// let core2 go
+	// 	put32va(0xf0, VA2PA(&start0)); 	// let core3 go
+	// 	__asm_flush_dcache_range(PA2VA(0xe0), PA2VA(0xff));
+	// }
 
 	while (1) {
 		// printf("%lx\n", (unsigned long *)PA2VA(0xe0));
