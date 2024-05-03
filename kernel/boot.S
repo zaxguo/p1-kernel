@@ -211,6 +211,7 @@ setup_sp:
 	cmp cpuid_reg, #1
 	b.ne 1f
 	ldr x2, =secondary_core_asm
+	//ldr x2, =secondary_core
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
 	br 	x2				// Jump to kernel_main() (kernel.c)
@@ -416,9 +417,25 @@ jump_table:  // NB: each entry (insn) 4 bytes
 	.quad	secondary_core
 
 
+.global core2_state
+core2_state:
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0xdeadbeef
+
 secondary_core_asm:
 1:
 	// SIGN OF LIFE....	good 
 	add x0, cpuid_reg, 'X'
 	bl uart_send_va	
-	b 1b
+	
+	// snapshot
+	adr x1, core2_state
+	mov x0, sp
+	str x0, [x1]
+	ldr x0, =0xeeeeeeee
+	str x0, [x1, #8]
+
+	mov x0, cpuid_reg
+	bl secondary_core
