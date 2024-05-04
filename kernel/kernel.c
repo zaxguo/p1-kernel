@@ -58,7 +58,7 @@ extern unsigned long core_flags[4];  // boot.S
 extern unsigned long core2_state[4];  // boot.S
 extern unsigned long start0;
 
-static struct spinlock testlock = {.locked=0, .cpu=0, .name="test_lock"};
+// static struct spinlock testlock = {.locked=0, .cpu=0, .name="test_lock"};
 
 void uart_send_string(char* str);
 void secondary_core(int core_id)
@@ -72,17 +72,14 @@ void secondary_core(int core_id)
 
 	printf("hello printf\n");
 	printf("Hello from core %d\n", core_id);
-	while (1) {
-		unsigned long cnt; 
-		delay(1000*100000);
-		cnt = (core2_state[2] ++);
-		acquire(&testlock);
-		printf("core %d: cnt %ld\n", core_id, cnt);
-		release(&testlock);
-	}
+
+	generic_timer_init(); 
+	enable_interrupt_controller(core_id);
+	enable_irq();
+	while (1)
+		asm volatile("wfi"); 
 }
 
-__attribute__((unused))
 static void start_cores(void) {
 	// only needed for executing on qemu 
 	// does not affect execution on real hw
@@ -124,7 +121,7 @@ void kernel_main()
 	// irq_vector_init();
 	generic_timer_init(); 	// for sched ticks
 	sys_timer_init(); 		// for kernel timer
-	enable_interrupt_controller();
+	enable_interrupt_controller(0/*coreid*/);
 	enable_irq();
 	
 	if (usbkb_init() == 0) I("usb kb init done"); 
@@ -135,6 +132,7 @@ void kernel_main()
 		return;
 	}
 
+	// start other cores after all subsystems are init'd 
 	start_cores(); 
 
 	int wpid; 

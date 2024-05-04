@@ -107,7 +107,7 @@
 // See BCM2836 ARM-local peripherals at
 // https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2836/QA7_rev3.4.pdf
 #define LPBASE          0x40000000      
-#define TIMER_INT_CTRL_0    (0x40000040)
+#define TIMER_INT_CTRL_0    (0x40000040)    // per core irq control 
 #define INT_SOURCE_0        (LPBASE+0x60)   // "CORE0_IRQ_SOURCE" in the manual above
 
 #define TIMER_INT_CTRL_0_VALUE  (1 << 1) 

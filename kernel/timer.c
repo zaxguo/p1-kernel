@@ -10,7 +10,7 @@
 // current design. 
 // scheduler ticks (& user sleep()) are based on arm generic timers. 
 // higher precision timekeeping (e.g. ms/us delay, kernel timers) are calibrated
-// and based on Arm system timers (hence only available for Rpi3, not qemu)
+// and based on Arm system timers 
 
 // below are for arm generic timers
 // 10Hz (100ms per tick) is assumed by some user tests. 
@@ -31,7 +31,6 @@ unsigned int ticks; 	// sleep() tasks sleep on this var.
 
 /* 	These are for Arm generic timers. 
 	They are fully functional on both QEMU and Rpi3.
-	Recommended.
 */
 
 // utils.S
@@ -47,11 +46,13 @@ void generic_timer_init ( void )
 	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(interval));	
 }
 
-void handle_generic_timer_irq( void ) 
+void handle_generic_timer_irq(void) 
 {
 	// TODO: In order to implement sleep(t), you should calculate @interval based on t, 
 	// instead of having a fixed @interval which triggers periodic interrupts
-	
+	if (cpuid()==1)
+		W("cpu%d handle_generic_timer_irq", 1);
+
 	acquire(&tickslock); 
 	ticks++; 
 	wakeup(&ticks); 

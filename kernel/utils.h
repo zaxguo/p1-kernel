@@ -76,7 +76,7 @@ void handle_generic_timer_irq ( void );
 extern struct spinlock tickslock;
 extern unsigned int ticks; 
 // ------------------- irq ---------------------------- //
-void enable_interrupt_controller( void ); // irq.c 
+void enable_interrupt_controller(int coreid); // irq.c 
 
 // utils.S
 void irq_vector_init( void );    

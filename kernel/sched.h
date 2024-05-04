@@ -124,7 +124,9 @@ struct cpu {
 };
 
 extern struct cpu cpus[NCPU];		// sched.c
-static inline struct cpu* mycpu(void) {return &cpus[0];};
+// irq must be disabled
+extern unsigned long cpuid(void); 
+static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
 static inline struct task_struct *myproc(void) {return current;};
 
 // --------------- fork related ----------------------- // 

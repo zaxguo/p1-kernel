@@ -8,7 +8,7 @@ struct spinlock {
 
   // For debugging:
   char *name;        // Name of lock.
-  struct cpu *cpu;   // The cpu holding the lock. // we only assume 1 cpu core
+  struct cpu *cpu;   // The cpu holding the lock. 
 };
 
 #endif

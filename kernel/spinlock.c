@@ -56,7 +56,7 @@ release(struct spinlock *lk)
   //   W("pid %d rls %lx %s", current->pid, (unsigned long)lk, lk->name);
 
   if(!lk || !holding(lk))
-    panic("release");
+    {printf("%s ", lk->name); panic("release");}
 
   lk->cpu = 0;
 
