@@ -52,8 +52,8 @@ void kernel_process() {
 	// will take effect. 
 }
 
-// extern unsigned long *spin_cpu1;  // boot.S
-extern unsigned long spin_cpu0[4];  // boot.S
+unsigned long * spin_cpu = PA2VA(0xd8);  // boot.S
+// extern unsigned long spin_cpu0[4];  // boot.S
 extern unsigned long core_flags[4];  // boot.S
 extern unsigned long core2_state[4];  // boot.S
 extern unsigned long start0;
@@ -89,9 +89,11 @@ static void start_cores(void) {
 	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
 
 	for (int i=1; i <NCPU; i++) {
-		spin_cpu0[i] = VA2PA(&start0); 
+#ifdef PLAT_RPI3QEMU		
+		spin_cpu[i] = VA2PA(&start0); 
+#endif		
 		core_flags[i] = 1; 
-		__asm_flush_dcache_range(spin_cpu0, spin_cpu0+4);
+		__asm_flush_dcache_range(spin_cpu, spin_cpu+4);
 		__asm_flush_dcache_range(core_flags, core_flags+4);
 		asm volatile ("sev");
 	}
