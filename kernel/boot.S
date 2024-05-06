@@ -195,6 +195,21 @@ setup_sp:
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
 	br 	x2				// Jump to kernel_main() (kernel.c)
 
+secondary_core_asm:	
+	// now: VM is on, cache is on
+	// trampoline for cpu1+, before jumping to the c code (secondary_core())
+	// a good place for debugging cpu1+ states
+	//add x0, cpuid_reg, 'X'	// are we alive?
+	//bl uart_send_va	
+
+	// invalidate all cache 
+	//ldr x0, =VA_START
+	//add x1, x0, #(4*SECTION_SIZE)
+	//bl __asm_invalidate_dcache_range
+
+	mov x0, cpuid_reg
+	bl secondary_core
+
 // ------------------------ pgtable utilities below --------------------------- //
 
 	// Given a virt addr and the PGD, set the PGD entry, allocate one PUD and one PMD.
@@ -380,16 +395,3 @@ core_flags:
 	.quad 0
 	.quad 0
 	.quad 0
-
-secondary_core_asm:
-	// now: VM is on, cache is on
-	//add x0, cpuid_reg, 'X'	// are we alive?
-	//bl uart_send_va	
-
-	// invalidate all cache 
-	//ldr x0, =VA_START
-	//add x1, x0, #(4*SECTION_SIZE)
-	//bl __asm_invalidate_dcache_range
-
-	mov x0, cpuid_reg
-	bl secondary_core
