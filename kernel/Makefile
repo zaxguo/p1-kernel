@@ -11,7 +11,7 @@ endif
 # support for fat32 fs
 CONFIG_FAT ?= 1
 
-BUILD_DIR = build
+BUILD_DIR = build-$(PLAT)
 SRC_DIR = .
 
 ARMGNU ?= aarch64-linux-gnu
