@@ -53,10 +53,9 @@ void kernel_process() {
 }
 
 unsigned long * spin_cpu = PA2VA(0xd8);  // boot.S
-// extern unsigned long spin_cpu0[4];  // boot.S
 extern unsigned long core_flags[4];  // boot.S
 extern unsigned long core2_state[4];  // boot.S
-extern unsigned long start0;
+extern unsigned long _start;
 
 // static struct spinlock testlock = {.locked=0, .cpu=0, .name="test_lock"};
 
@@ -64,11 +63,6 @@ void uart_send_string(char* str);
 void secondary_core(int core_id)
 {
 	uart_send_string("secondary_core()\n");
-	__asm_flush_dcache_range(core2_state, core2_state+4); // need this
-	// __asm volatile ("dmb sy" ::: "memory");	// wont help 
-
-	// not useful
-	// init_printf(NULL, putc);
 
 	printf("hello printf\n");
 	printf("Hello from core %d\n", core_id);
@@ -80,17 +74,17 @@ void secondary_core(int core_id)
 		asm volatile("wfi"); 
 }
 
-static void start_cores(void) {
-	// only needed for executing on qemu 
-	// does not affect execution on real hw
-	// *(unsigned long *)(0xd8UL + coreid*8) = (unsigned long)&start0; 
-	
-	// flush the whole kernel memory 
+static void start_cores(void) {		
+	// Flush the whole kernel memory 
+	// My theory: cpu1+ were down when cpu0 was init kernel state; so they might
+	// have missed cache transactions and therefore could see stale kernel states
+	// e.g. cpu1+ couldn't see the effect of init_printf() and hence failed to 
+	// print msgs. 
 	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
 
 	for (int i=1; i <NCPU; i++) {
 #ifdef PLAT_RPI3QEMU		
-		spin_cpu[i] = VA2PA(&start0); 
+		spin_cpu[i] = VA2PA(&_start); 
 #endif		
 		core_flags[i] = 1; 
 		__asm_flush_dcache_range(spin_cpu, spin_cpu+4);

@@ -13,10 +13,7 @@
 cpuid_reg 	.req 	x28 
 
 .globl _start
-.globl start0
 _start:
-	b start0  // secondary cores need to see non-zero addr to boot
-start0: 
 	/* ---------- Below: handle multicore -------------- */
 	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
 	and	cpuid_reg, cpuid_reg, #0xFF	// x28: core id
@@ -41,7 +38,6 @@ spin_cpu2:
 spin_cpu3:
         .quad 0 // ditto
 
-#if 1
 	// mechanism to park core(s) to avoid race condition, which will results in being unable to boot
 	// if cores are already "parked" by firmware, we won't need this. but we dont know
 check_flag:	
@@ -50,7 +46,6 @@ check_flag:
     cbnz    x4, core_boot			// Flag non zero. This core may proceed. 
 	wfe		// wait to be signaled. (low power)
 	b 		check_flag
-#endif
 
 core_boot:
 	//cbz cpuid_reg, 1f
@@ -113,10 +108,6 @@ el3: 		// current: EL3
 el1_entry:	
 	cbnz cpuid_reg, setup_sp // all cores but cpu0 skip code below
 	
-	//adr x0, start0 
-	//adr x1, spin_cpu1
-	//str x0, [x1]
-
 	// bss_begin/end are linking addr (kernel virt). convert them to phys.
 	// they are (at least) 8 bytes aligned in link script
 	ldr	x0, =bss_begin
@@ -413,20 +404,6 @@ core_flags:
 	.quad 0
 	.quad 0
 
-jump_table:  // NB: each entry (insn) 4 bytes
-	.quad 	kernel_main
-	.quad	secondary_core	
-	.quad	secondary_core
-	.quad	secondary_core
-
-
-.global core2_state
-core2_state:
-	.quad 0
-	.quad 0
-	.quad 0
-	.quad 0xdeadbeef
-
 secondary_core_asm:
 	// now: VM is on, cache is on
 	//add x0, cpuid_reg, 'X'	// are we alive?
@@ -436,13 +413,6 @@ secondary_core_asm:
 	ldr x0, =VA_START
 	add x1, x0, #(4*SECTION_SIZE)
 	bl __asm_invalidate_dcache_range
-
-	// snapshot
-	//adr x1, core2_state
-	//mov x0, sp
-	//str x0, [x1]
-	//ldr x0, =0xeeeeeeee
-	//str x0, [x1, #8]
 
 	mov x0, cpuid_reg
 	bl secondary_core
