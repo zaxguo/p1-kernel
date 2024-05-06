@@ -3,10 +3,6 @@
 #include "plat.h"
 #include "mmu.h"
 
-/* 
-	unified code for virt and rpi3 
-	for register details, cf sysregs.h
-*/
 .section ".text.boot"
 
 // reg for cpuid_reg throughout boot.S. shall not be used for other purposes
@@ -18,25 +14,19 @@ _start:
 	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
 	and	cpuid_reg, cpuid_reg, #0xFF	// x28: core id
 	b check_flag
+
 // the mechanism used by firmware that wants to "park" the cores
-// qemu-8 implements this mechanism
+// * qemu-8 implements this mechanism
+// * rpi3 hw cannot boot w/o this table (the OS does NOT need to change the flags though. why?)
 .ltorg // emit literal pool; reuse the padding space
 .org 0xd8  // relative to this section
-.globl spin_cpu0
-spin_cpu0:
         .quad 1  // emit 8 bytes of 0s. as the placeholder of core0's flag 
 .org 0xe0
-//.globl spin_cpu1
-spin_cpu1:
-        .quad 0 // ditto
+        .quad 0 // core1
 .org 0xe8
-//.globl spin_cpu2
-spin_cpu2:
-        .quad 0 // ditto
+        .quad 0 // core2
 .org 0xf0
-//.globl spin_cpu3
-spin_cpu3:
-        .quad 0 // ditto
+        .quad 0 // core3
 
 	// mechanism to park core(s) to avoid race condition, which will results in being unable to boot
 	// if cores are already "parked" by firmware, we won't need this. but we dont know
@@ -51,8 +41,6 @@ core_boot:
 	//cbz cpuid_reg, 1f
 	///  SIGN OF LIFE .........
 	//add x0, cpuid_reg, 'A'
-	//bl uart_send_pa
-	//mov x0, '\n'
 	//bl uart_send_pa
 1:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
@@ -106,8 +94,9 @@ el3: 		// current: EL3
 
 	/* ------- Below: EL1 execution ------- */
 el1_entry:	
-	cbnz cpuid_reg, setup_sp // all cores but cpu0 skip code below
-	
+	cbnz cpuid_reg, setup_sp 
+	// cpu0 execution only
+
 	// bss_begin/end are linking addr (kernel virt). convert them to phys.
 	// they are (at least) 8 bytes aligned in link script
 	ldr	x0, =bss_begin
@@ -140,8 +129,6 @@ el1_entry:
 // Cf: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
 // https://www.raspberrypi.org/forums/viewtopic.php?t=222408
 	bl	__create_idmap
-	//adrp	x0, idmap_dir
-	//msr	ttbr0_el1, x0
 #endif
 
 	// create kernel's pgtable (for memory and IO)
@@ -153,16 +140,16 @@ el1_entry:
 	#error "not implemented"
 #endif	
 
+	// exec by all cpus
 	// set virt sp = (cpuid_reg+1)*kernel_stack_size + kernel_stack_start
-	// (assuming linear mapping, phys 0 --> virt VA_START)
-	// NB: we won't use sp until mmu is on
+	// (assuming linear mapping, phys 0 --> virt VA_START)	
 setup_sp: 	
 	add x0, cpuid_reg, #1
 	mov x1, #(PAGE_SIZE * NPAGES_PER_KERNEL_STACK)
 	mul x0, x0, x1
 	ldr x1, =kernel_stack_start	// kernel.c
 	add x0, x0, x1
-	mov sp, x0 
+	mov sp, x0 		// NB: we won't use sp until mmu is on
 
 	// load kernel's pgtable
 	adrp	x0, pg_dir			// @pg_dir: the virtual base address of the pgtables. cf utils.h
@@ -175,7 +162,7 @@ setup_sp:
 	msr	tcr_el1, x0 
 	isb 		// memory barrier 
 
-	// memory attributes.
+	// memory attributes
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el1, x0
 
@@ -192,28 +179,18 @@ setup_sp:
 	//add x0, cpuid_reg, 'A'
 	//bl uart_send_pa
 		
-	// Go in through jump_table per our core ID
-#if 0	// buggy?
-	adr	x4, jump_table
-	lsl x2, cpuid_reg, #2
-	ldr x4, [x4, x2]
-	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
-	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.
-	mov x0, cpuid_reg 	// x28=core id as the 1st argument 
-	br 	x4				// Jump to kernel_main() (kernel.c)
-#endif
 	cmp cpuid_reg, #0
 	b.eq 1f
+	// cpu1+, load the linking (virt) addr of secondary_core_asm
 	ldr x2, =secondary_core_asm
 	//ldr x2, =secondary_core
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
-	br 	x2				// Jump to kernel_main() (kernel.c)
+	br 	x2				
 
 1:
-	// ORIGINAL, core0
-	// load the linking (virt) addr of kernel_main
-	ldr	x2, =kernel_main
+	// cpu0 only, load the linking (virt) addr of kernel_main
+	ldr	x2, =kernel_main  
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
 	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
 	br 	x2				// Jump to kernel_main() (kernel.c)
@@ -410,9 +387,9 @@ secondary_core_asm:
 	//bl uart_send_va	
 
 	// invalidate all cache 
-	ldr x0, =VA_START
-	add x1, x0, #(4*SECTION_SIZE)
-	bl __asm_invalidate_dcache_range
+	//ldr x0, =VA_START
+	//add x1, x0, #(4*SECTION_SIZE)
+	//bl __asm_invalidate_dcache_range
 
 	mov x0, cpuid_reg
 	bl secondary_core
