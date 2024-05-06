@@ -89,6 +89,7 @@ struct task_struct {
   char name[16];         // Process name (debugging)
   struct mm_struct *mm;  // =0 for kernel thread. for user threads, multi task_structs may share a mm_struct
   unsigned long flags;
+  long preempt_count; // cf: preempt_enable()
 
   // sched_lock is needed for this
   int state; // task state, e.g. TASK_RUNNING. TASK_UNUSED if task_struct is invalid
@@ -96,9 +97,8 @@ struct task_struct {
   struct spinlock lock;
   // protect members below, as well as "killed" above
   int killed;         // If non-zero, have been killed. NB: also checked by entry.S.
-  long counter;       // how long this task has been running? decreases by 1 each timer tick. Reaching 0, kernel will attempt to schedule another task. Support our simple sched
+  long counter;       // # of ticks to run. dec by 1 for each timer tick. schedule() picks the task with highest counter
   long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `counter`. Regulate CPU time the task gets relative to other tasks
-  long preempt_count; // a flag. A non-zero means that the task is executing in a critical code region cannot be interrupted, Any timer tick should be ignored and not triggering rescheduling
   void *chan;         // If non-zero, sleeping on chan
   int pid;            // still need this, ease of debugging...
   int xstate;         // Exit status to be returned to parent's wait
@@ -155,12 +155,12 @@ struct pt_regs {
 
 // use this to check TASK_STRUCT_KILLED_OFFSET_C at compile time
 // https://stackoverflow.com/questions/11770451/what-is-the-meaning-of-attribute-packed-aligned4
-// e.g. "error: initialization of ‘char (*)[304]’ from ‘int’ ...."
+// e.g. "error: initialization of ‘char (*)[312]’ from ‘int’ ...."
 // char (*__kaboom)[TASK_STRUCT_KILLED_OFFSET_C] = 1; 
 #endif		// ! __ASSEMBLER__
 
 // exposed to asm...
-#define TASK_STRUCT_KILLED_OFFSET	304 	// see above
+#define TASK_STRUCT_KILLED_OFFSET	312 	// see above
 #define S_FRAME_SIZE			272 		// size of all saved registers 
 #define S_X0				    0		// offset of x0 register in saved stack frame
 

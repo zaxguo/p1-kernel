@@ -53,9 +53,8 @@ struct spinlock wait_lock = {.locked=0, .cpu=0, .name="wait_lock"};
 
 // prevent timer_tick() from calling schedule(). 
 // they don't prevent voluntary switch; or disable irq handler 
-// XXXX need a btter design. like per-cpu? also does preempt_count need lock??
-void preempt_disable(void) { current->preempt_count++; }
 void preempt_enable(void) { current->preempt_count--; }
+void preempt_disable(void) { current->preempt_count++; }
 
 /* get a task's saved registers ("trapframe"), at the top of the task's kernel page. 
    these regs are saved/restored by kernel_entry()/kernel_exit(). 

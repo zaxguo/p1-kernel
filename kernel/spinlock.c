@@ -94,10 +94,9 @@ holding(struct spinlock *lk)
 // push_off/pop_off are like intr_off()/intr_on() except that they are matched:
 // it takes two pop_off()s to undo two push_off()s.  Also, if interrupts
 // are initially off, then push_off, pop_off leaves them off.
-
-// xzl: in many places we can't do disable_irq()/enable_irq() here b/c the func may be called with
-// another spinlock held (which already disabled irq), cf. releasesleep()
-// if so, the enable_irq below would prematurely "release" that spinlock -- bad.
+// 
+// xzl: "intena" is the irq status (on/off) when noff (i.e. the "balance") is 0. 
+// hence, the irq status must be restored when noff reaches 0 again
 void
 push_off(void)
 {
@@ -110,9 +109,8 @@ push_off(void)
   mycpu()->noff += 1;
 }
 
-// xzl: pop_off must be done with a negative counter (noff)
+// xzl: pop_off must be done with a positive counter (noff)
 //  i.e. it's a bug if irq is already enabled and then pop_off
-
 void
 pop_off(void)
 {
