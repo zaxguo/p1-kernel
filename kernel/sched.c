@@ -85,7 +85,7 @@ void sched_init(void) {
 
     acquire(&init_task->lock);
     // init_task->cpu_context = {0,0,0,0,0,0,0,0,0,0,0,0,0}; // already zeroed
-    init_task->counter = 0;
+    init_task->credits = 0;
     init_task->priority = 2;
     init_task->preempt_count = 0;
     init_task->flags = PF_KTHREAD;
@@ -100,7 +100,7 @@ void sched_init(void) {
     release(&sched_lock);
 }
 
-// the scheduler 
+// the scheduler, called by tasks or irq
 void _schedule(void) {
     V("_schedule");
     
@@ -130,8 +130,8 @@ void _schedule(void) {
 			if (p->state == TASK_RUNNING || p->state == TASK_RUNNABLE) {
                 has_runnable = 1; 
                 acquire(&p->lock); 
-				if (p->counter > c) {
-				    c = p->counter;
+				if (p->credits > c) {
+				    c = p->credits;
 				    next = i;
                 }
                 release(&p->lock); 
@@ -149,7 +149,7 @@ void _schedule(void) {
                 p = task[i]; BUG_ON(!p);
                 if (p->state != TASK_UNUSED) {
                     acquire(&p->lock); 
-                    p->counter = (p->counter >> 1) + p->priority;
+                    p->credits = (p->credits >> 1) + p->priority;
                     release(&p->lock); 
                 }
             }
@@ -186,7 +186,8 @@ void schedule_tail(void) {
 
 // called from tasks
 void schedule(void) {
-    acquire(&current->lock); current->counter = 0; release(&current->lock);
+    // voluntarily gives up all remaining schedule credits
+    acquire(&current->lock); current->credits = 0; release(&current->lock);
     _schedule();
 }
 
@@ -236,12 +237,12 @@ void switch_to(struct task_struct * next) {
 void timer_tick() {
     V("timer_tick");
     acquire(&current->lock); 
-	V("%s counter %ld preempt_count %ld", __func__, 
-        current->counter, current->preempt_count);
-	--current->counter;
-	if (current->counter > 0 || current->preempt_count > 0) 
+	V("%s credits %ld preempt_count %ld", __func__, 
+        current->credits, current->preempt_count);
+	--current->credits;
+	if (current->credits > 0 || current->preempt_count > 0) 
 		{release(&current->lock); return;}
-	current->counter=0;
+	current->credits=0;
     release(&current->lock);
 
 	/* We just came from an interrupt handler and CPU just automatically disabled all interrupts. 
@@ -410,7 +411,7 @@ static void freeproc(struct task_struct *p) {
     p->mm = 0; 
     p->flags = 0; 
     p->killed = 0; 
-    p->counter = 0; 
+    p->credits = 0; 
     p->preempt_count = 0; 
     p->chan = 0; 
     p->pid = 0; 
@@ -715,7 +716,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	safestrcpy(p->name, current->name, sizeof(current->name));		
 
 	p->flags = clone_flags;
-	p->counter = p->priority = current->priority;
+	p->credits = p->priority = current->priority;
 	p->preempt_count = 1; //disable preemption until schedule_tail
 	
 	// TODO: init more field here

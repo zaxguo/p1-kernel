@@ -97,8 +97,8 @@ struct task_struct {
   struct spinlock lock;
   // protect members below, as well as "killed" above
   int killed;         // If non-zero, have been killed. NB: also checked by entry.S.
-  long counter;       // # of ticks to run. dec by 1 for each timer tick. schedule() picks the task with highest counter
-  long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `counter`. Regulate CPU time the task gets relative to other tasks
+  long credits;       // schedule "credits". dec by 1 for each timer tick. schedule() picks the task with most credits
+  long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `credits`. Regulate CPU time the task gets relative to other tasks
   void *chan;         // If non-zero, sleeping on chan
   int pid;            // still need this, ease of debugging...
   int xstate;         // Exit status to be returned to parent's wait

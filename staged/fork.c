@@ -82,7 +82,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
 	p->flags = clone_flags;
 	p->priority = current->priority;
-	p->counter = p->priority;
+	p->credits = p->priority;
 	p->preempt_count = 1; //disable preemption until schedule_tail
 	// p->mm.sz = current->mm.sz; p->mm.codesz = current->mm.codesz; 	// user only?? XXX move above?? XXX
 
