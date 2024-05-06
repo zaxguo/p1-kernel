@@ -7,14 +7,14 @@ SECTIONS
 	.text.boot : { *(.text.boot) }
 	. = ALIGN(0x00001000);
 	user_begin = .;
-	.text.user : { build/user* (.text) }
-	.rodata.user : { build/user* (.rodata) }
-	.data.user : { build/user* (.data) }
-	.bss.user : { build/user* (.bss) }
+	.text.user : { build-rpi3/user* (.text) }
+	.rodata.user : { build-rpi3/user* (.rodata) }
+	.data.user : { build-rpi3/user* (.data) }
+	.bss.user : { build-rpi3/user* (.bss) }
 	user_end = .;
 	. = ALIGN(512);		/*sector aligned*/
 	ramdisk_start = .;
-	.ramdisk : {build/sd* (.data)}		/* must come before generic *(.data) */
+	.ramdisk : {build-rpi3/sd* (.data)}		/* must come before generic *(.data) */
 	. = ALIGN(512);		/*sector aligned*/
 	ramdisk_end = .;	
 	.text :  { *(.text) }
