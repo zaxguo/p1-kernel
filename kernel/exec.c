@@ -178,7 +178,7 @@ int exec(char *path, char **argv) {
   // Commit to the user VM. free previous user mapping, pages. if any
   regs->pc = elf.entry;  // initial program counter = main
   regs->sp = sp; // initial stack pointer
-  W("pid %d (%s) init sp 0x%lx", current->pid, current->name, sp);
+  W("pid %d (%s) init sp 0x%lx", myproc()->pid, myproc()->name, sp);
   free_task_pages(p->mm, 1 /*useronly*/);  
 
   // Careful: transfer refcnt/lock from existing mm

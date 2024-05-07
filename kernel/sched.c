@@ -1,6 +1,6 @@
-#define K2_DEBUG_WARN
 // #define K2_DEBUG_INFO
 // #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"
@@ -33,7 +33,7 @@ static struct mm_struct mm_tables[NR_MMS];
 // cf. ret_from_syscall (entry.S). if you modify the d/s below, keep that in mind. 
 static char kernel_stacks[NR_TASKS][THREAD_SIZE] __attribute__ ((aligned (THREAD_SIZE))); 
 
-struct task_struct *init_task, *current; 
+struct task_struct *init_task; 
 struct task_struct *task[NR_TASKS];
 struct spinlock sched_lock = {.locked=0, .cpu=0, .name="sched"};
 int lastpid=0; // a hint for the next free tcb slot. slowdown pid reuse for dbg ease
@@ -53,8 +53,16 @@ struct spinlock wait_lock = {.locked=0, .cpu=0, .name="wait_lock"};
 
 // prevent timer_tick() from calling schedule(). 
 // they don't prevent voluntary switch; or disable irq handler 
-void preempt_enable(void) { current->preempt_count--; }
-void preempt_disable(void) { current->preempt_count++; }
+void preempt_enable(void) { myproc()->preempt_count--; }
+void preempt_disable(void) { myproc()->preempt_count++; }
+
+struct task_struct *myproc(void) {      // MP
+    struct task_struct *p;
+	push_off(); 
+    p=mycpu()->proc; 
+    pop_off(); 
+	return p; 
+};
 
 /* get a task's saved registers ("trapframe"), at the top of the task's kernel page. 
    these regs are saved/restored by kernel_entry()/kernel_exit(). 
@@ -66,7 +74,7 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 
 // must be called before any schedule() or timertick() occurs
 void sched_init(void) {
-    acquire(&sched_lock);    
+    // acquire(&sched_lock);    
     for (int i = 0; i < NR_TASKS; i++) {
         task[i] = (struct task_struct *)(&kernel_stacks[i][0]); 
         BUG_ON((unsigned long)task[i] & ~PAGE_MASK);  // must be page aligned. see above
@@ -79,11 +87,12 @@ void sched_init(void) {
     for (int i = 0; i < NR_MMS; i++)
         initlock(&mm_tables[i].lock, "mmlock");
     
-    current = init_task = task[0]; // XXX has to change for multicore
+    // current = init_task = task[0]; // UP
+    mycpu()->proc = init_task = task[0]; // MP
     
     init_task->state = TASK_RUNNABLE;
 
-    acquire(&init_task->lock);
+    // acquire(&init_task->lock);
     // init_task->cpu_context = {0,0,0,0,0,0,0,0,0,0,0,0,0}; // already zeroed
     init_task->credits = 0;
     init_task->priority = 2;
@@ -96,13 +105,24 @@ void sched_init(void) {
     init_task->cwd = 0;
     // init_task->ofile // already zeroed
     safestrcpy(init_task->name, "init", 5);
-    release(&init_task->lock);
-    release(&sched_lock);
+    // release(&init_task->lock);
+    // release(&sched_lock);
+}
+
+// return cpuid for the task is currently on; 
+// -1 on no found or error
+// caller must hold sched_lock
+static int task_on_cpu(struct task_struct *p) {
+    if (!p) {BUG(); return -1;}
+    for (int i = 0; i < NCPU; i++)
+        if (cpus[i].proc == p)
+            return i; 
+    return -1; 
 }
 
 // the scheduler, called by tasks or irq
 void _schedule(void) {
-    V("_schedule");
+    V("cpu%d _schedule", cpuid());
     
 	/* Prevent timer irqs from calling schedule(), while we exec the following code region. 
         This may result in unnecessary nested schedule()
@@ -111,7 +131,9 @@ void _schedule(void) {
 	preempt_disable(); 
 
 	int next, c;
-	struct task_struct * p;
+    int cpu = cpuid(), oncpu;
+    
+	struct task_struct *p, *cur=myproc();
     int has_runnable; 
 
     acquire(&sched_lock); 
@@ -120,14 +142,18 @@ void _schedule(void) {
 		c = -1; // the maximum counter of all tasks 
 		next = 0;
         has_runnable = 0; 
+        // cur = myproc(); 
 
-		/* Iterates over all tasks and tries to find a task in 
-		TASK_RUNNING state with the maximum counter. If such 
-		a task is found, we immediately break from the while loop 
-		and switch to this task. */
+		/* Iterates over all RUNNABLE tasks (+ the cur task, if it's RUNNING)
+            and tries to find a task w/ maximum credits. If such a task is
+		    found, break from the while loop and switch to it. */
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i]; BUG_ON(!p);
-			if (p->state == TASK_RUNNING || p->state == TASK_RUNNABLE) {
+            oncpu = task_on_cpu(p); 
+            if (oncpu != -1 && oncpu != cpu) // task on other cpu, dont touch
+                continue;
+			if ((p == cur && p->state == TASK_RUNNING)
+                || p->state == TASK_RUNNABLE) {
                 has_runnable = 1; 
                 acquire(&p->lock); 
 				if (p->credits > c) {
@@ -136,38 +162,40 @@ void _schedule(void) {
                 }
                 release(&p->lock); 
 			}
-		}		
+		}
         // pick such a task as next
 		if (c > 0)
 			break;
 
-		/* If no such task is found, this is either because i) no 
-		task is in TASK_RUNNING|RUNNABLE or ii) all such tasks have 0 counters.*/
-		
-        if (has_runnable) { // recharge counters for all tasks once, per priority */		
+		// No task can run 
+        if (has_runnable) { 
+            // tasks w/ insufficient credits, recharge for all & retry scheduling
             for (int i = 0; i < NR_TASKS; i++) {
                 p = task[i]; BUG_ON(!p);
                 if (p->state != TASK_UNUSED) {
                     acquire(&p->lock); 
-                    p->credits = (p->credits >> 1) + p->priority;
+                    p->credits = (p->credits >> 1) + p->priority;  // per priority
                     release(&p->lock); 
                 }
             }
-        } else { /* nothing to run. */
-            V("nothing to run");             
-#ifdef K2_DEBUG_VERBOSE            
+        } else { // no tasks in RUNNABLE (inc. cur task)
+            I("cpu%d nothing to run", cpu);
+#ifdef K2_DEBUG_VERBOSE
             for (int i = 0; i < NR_TASKS; i++) {
                 p= task[i];
                 if (p->state != TASK_UNUSED)
-                    W("pid %d state %d chan %lx", p->pid, p->state, (unsigned long) p->chan);
+                    W("\t\t pid %d state %d chan %lx", p->pid, p->state, (unsigned long) p->chan);
             }
-#endif            
-            release(&sched_lock);   // let other cores (if any) schedule()
+#endif
+            release(&sched_lock);   // let other cpus schedule()
+            // this cpu sleep on the cur task's stack; other cpus won't steal
+            // the cur task away 
             asm volatile("wfi");
             acquire(&sched_lock); 
         }
 	}
-    V("picked pid %d state %d", next, task[next]->state);
+    // W("cpu%d picked pid %d", cpu, next);
+    I("cpu%d picked pid %d state %d", cpu, next, task[next]->state);
 	switch_to(task[next]);
     release(&sched_lock);
 	preempt_enable();
@@ -187,23 +215,27 @@ void schedule_tail(void) {
 // called from tasks
 void schedule(void) {
     // voluntarily gives up all remaining schedule credits
-    acquire(&current->lock); current->credits = 0; release(&current->lock);
+    struct task_struct *p = myproc(); 
+    acquire(&p->lock); p->credits = 0; release(&p->lock);
     _schedule();
 }
 
 // caller must hold sched_lock, and not holding next->lock
+// called when preemption is disabled, so the cur task wont lose cpu
 void switch_to(struct task_struct * next) {
 	struct task_struct * prev; 
+    struct task_struct *cur; 
 
-	if (current == next) 
-		return;
+    cur = myproc();
+	if (cur == next) 
+		return; 
 
-	prev = current;
-	current = next;
+	prev = cur;
+	mycpu()->proc = next;
 
-	if (prev->state == TASK_RUNNING) // preempted 
+	if (prev && prev->state == TASK_RUNNING) // preempted 
 		prev->state = TASK_RUNNABLE; 
-	current->state = TASK_RUNNING;
+	next->state = TASK_RUNNING;
 
     acquire(&next->lock); 
     if (next->mm) { // user task
@@ -233,24 +265,33 @@ void switch_to(struct task_struct * next) {
 	cpu_switch_to(prev, next);  // sched.S will branch to @next->cpu_context.pc
 }
 
-// caller by timer irq handler
+// caller by timer irq handler, with irq automatically off by hardware
 void timer_tick() {
-    V("timer_tick");
-    acquire(&current->lock); 
-	V("%s credits %ld preempt_count %ld", __func__, 
-        current->credits, current->preempt_count);
-	--current->credits;
-	if (current->credits > 0 || current->preempt_count > 0) 
-		{release(&current->lock); return;}
-	current->credits=0;
-    release(&current->lock);
+    struct task_struct *cur = myproc();
+    __attribute_maybe_unused__ int cpu = cpuid();
+    // V("enter timer_tick");
+    if (cur) {
+        I(">>>>>>>>> enter timer_tick cpu%d pid %d", cpu, cur->pid);
+        acquire(&cur->lock); 
+        V("%s credits %ld preempt_count %ld", __func__, 
+            cur->credits, cur->preempt_count);
+        --cur->credits; 
+        if (cur->credits > 0 || cur->preempt_count > 0) {
+            // cur task continues to exec
+            I("<<<<<<<<<< leave timer_tick. no resche");
+            release(&cur->lock); return;
+        }
+        cur->credits=0;
+        release(&cur->lock);
+    }
 
-	/* We just came from an interrupt handler and CPU just automatically disabled all interrupts. 
-		Now call scheduler with interrupts enabled */
+	/* reschedule with irq on */
 	enable_irq();
         /* what if a timer irq happens here? _schedule() will be called 
             twice back-to-back, no interleaving so we're fine. */
 	_schedule();
+
+    I("<<<<<<<<<< leave timer_tick cpu%d pid %d", cpuid(), cur->pid);
 	/* disable irq until kernel_exit, in which eret will resort the interrupt 
         flag from spsr, which sets it on. */
 	disable_irq(); 
@@ -258,14 +299,14 @@ void timer_tick() {
 
 // Wake up all processes sleeping on chan.
 // Called from irq (many drivers) or task
-//
+// return # tasks woken up
 // Must be called WITHOUT any p->lock, without sched_lock 
-void wakeup(void *chan) {
+int wakeup(void *chan) {
     struct task_struct *p;
-
+    int cnt = 0; 
     acquire(&sched_lock);     
 
-    V("chan=%lx", (unsigned long)chan);
+    // V("chan=%lx", (unsigned long)chan);
 
 	for (int i = 0; i < NR_TASKS; i ++) {
 		p = task[i]; 
@@ -276,18 +317,21 @@ void wakeup(void *chan) {
         acquire(&p->lock);     // for p->chan. also cf sleep() below
         if (p->state == TASK_SLEEPING && p->chan == chan) {
             p->state = TASK_RUNNABLE;
-            I("wakeup chan=%lx pid %d", (unsigned long)p->chan, p->pid);
+            cnt ++; 
+            I("wakeup cpu%d chan=%lx pid %d", cpuid(),
+                (unsigned long)p->chan, p->pid);
         }
         release(&p->lock);
     }
     release(&sched_lock);
+    return cnt; 
 }
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 // Called by tasks with @lk held
 void sleep(void *chan, struct spinlock *lk) {
-    struct task_struct *p = current;
+    struct task_struct *p = myproc();
 
     // Must acquire p->lock in order to
     // change p->state and then call sched.
@@ -347,7 +391,7 @@ void reparent(struct task_struct *p) {
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
-    I("pid %d (%s): exit_process status %d", current->pid, current->name, status);
+    I("pid %d (%s): exit_process status %d", p->pid, p->name, status);
 
     if (p == init_task)
         panic("init exiting");
@@ -474,9 +518,9 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
         }
 
         // Wait for a child to exit.
-        I("pid %d sleep on %lx", current->pid, (unsigned long)&wait_lock);
+        I("pid %d sleep on %lx", p->pid, (unsigned long)&wait_lock);
         sleep(p, &wait_lock); // DOC: wait-sleep
-        I("pid %d wake up from sleep. p->chan %lx state %d", current->pid, 
+        I("pid %d wake up from sleep. p->chan %lx state %d", p->pid, 
             (unsigned long)p->chan, p->state);
     }
 }
@@ -607,14 +651,14 @@ static struct mm_struct *alloc_mm(void) {
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
     BUG_ON(size > PAGE_SIZE); // initially, user va only covers [0,PAGE_SIZE)
+    struct task_struct *cur = myproc();
 
-    // acquire(&current->lock); 
-	struct pt_regs *regs = task_pt_regs(current);
+	struct pt_regs *regs = task_pt_regs(cur);
 	V("pc %lx", pc);
 
-    BUG_ON(current->mm); // kernel task has no mm 
+    BUG_ON(cur->mm); // kernel task has no mm 
 
-    if (!(current->mm = alloc_mm())) return -1; 
+    if (!(cur->mm = alloc_mm())) return -1; 
     // now we have current->mm->lock
 
 	regs->pstate = PSR_MODE_EL0t;
@@ -624,22 +668,22 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	/* only allocate 1 code page here b/c the stack page is to be mapped on demand. 
 	   this will trigger allocating the task's pgtable tree (mm.pgd)
 	*/	
-	void *code_page = allocate_user_page_mm(current->mm, 0 /*va*/, 
+	void *code_page = allocate_user_page_mm(cur->mm, 0 /*va*/, 
         MMU_PTE_FLAGS | MM_AP_RW);
 	if (code_page == 0)	{
-        release(&current->mm->lock); // release(&current->lock); 
+        release(&cur->mm->lock);
 		return -1;
 	}	
     // at this time, user vm only covers [0,PAGE_SIZE). large enough for the init user
     // code, which later invokes exec() and enlarges mm->sz
-	current->mm->sz = current->mm->codesz = PAGE_SIZE; 
+	cur->mm->sz = cur->mm->codesz = PAGE_SIZE; 
 	memmove(code_page, (void *)start, size); 	
-	set_pgd(current->mm->pgd);
+	set_pgd(cur->mm->pgd);
 
-	safestrcpy(current->name, "user1st", sizeof(current->name));
-	current->cwd = namei("/");
-	BUG_ON(!current->cwd); 
-    release(&current->mm->lock); //release(&current->lock); 
+	safestrcpy(cur->name, "user1st", sizeof(cur->name));
+	cur->cwd = namei("/");
+	BUG_ON(!cur->cwd); 
+    release(&cur->mm->lock);
 
     // (from xv6) File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot
@@ -657,8 +701,8 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 // arg: arg to kernel thread; or stack (userva) for user thread
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
-	struct task_struct *p = 0; int i, pid; 
-	// push_off();	// stil need this for entire task array. may remove later
+	struct task_struct *p = 0, *cur=myproc(); 
+    int i, pid; 
 	acquire(&sched_lock);
 	
 	// find an empty tcb slot
@@ -671,13 +715,11 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	if (i == NR_TASKS) 
 		{release(&sched_lock); return -1;}
 
-	// task[pid] = p;	// take the spot. scheduler cannot kick in
 	memset(p, 0, sizeof(struct task_struct));
 	initlock(&p->lock, "proc");
-	// pop_off();
 
 	acquire(&p->lock);	
-    acquire(&current->lock);	
+    acquire(&cur->lock);	
 
 	struct pt_regs *childregs = task_pt_regs(p);
 
@@ -685,11 +727,11 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
     } else { /* fork user tasks */
-        struct pt_regs *cur_regs = task_pt_regs(current);
+        struct pt_regs *cur_regs = task_pt_regs(cur);
         *childregs = *cur_regs; // copy over the entire pt_regs
         childregs->regs[0] = 0; // return value (x0) for child
         if (clone_flags & PF_UTHREAD) {	// fork a "thread", i.e. sharing an existing mm
-            p->mm = current->mm; BUG_ON(!p->mm);
+            p->mm = cur->mm; BUG_ON(!p->mm);
             acquire(&p->mm->lock);
             p->mm->ref++;
             release(&p->mm->lock);
@@ -707,16 +749,16 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		// user task only: dup fds (kernel tasks won't need them)
 		// 		increment reference counts on open file descriptors.
 		for (int i = 0; i < NOFILE; i++)
-			if (current->ofile[i])
-				p->ofile[i] = filedup(current->ofile[i]);
-		p->cwd = idup(current->cwd);		
+			if (cur->ofile[i])
+				p->ofile[i] = filedup(cur->ofile[i]);
+		p->cwd = idup(cur->cwd);		
     }
 
     // also inherit task name
-	safestrcpy(p->name, current->name, sizeof(current->name));		
+	safestrcpy(p->name, cur->name, sizeof(cur->name));		
 
 	p->flags = clone_flags;
-	p->credits = p->priority = current->priority;
+	p->credits = p->priority = cur->priority;
 	p->preempt_count = 1; //disable preemption until schedule_tail
 	
 	// TODO: init more field here
@@ -725,11 +767,11 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	p->cpu_context.pc = (unsigned long)ret_from_fork;
 	p->cpu_context.sp = (unsigned long)childregs;	
 	p->pid = pid; 
-    release(&current->lock);
+    release(&cur->lock);
 	release(&p->lock);
 
   	acquire(&wait_lock);
- 	p->parent = current;
+ 	p->parent = cur;
   	release(&wait_lock);
 
 	// the last thing ... hence scheduler can pick up

@@ -220,12 +220,12 @@ fail:
 	Caller must hold dstmm->lock 
 */
 int dup_current_virt_memory(struct mm_struct *dstmm) {
-	struct pt_regs *regs = task_pt_regs(current);
-	struct mm_struct* srcmm = current->mm; BUG_ON(!srcmm); 
+	struct pt_regs *regs = task_pt_regs(myproc());
+	struct mm_struct* srcmm = myproc()->mm; BUG_ON(!srcmm); 
 
 	acquire(&srcmm->lock); 
 
-	V("pid %d src>mm %lx p->mm->sz %lu", current->pid, (unsigned long)srcmm, srcmm->sz);
+	V("pid %d src>mm %lx p->mm->sz %lu", myproc()->pid, (unsigned long)srcmm, srcmm->sz);
 
 	// go through the @dst task's virt pages, allocate & map phys pages, 
 	// then copy the content from the corresponding va from the @current task
@@ -562,7 +562,7 @@ unsigned long growproc (struct mm_struct *mm, int incr) {
 	}
 	sz1 = mm->sz; // old sz
 	mm->sz += incr; 	
-	if (current->mm == mm)
+	if (myproc()->mm == mm)
 		set_pgd(mm->pgd); // tlb flush
 
 	V("succeeds. return old brk %lx new brk %lx", sz1, mm->sz); 
@@ -588,7 +588,7 @@ bad:
 // 		TODO @ind is global. at least, it should be per task or per addr (?)
 static int ind = 1; // # of times we tried memory access
 int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
-	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(current);	 
+	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(myproc());	 
 	unsigned long dfs = (esr & 0b111111);
 
 	if (addr > USER_VA_END) {
@@ -605,14 +605,14 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 			E("do_mem_abort: insufficient mem"); 
 			goto bad; 
 		}
-		acquire(&current->mm->lock);
-		map_page(current->mm, addr & PAGE_MASK, page, 1/*alloc*/, 
+		acquire(&myproc()->mm->lock);
+		map_page(myproc()->mm, addr & PAGE_MASK, page, 1/*alloc*/, 
 			MMU_PTE_FLAGS | MM_AP_RW); // TODO: set perm (XN?) based on addr 
-		release(&current->mm->lock);
+		release(&myproc()->mm->lock);
 		ind++; // return to user, give it a second chance
 		if (ind > 5) {  // repeated fault
 		    E("do_mem_abort: pid %d too many mem faults. ind %d. killed", 
-				current->pid, ind); 
+				myproc()->pid, ind); 
 			goto bad; 	
 		}
 		W("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
@@ -624,7 +624,7 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 	E("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
 	debug_hexdump((void *)elr, 32); 
 bad: 	
-	setkilled(current);
+	setkilled(myproc());
 	// exit_process(-1);
 	return 0; // handled
 }

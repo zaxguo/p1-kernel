@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "utils.h"
 #include "spinlock.h"
 
-static struct spinlock printlock = {.locked=0, .cpu=0, .name="printlock"};
+// static struct spinlock printlock = {.locked=0, .cpu=0, .name="printlock"};
 
 /*
  * Configuration
@@ -437,12 +437,12 @@ void init_printf(void *putp, putcf putf)
 
 void tfp_printf(char *fmt, ...)
 {
-    acquire(&printlock); 
+    // acquire(&printlock); 
     va_list va;
     va_start(va, fmt);
     tfp_format(stdout_putp, stdout_putf, fmt, va);
     va_end(va);
-    release(&printlock);
+    // release(&printlock);
 }
 #endif
 

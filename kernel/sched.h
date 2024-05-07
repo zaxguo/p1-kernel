@@ -19,18 +19,16 @@
 	TASK_RUNNING represents either RUNNING or READY 
 */
 #define TASK_UNUSED						0  // unused tcb slot 
-#define TASK_RUNNING					1
+#define TASK_RUNNING					1	// task on a cpu
 #define TASK_SLEEPING					2
 #define TASK_ZOMBIE						3
-#define TASK_RUNNABLE					4
+#define TASK_RUNNABLE					4  // can run but not on any cpu
 /* TODO: define more task states (as constants) below, e.g. TASK_WAIT */
 
 #define PF_KTHREAD		 0x2
 #define PF_UTHREAD	 	 0x4		// user thread (sharing mm with other user tasks)
 
-extern struct task_struct *current; // sched.c
 extern struct task_struct * task[NR_TASKS];
-// extern int nr_tasks;
 
 // Contains values of all registers that might be different between the tasks.
 // x0-x7 func call arguments; x9-x15 caller saved; x19-x29 callee saved
@@ -97,7 +95,7 @@ struct task_struct {
   struct spinlock lock;
   // protect members below, as well as "killed" above
   int killed;         // If non-zero, have been killed. NB: also checked by entry.S.
-  long credits;       // schedule "credits". dec by 1 for each timer tick. schedule() picks the task with most credits
+  long credits;       // schedule "credits". dec by 1 for each timer tick; upon 0, calls schedule(); schedule() picks the task with most credits
   long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `credits`. Regulate CPU time the task gets relative to other tasks
   void *chan;         // If non-zero, sleeping on chan
   int pid;            // still need this, ease of debugging...
@@ -122,12 +120,15 @@ struct cpu {
   int noff;                   		// Depth of push_off() nesting.
   int intena;                 		// Were interrupts enabled before push_off()?
 };
-
 extern struct cpu cpus[NCPU];		// sched.c
+
 // irq must be disabled
-extern unsigned long cpuid(void); 
+extern int cpuid(void); 
 static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
-static inline struct task_struct *myproc(void) {return current;};
+
+// extern struct task_struct *current; // sched.c	// UP
+// static inline struct task_struct *myproc(void) {return current;}; 
+
 
 // --------------- fork related ----------------------- // 
 

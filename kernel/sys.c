@@ -74,7 +74,7 @@ long sys_clone(unsigned long flags, unsigned long userstack,
 }
 
 int sys_exit(int c){
-	I("exit called. pid %d code %d", current->pid, c);
+	I("exit called. pid %d code %d", myproc()->pid, c);
 	exit_process(c);
 	return 0; 
 }
@@ -85,14 +85,14 @@ int sys_wait(unsigned long p /* user va*/) {
 
 unsigned long sys_sbrk(int incr) {
 	unsigned long sz, sz0; 
-	struct pt_regs *regs = task_pt_regs(current);
+	struct pt_regs *regs = task_pt_regs(myproc());
 	
-	acquire(&current->mm->lock); 
-	sz = current->mm->sz; sz0=sz;  
+	acquire(&myproc()->mm->lock); 
+	sz = myproc()->mm->sz; sz0=sz;  
 	
 	V("cal sys_sbrk, requestsed brk %lu", sz + incr);
 	// all kinds of checks. careful: sz is unsigned; incr is signed
-	if (incr < 0 && sz + incr < current->mm->codesz) {
+	if (incr < 0 && sz + incr < myproc()->mm->codesz) {
 		W("sys_sbrk failed: requested brk too small. into code/data region"); 
 		goto bad; 
 	}
@@ -102,17 +102,17 @@ unsigned long sys_sbrk(int incr) {
 		goto bad; 
 	} 
 	if (incr == 0) { // shortcut 
-		V("pid %d user_pages_count %d", current->pid, current->mm->user_pages_count);
-		release(&current->mm->lock); return sz;
+		V("pid %d user_pages_count %d", myproc()->pid, myproc()->mm->user_pages_count);
+		release(&myproc()->mm->lock); return sz;
 	}
 
-	sz = growproc(current->mm, incr);
-	release(&current->mm->lock);
+	sz = growproc(myproc()->mm, incr);
+	release(&myproc()->mm->lock);
 	if (sz == (unsigned long)-1) 
 		W("sys_sbrk failed. requestsed brk %lx", sz0 + incr); 
 	return sz; 
 bad:
-	release(&current->mm->lock);
+	release(&myproc()->mm->lock);
 	return (unsigned long)(void *)-1; 	
 }
 
@@ -121,7 +121,7 @@ int sys_kill(int pid) {
 }
 
 int sys_getpid(void) {
-	return current->pid; 
+	return myproc()->pid; 
 }
 
 // n: # of sched ticks to sleep (cf timer.c)

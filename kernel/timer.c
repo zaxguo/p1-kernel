@@ -32,34 +32,39 @@ unsigned int ticks; 	// sleep() tasks sleep on this var.
 /* 	These are for Arm generic timers. 
 	They are fully functional on both QEMU and Rpi3.
 */
-
-// utils.S
-extern void gen_timer_init();
-extern void gen_timer_reset(int interval); 
-
-void generic_timer_init ( void )
-{
+void generic_timer_reset(unsigned long intv) {
+	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(intv));
+}
+/*
+# Below, writes 1 to the control register (CNTP_CTL_EL0) of the EL1 physical timer
+# Explanation: 
+# 		CTL indicates this is a control register
+#		CNTP_XXX_EL0 indicates that this is for the EL1 physical timer
+#		(Why named _EL0? I guess it means that the timer is accessible to both EL1 and EL0)
+*/
+void generic_timer_init (void) {
 	// gen_timer_init();
 	unsigned long reg = 1; 
 	asm volatile("msr CNTP_CTL_EL0, %0" : : "r"(reg));
-	// gen_timer_reset(interval);	// kickoff 1st time firing
-	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(interval));	
+	generic_timer_reset(interval);	// kickoff 1st time firing
+	// asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(interval));	
 }
 
-void handle_generic_timer_irq(void) 
-{
-	// TODO: In order to implement sleep(t), you should calculate @interval based on t, 
-	// instead of having a fixed @interval which triggers periodic interrupts
-	if (cpuid()==1)
-		W("cpu%d handle_generic_timer_irq", 1);
-
+void handle_generic_timer_irq(void)  {
+	int woken; 
+	// TODO: In order to implement sleep(t), you should calculate 
+	// @interval based on t, instead of having a fixed @interval which 
+	// triggers periodic interrupts
 	acquire(&tickslock); 
 	ticks++; 
-	wakeup(&ticks); 
+	woken = wakeup(&ticks); 
 	release(&tickslock);
 
-	gen_timer_reset(interval);
-	timer_tick();
+	// reschedule at SCHED_TICK_HZ could be too frequent, 
+	// so we throttle
+	if (ticks % 10 == 0 || woken)  
+		timer_tick();
+	generic_timer_reset(interval);
 }
 
 #if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU)

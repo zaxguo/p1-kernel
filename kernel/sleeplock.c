@@ -21,7 +21,7 @@ void acquiresleep(struct sleeplock *lk) {
     }
     // xzl: w spinlock held, now claim the sleeplock
     lk->locked = 1;
-    lk->pid = current->pid;
+    lk->pid = myproc()->pid;
     release(&lk->lk);
 }
 
@@ -37,7 +37,7 @@ int holdingsleep(struct sleeplock *lk) {
     int r;
 
     acquire(&lk->lk);
-    r = lk->locked && (lk->pid == current->pid);
+    r = lk->locked && (lk->pid == myproc()->pid);
     release(&lk->lk);
     return r;
 }

@@ -48,13 +48,9 @@ cpuid:
  *  https://developer.arm.com/docs/ddi0487/ca/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
  */
 
+#if 0 
 .globl gen_timer_init
 gen_timer_init:
-	# Below, writes 1 to the control register (CNTP_CTL_EL0) of the EL1 physical timer
-	# Explanation: 
-	# 		CTL indicates this is a control register
-	#		CNTP_XXX_EL0 indicates that this is for the EL1 physical timer
-	#		(Why named _EL0? I guess it means that the timer is accessible to both EL1 and EL0)
 	mov x0, #1
 	msr CNTP_CTL_EL0, x0
 	ret
@@ -65,6 +61,7 @@ gen_timer_reset:
 	# which (roughly speaking) sets a "delta" for System Counter.
 	msr CNTP_TVAL_EL0, x0
     ret
+#endif
 
 // ----------------------- pgd --------------------------------------------//
 // ttbr0, user va

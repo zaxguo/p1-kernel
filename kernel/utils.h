@@ -85,7 +85,7 @@ void disable_irq( void );
 int is_irq_masked(void); 
 /*return 1 if irq enabled, 0 otherwise*/
 static inline int intr_get(void) {return 1-is_irq_masked();}; 
-unsigned long cpuid(void);  // must be called with irq disabled
+int cpuid(void);  // util.S must be called with irq disabled
 
 // alloc.c 
 unsigned int paging_init();
@@ -150,7 +150,7 @@ void            initsleeplock(struct sleeplock*, char*);
 void exit_process(int);
 void sleep(void *, struct spinlock *);
 int wait(uint64_t);
-void wakeup(void *);
+int wakeup(void *);
 int killed(struct task_struct *p);
 int kill(int pid);
 void setkilled(struct task_struct *p);
@@ -260,6 +260,8 @@ extern void preempt_enable(void);
 extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);	// sched.S
 void procdump(void); 
+
+struct task_struct *myproc(void); 
 
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg);
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc);

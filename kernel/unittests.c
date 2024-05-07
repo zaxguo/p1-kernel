@@ -361,3 +361,19 @@ void test_sd() {
 out:     
     kfree(buf); 
 }
+
+#include "sched.h"
+int sys_sleep(int n); 
+static void kernel_task(int arg) {
+    while (1) {
+        printf("cpu %d task %d arg %d\n", cpuid(), myproc()->pid, arg);
+        sys_sleep(60); 
+    }
+}
+    
+void test_kernel_tasks() {
+	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 0/*arg*/);
+	BUG_ON(res<0);
+    // res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 1/*arg*/);
+    // BUG_ON(res<0);
+}

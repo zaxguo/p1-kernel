@@ -21,6 +21,7 @@ extern void test_usb_storage();
 extern void test_fb(); 
 extern void test_sound(); 
 extern void test_sd(); 
+extern void test_kernel_tasks();
 
 // 1st user process
 extern unsigned long user_begin;	// linker script
@@ -41,8 +42,10 @@ void kernel_process() {
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
+	test_kernel_tasks(); 
+	while (1);
 
-	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), current->pid);
+	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
@@ -64,8 +67,7 @@ void secondary_core(int core_id)
 {
 	uart_send_string("secondary_core()\n");
 
-	printf("hello printf\n");
-	printf("Hello from core %d\n", core_id);
+	printf("Hello from core %d", core_id);
 
 	generic_timer_init(); 
 	enable_interrupt_controller(core_id);
@@ -74,6 +76,7 @@ void secondary_core(int core_id)
 		asm volatile("wfi"); 
 }
 
+__attribute__((unused))
 static void start_cores(void) {		
 	// Flush the whole kernel memory 
 	// My theory: cpu1+ were down when cpu0 was init kernel state; so they might
@@ -122,7 +125,7 @@ void kernel_main()
 	
 	if (usbkb_init() == 0) I("usb kb init done"); 
 
-	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
+	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0/*arg*/);
 	if (res < 0) {
 		printf("error while starting kernel process");
 		return;

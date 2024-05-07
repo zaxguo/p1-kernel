@@ -173,8 +173,8 @@ void handle_irq(void) {
 void show_invalid_entry_message(int type, unsigned long esr, 
     unsigned long elr, unsigned long far)
 {    
-    E("%s, esr: 0x%016lx, elr: 0x%016lx, far: 0x%016lx",  
-        entry_error_messages[type], esr, elr, far);
+    E("%s, cpu%d, esr: 0x%016lx, elr: 0x%016lx, far: 0x%016lx",  
+        entry_error_messages[type], cpuid(), esr, elr, far);
     E("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
     // TODO: dump FAR
 }
