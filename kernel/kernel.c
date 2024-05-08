@@ -8,10 +8,6 @@
 #include "mmu.h"
 #include "sched.h"
 
-// needed by boot.S
-__attribute__ ((aligned (4096))) \
-	char kernel_stack_start[PAGE_SIZE * NPAGES_PER_KERNEL_STACK * NCPU];
-
 // unittests.c
 extern void test_ktimer(); 
 extern void test_malloc(); 
@@ -72,7 +68,9 @@ void secondary_core(int core_id)
 	generic_timer_init(); 
 	enable_interrupt_controller(core_id);
 	enable_irq();
-	while (1)
+	// so far, on boot stack and as the "idle" task
+	schedule(); 
+	while (1)	// cf kernel_main()
 		asm volatile("wfi"); 
 }
 
@@ -124,20 +122,39 @@ void kernel_main()
 	
 	if (usbkb_init() == 0) I("usb kb init done"); 
 
+	// start other cores after all subsystems are init'd 
+	// start_cores(); 
+
+	// right now the cpu is on its boot stack (set in boot.S), idle task
+	// schedule() will jump off to kernel stacks belonging to normal tasks
+	schedule(); 
+	// cpu only switches back to the boot stack and returns here, 
+	// when scheduler has no normal tasks to run. 	
+	while (1)
+	// don't call schedule() here, as each irq will call once -- too much
+	// instead, let timer_tick() throttle & decide when to call schedule()
+		asm volatile("wfi");
+}
+
+// 1st normal task to run. only on core0
+void init(int arg/*ignored*/) {
+	int wpid; 
+    W("entering init");
+
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0/*arg*/);
 	if (res < 0) {
 		printf("error while starting kernel process");
 		return;
 	}
-
-	// start other cores after all subsystems are init'd 
-	// start_cores(); 
-
-	// will jump off the current kernel stack (set in boot.S) forever,
-	// to among kernel stacks belonging to tasks
-	// since the kernel stack does NOT belong to any task, the scheduler 
-	// iterating "task" array wont be able to switch back here. 	
-	schedule(0/*isirq*/); 
-	BUG();
-	// never return 
+        
+	while (1) {
+		wpid = wait(0 /* does not care about status */); 
+		if (wpid < 0) {
+			W("init: wait failed with %d", wpid);
+			panic("init: maybe no child. has nothing to do. bye"); 
+		} else {
+			I("wait returns pid=%d", wpid);
+			// a parentless task 
+		}
+	}
 }

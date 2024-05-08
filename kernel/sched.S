@@ -1,8 +1,7 @@
 #include "sched.h"
 
 // void cpu_switch_to(struct task_struct* prev, struct task_struct* next)
-// save cpu's regs (callee saved, sp/pc) to prev->cpu_context; 
-//		if prev is 0, don't save (in case we dont want to switch back)
+// save cpu regs (callee saved, sp/pc) to prev->cpu_context; 
 // load next->cpu_context to the cpu regs
 .globl cpu_switch_to
 /* the context switch magic */

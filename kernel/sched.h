@@ -89,17 +89,18 @@ struct task_struct {
   unsigned long flags;
   long preempt_count; // cf: preempt_enable()
 
-  // sched_lock is needed for this
+  // sched_lock is needed for the following, b/c they are only examined
+  // by schedule() & friends
   int state; // task state, e.g. TASK_RUNNING. TASK_UNUSED if task_struct is invalid
-
-  struct spinlock lock;
-  // protect members below, as well as "killed" above
-  int killed;         // If non-zero, have been killed. NB: also checked by entry.S.
   long credits;       // schedule "credits". dec by 1 for each timer tick; upon 0, calls schedule(); schedule() picks the task with most credits
   long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `credits`. Regulate CPU time the task gets relative to other tasks
+  int xstate;         // Exit status to be returned to parent's wait
+
+  struct spinlock lock;
+  // protect members below
+  int killed;         // If non-zero, have been killed. Checked by entry.S.
   void *chan;         // If non-zero, sleeping on chan
   int pid;            // still need this, ease of debugging...
-  int xstate;         // Exit status to be returned to parent's wait
 
   // wait_lock must be held when using this:
   struct task_struct *parent; // Parent process
@@ -116,7 +117,7 @@ _Static_assert(sizeof(struct task_struct) < 1200);	// 1408 seems too big, corrup
 // we only support 1 cpu (as of now), but xv6 code is around multicore so we keep the 
 // ds here...
 struct cpu {
-  struct task_struct *proc;          // The process running on this cpu, or null.
+  struct task_struct *proc;          // The process running on this cpu. never null as each core has an idle task
   int noff;                   		// Depth of push_off() nesting.
   int intena;                 		// Were interrupts enabled before push_off()?
 };
@@ -161,7 +162,7 @@ struct pt_regs {
 #endif		// ! __ASSEMBLER__
 
 // exposed to asm...
-#define TASK_STRUCT_KILLED_OFFSET	312 	// see above
+#define TASK_STRUCT_KILLED_OFFSET	336 	// see above
 #define S_FRAME_SIZE			272 		// size of all saved registers 
 #define S_X0				    0		// offset of x0 register in saved stack frame
 

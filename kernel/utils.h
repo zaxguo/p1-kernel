@@ -254,7 +254,7 @@ int usbkb_init(void);
 // sched.c
 extern void sched_init(void);
 extern void yield(void);
-extern void schedule(int isirq);
+extern void schedule(void);
 extern void timer_tick(void);
 extern void preempt_disable(void);
 extern void preempt_enable(void);

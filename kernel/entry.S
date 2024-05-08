@@ -15,14 +15,14 @@
 	b.eq 99f
 	//mov x27, #LOW_MEMORY	// MMU on, use VA 	
 	//mov x28, #VA_START	
-	ldr x27, =kernel_stack_start
+	ldr x27, =boot_stacks
 	add x27, x27, PAGE_SIZE
 	mov x28, #0 
 	b 100f 
 99: 	// MMU off, use PA 
 	//mov x27, #LOW_MEMORY	
 	//mov x28, #0			
-	ldr x27, =kernel_stack_start
+	ldr x27, =boot_stacks
 	add x27, x27, PAGE_SIZE
 	mov x28, #VA_START	
 100: 

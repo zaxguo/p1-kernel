@@ -36,8 +36,6 @@
 #define FSSIZE       15000 // 2000  // size of file system in blocks
 // (32 * 1024)  ok, but results in a very large ramdisk...
 
-#define NPAGES_PER_KERNEL_STACK 4   // kernel stack size, in pages
-
 // Large user vm, works, but usertests slow b/c freecount()
 #define USER_VA_END         (128 * 1024 * 1024) // == user stack top, 128MB user va
 #define USER_MAX_STACK      (1 * 1024 * 1024)  // in bytes, must be page aligned. 

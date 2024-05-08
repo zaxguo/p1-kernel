@@ -141,13 +141,13 @@ el1_entry:
 #endif	
 
 	// exec by all cpus
-	// set virt sp = (cpuid_reg+1)*kernel_stack_size + kernel_stack_start
+	// set virt sp = (cpuid_reg+1)*4096 + boot_stacks
 	// (assuming linear mapping, phys 0 --> virt VA_START)	
 setup_sp: 	
 	add x0, cpuid_reg, #1
-	mov x1, #(PAGE_SIZE * NPAGES_PER_KERNEL_STACK)
+	mov x1, #(PAGE_SIZE)
 	mul x0, x0, x1
-	ldr x1, =kernel_stack_start	// kernel.c
+	ldr x1, =boot_stacks	// kernel.c
 	add x0, x0, x1
 	mov sp, x0 		// NB: we won't use sp until mmu is on
 
