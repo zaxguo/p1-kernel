@@ -1,6 +1,6 @@
+#define K2_DEBUG_VERBOSE
 // #define K2_DEBUG_INFO
-// #define K2_DEBUG_VERBOSE
-#define K2_DEBUG_WARN
+// #define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"
@@ -72,6 +72,22 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 	return (struct pt_regs *)p;
 }
 
+
+static void init(int arg/*ignored*/) {
+	int wpid; 
+    W("entering init");
+	while (1) {
+		wpid = wait(0 /* does not care about status */); 
+		if (wpid < 0) {
+			W("init: wait failed with %d", wpid);
+			panic("init: maybe no child. has nothing to do. bye"); 
+		} else {
+			I("wait returns pid=%d", wpid);
+			// a parentless task 
+		}
+	}
+}
+
 // must be called before any schedule() or timertick() occurs
 void sched_init(void) {
     // acquire(&sched_lock);    
@@ -87,13 +103,18 @@ void sched_init(void) {
     for (int i = 0; i < NR_MMS; i++)
         initlock(&mm_tables[i].lock, "mmlock");
     
+    // init task, will be picked up once the kernel call schedule()
     // current = init_task = task[0]; // UP
-    mycpu()->proc = init_task = task[0]; // MP
-    
-    init_task->state = TASK_RUNNABLE;
+    // mycpu()->proc = init_task = task[0]; // MP
+    mycpu()->proc = 0; // nothing, to be set by schedule()
 
+    init_task->state = TASK_RUNNABLE;
     // acquire(&init_task->lock);
     // init_task->cpu_context = {0,0,0,0,0,0,0,0,0,0,0,0,0}; // already zeroed
+    init_task->cpu_context.x19 = (unsigned long)init; 
+    init_task->cpu_context.pc = (unsigned long)ret_from_fork; // entry.S
+    init_task->cpu_context.sp = (unsigned long)init_task + THREAD_SIZE; 
+
     init_task->credits = 0;
     init_task->priority = 2;
     init_task->preempt_count = 0;
@@ -122,15 +143,15 @@ static int task_on_cpu(struct task_struct *p) {
 
 // the scheduler, called by tasks or irq
 // isirq=1: called from a irq context (e.g. timer/driver). if no task to run, return. 
-//      returns to the interrupted task (e.g. which is in wfi inside _schedule())
-//      this avoids repeated calls to _schedule(isirq=1) w/o return, which 
+//      returns to the interrupted task (e.g. which is in wfi inside schedule())
+//      this avoids repeated calls to schedule(isirq=1) w/o return, which 
 //      exhausts the kernel stack of the interrupted task
-// isirq=0: called from a task context, if no task to run, wfi inside _schedule()
+// isirq=0: called from a task context, if no task to run, wfi inside schedule()
 //      subsequent local irq (after irq handler) will resume from wfi and 
 //      retry the schedule loop
 // caller must NOT hold sched_lock, or any p->lock
-void _schedule(int isirq) {
-    V("cpu%d _schedule", cpuid());
+void schedule(int isirq) {
+    V("cpu%d schedule", cpuid());
     
 	/* Prevent timer irqs from calling schedule(), while we exec the following code region. 
         This may result in unnecessary nested schedule()
@@ -143,7 +164,7 @@ void _schedule(int isirq) {
     
     // this cpu will hold on to "cur", i.e. using its kernel stack, 
     // until the cpu switch_to a diff task, changing the kernel stack. 
-	struct task_struct *p, *cur=myproc(); 
+	struct task_struct *p, *cur=myproc();  XXXXXXXXX cur can be 0
     int has_runnable; 
 
     acquire(&sched_lock); 
@@ -224,10 +245,10 @@ void schedule_tail(void) {
 
 // voluntarily reschedule; gives up all remaining schedule credits
 // only called from tasks
-void schedule(void) {    
+void yield(void) {    
     struct task_struct *p = myproc(); 
     acquire(&p->lock); p->credits = 0; release(&p->lock);
-    _schedule(0/*isirq*/);
+    schedule(0/*isirq*/);
 }
 
 // caller must hold sched_lock, and not holding next->lock
@@ -236,7 +257,7 @@ void switch_to(struct task_struct * next) {
 	struct task_struct * prev; 
     struct task_struct *cur; 
 
-    cur = myproc();
+    cur = myproc(); XXXXXXXXXXX deal with cur == 0
 	if (cur == next) 
 		return; 
 
@@ -297,9 +318,9 @@ void timer_tick() {
 
 	/* reschedule with irq on */
 	enable_irq();
-        /* what if a timer irq happens here? _schedule() will be called 
+        /* what if a timer irq happens here? schedule() will be called 
             twice back-to-back, no interleaving so we're fine. */
-	_schedule(1/*isirq*/);
+	schedule(1/*isirq*/);
 
     I("<<<<<<<<<< leave timer_tick cpu%d pid %d", cpuid(), cur->pid);
 	/* disable irq until kernel_exit, in which eret will resort the interrupt 
@@ -307,7 +328,7 @@ void timer_tick() {
 	disable_irq(); 
 }
 
-// Wake up all processes sleeping on chan. Only change p->state; wont _schedule()
+// Wake up all processes sleeping on chan. Only change p->state; wont schedule()
 // Called from irq (many drivers) or task
 // return # tasks woken up
 // Must be called WITHOUT any p->lock, without sched_lock 
@@ -359,11 +380,11 @@ void sleep(void *chan, struct spinlock *lk) {
     p->chan = chan;
     p->state = TASK_SLEEPING;
 
-    // xzl: sleep w/o p->lock, b/c other code (e.g. _schedule())
+    // xzl: sleep w/o p->lock, b/c other code (e.g. schedule())
     //  may inspect this task_struct.
     //  otherwise, it may sleep w/ p->lock held. 
     release(&p->lock);     
-    _schedule(0/*isirq*/);
+    schedule(0/*isirq*/);
     acquire(&p->lock); 
 
     // Tidy up.
@@ -397,7 +418,9 @@ void reparent(struct task_struct *p) {
 }
 
 // becomes a zombie task and schedule() a different task 
-// the actual destruction happens when parent calls wait() this zombie task successfully
+// the actual destruction happens when parent calls wait() this zombie 
+// task successfully. only at that time the zombie's kernel stack (and task_struct
+// on it) will be recycled.
 void exit_process(int status) {
     struct task_struct *p = myproc();
 
@@ -438,7 +461,7 @@ void exit_process(int status) {
 
     // Jump into the scheduler, never to return.
     V("exit done. will call schedule...");
-    schedule();
+    yield();
     panic("zombie exit");
 }
 
@@ -774,8 +797,8 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	// TODO: init more field here
 	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
 
-	p->cpu_context.pc = (unsigned long)ret_from_fork;
-	p->cpu_context.sp = (unsigned long)childregs;	
+	p->cpu_context.pc = (unsigned long)ret_from_fork; // entry.S
+	p->cpu_context.sp = (unsigned long)childregs; // XXX in fact PF_KTHREAD can use all the way to the top of the stack page...
 	p->pid = pid; 
     release(&cur->lock);
 	release(&p->lock);

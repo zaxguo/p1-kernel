@@ -21,8 +21,8 @@ COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -mgeneral-regs-only \
 -g 
 
-# COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
-COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
+COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
+# COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
 # COPS += -DUSE_LFB		# uncomment this to enable GUI console. 
 
 ASMOPS = -I$(SRC_DIR)  -g 

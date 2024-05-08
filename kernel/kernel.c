@@ -96,7 +96,6 @@ static void start_cores(void) {
 	}
 }
 
-// extern unsigned long _start;
 extern void uart_send_va(char c); 
 extern void uart_send_pa(char c); 
 void kernel_main()
@@ -132,17 +131,13 @@ void kernel_main()
 	}
 
 	// start other cores after all subsystems are init'd 
-	start_cores(); 
+	// start_cores(); 
 
-	int wpid; 
-	while (1) {
-		wpid = wait(0 /* does not care about status */); 
-		if (wpid < 0) {
-			W("init: wait failed with %d", wpid);
-			panic("init: maybe no child. has nothing to do. bye"); 
-		} else {
-			I("wait returns pid=%d", wpid);
-			// a parentless task 
-		}
-	}
+	// will jump off the current kernel stack (set in boot.S) forever,
+	// to among kernel stacks belonging to tasks
+	// since the kernel stack does NOT belong to any task, the scheduler 
+	// iterating "task" array wont be able to switch back here. 	
+	schedule(0/*isirq*/); 
+	BUG();
+	// never return 
 }

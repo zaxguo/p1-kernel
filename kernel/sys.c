@@ -125,6 +125,10 @@ int sys_getpid(void) {
 }
 
 // n: # of sched ticks to sleep (cf timer.c)
+// NB: in current design, each timer irq will wakeup() "ticks" (i.e. signal it); 
+// this however, does not necessarily result in schedule() at each timer irq. 
+// this is b/c wakeup() only change p->state. it is up to the next schedule()
+// invocation to pick up the woken up task for running. 
 int sys_sleep(int n) {
 	uint ticks0;
     acquire(&tickslock);
@@ -134,7 +138,7 @@ int sys_sleep(int n) {
             release(&tickslock);
             return -1;
         }
-        sleep(&ticks, &tickslock); // NB: woken by each tick incr
+        sleep(&ticks, &tickslock);
     }
     release(&tickslock);
     return 0;
