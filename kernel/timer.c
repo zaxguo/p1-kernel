@@ -51,18 +51,16 @@ void generic_timer_init (void) {
 }
 
 void handle_generic_timer_irq(void)  {
-	int woken; 
-	// TODO: In order to implement sleep(t), you should calculate 
-	// @interval based on t, instead of having a fixed @interval which 
-	// triggers periodic interrupts
+	__attribute_maybe_unused__ int woken; 
 	acquire(&tickslock); 
-	ticks++; 
-	woken = wakeup(&ticks); 
+	ticks++;
+	woken = wakeup(&ticks); // NB: only change state, wont call schedule()
 	release(&tickslock);
 
 	// reschedule at SCHED_TICK_HZ could be too frequent, 
 	// so we throttle
-	if (ticks % 10 == 0 || woken)  
+	// if (ticks % 50 == 0 || woken)  
+	if (ticks % 50 == 0)  
 		timer_tick();
 	generic_timer_reset(interval);
 }

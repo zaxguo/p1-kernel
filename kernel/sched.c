@@ -58,7 +58,7 @@ void preempt_disable(void) { myproc()->preempt_count++; }
 
 struct task_struct *myproc(void) {      // MP
     struct task_struct *p;
-	push_off(); 
+	push_off();
     p=mycpu()->proc; 
     pop_off(); 
 	return p; 
@@ -121,7 +121,15 @@ static int task_on_cpu(struct task_struct *p) {
 }
 
 // the scheduler, called by tasks or irq
-void _schedule(void) {
+// isirq=1: called from a irq context (e.g. timer/driver). if no task to run, return. 
+//      returns to the interrupted task (e.g. which is in wfi inside _schedule())
+//      this avoids repeated calls to _schedule(isirq=1) w/o return, which 
+//      exhausts the kernel stack of the interrupted task
+// isirq=0: called from a task context, if no task to run, wfi inside _schedule()
+//      subsequent local irq (after irq handler) will resume from wfi and 
+//      retry the schedule loop
+// caller must NOT hold sched_lock, or any p->lock
+void _schedule(int isirq) {
     V("cpu%d _schedule", cpuid());
     
 	/* Prevent timer irqs from calling schedule(), while we exec the following code region. 
@@ -133,7 +141,9 @@ void _schedule(void) {
 	int next, c;
     int cpu = cpuid(), oncpu;
     
-	struct task_struct *p, *cur=myproc();
+    // this cpu will hold on to "cur", i.e. using its kernel stack, 
+    // until the cpu switch_to a diff task, changing the kernel stack. 
+	struct task_struct *p, *cur=myproc(); 
     int has_runnable; 
 
     acquire(&sched_lock); 
@@ -156,10 +166,7 @@ void _schedule(void) {
                 || p->state == TASK_RUNNABLE) {
                 has_runnable = 1; 
                 acquire(&p->lock); 
-				if (p->credits > c) {
-				    c = p->credits;
-				    next = i;
-                }
+				if (p->credits > c) { c = p->credits; next = i; }
                 release(&p->lock); 
 			}
 		}
@@ -187,6 +194,8 @@ void _schedule(void) {
                     W("\t\t pid %d state %d chan %lx", p->pid, p->state, (unsigned long) p->chan);
             }
 #endif
+            if (isirq)
+                goto leave;     // return from irq
             release(&sched_lock);   // let other cpus schedule()
             // this cpu sleep on the cur task's stack; other cpus won't steal
             // the cur task away 
@@ -197,6 +206,7 @@ void _schedule(void) {
     // W("cpu%d picked pid %d", cpu, next);
     I("cpu%d picked pid %d state %d", cpu, next, task[next]->state);
 	switch_to(task[next]);
+leave:     
     release(&sched_lock);
 	preempt_enable();
     // leave the scheduler 
@@ -212,12 +222,12 @@ void schedule_tail(void) {
 	preempt_enable();
 }
 
-// called from tasks
-void schedule(void) {
-    // voluntarily gives up all remaining schedule credits
+// voluntarily reschedule; gives up all remaining schedule credits
+// only called from tasks
+void schedule(void) {    
     struct task_struct *p = myproc(); 
     acquire(&p->lock); p->credits = 0; release(&p->lock);
-    _schedule();
+    _schedule(0/*isirq*/);
 }
 
 // caller must hold sched_lock, and not holding next->lock
@@ -289,7 +299,7 @@ void timer_tick() {
 	enable_irq();
         /* what if a timer irq happens here? _schedule() will be called 
             twice back-to-back, no interleaving so we're fine. */
-	_schedule();
+	_schedule(1/*isirq*/);
 
     I("<<<<<<<<<< leave timer_tick cpu%d pid %d", cpuid(), cur->pid);
 	/* disable irq until kernel_exit, in which eret will resort the interrupt 
@@ -297,7 +307,7 @@ void timer_tick() {
 	disable_irq(); 
 }
 
-// Wake up all processes sleeping on chan.
+// Wake up all processes sleeping on chan. Only change p->state; wont _schedule()
 // Called from irq (many drivers) or task
 // return # tasks woken up
 // Must be called WITHOUT any p->lock, without sched_lock 
@@ -353,7 +363,7 @@ void sleep(void *chan, struct spinlock *lk) {
     //  may inspect this task_struct.
     //  otherwise, it may sleep w/ p->lock held. 
     release(&p->lock);     
-    _schedule();
+    _schedule(0/*isirq*/);
     acquire(&p->lock); 
 
     // Tidy up.
@@ -680,7 +690,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	memmove(code_page, (void *)start, size); 	
 	set_pgd(cur->mm->pgd);
 
-	safestrcpy(cur->name, "user1st", sizeof(cur->name));
+	safestrcpy(cur->name, "initusr", sizeof(cur->name));
 	cur->cwd = namei("/");
 	BUG_ON(!cur->cwd); 
     release(&cur->mm->lock);

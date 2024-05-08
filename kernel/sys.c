@@ -134,7 +134,7 @@ int sys_sleep(int n) {
             release(&tickslock);
             return -1;
         }
-        sleep(&ticks, &tickslock);
+        sleep(&ticks, &tickslock); // NB: woken by each tick incr
     }
     release(&tickslock);
     return 0;
