@@ -123,7 +123,7 @@ void kernel_main()
 	if (usbkb_init() == 0) I("usb kb init done"); 
 
 	// start other cores after all subsystems are init'd 
-	// start_cores(); 
+	start_cores(); 
 
 	// right now the cpu is on its boot stack (set in boot.S), idle task
 	// schedule() will jump off to kernel stacks belonging to normal tasks

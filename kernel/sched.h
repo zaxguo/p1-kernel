@@ -87,7 +87,7 @@ struct task_struct {
   char name[16];         // Process name (debugging)
   struct mm_struct *mm;  // =0 for kernel thread. for user threads, multi task_structs may share a mm_struct
   unsigned long flags;
-  long preempt_count; // cf: preempt_enable()
+  long preempt_count; // cf: preempt_enable()  TO DELETE
 
   // sched_lock is needed for the following, b/c they are only examined
   // by schedule() & friends

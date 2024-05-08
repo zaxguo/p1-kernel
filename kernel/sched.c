@@ -1,5 +1,5 @@
-#define K2_DEBUG_VERBOSE
-// #define K2_DEBUG_INFO
+// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_INFO
 // #define K2_DEBUG_WARN
 
 #include "plat.h"
@@ -55,8 +55,12 @@ struct cpu cpus[NCPU];
 
 // prevent timer_tick() from calling schedule(). 
 // they don't prevent voluntary switch; or disable irq handler 
-void preempt_enable(void) { myproc()->preempt_count--; }
-void preempt_disable(void) { myproc()->preempt_count++; }
+void preempt_enable(void) { 
+    // myproc()->preempt_count--; 
+    }
+void preempt_disable(void) { 
+    // myproc()->preempt_count++; 
+}
 
 struct task_struct *myproc(void) {      // MP
     struct task_struct *p;
@@ -115,7 +119,7 @@ void sched_init(void) {
 
     init_task->credits = 0;
     init_task->priority = 2;
-    init_task->preempt_count = 0;
+    // init_task->preempt_count = 0;
     init_task->flags = PF_KTHREAD;
     init_task->mm = 0;  // nothing 
     init_task->chan = 0;
@@ -289,8 +293,8 @@ void timer_tick() {
         V("%s credits %ld preempt_count %ld", __func__, 
             cur->credits, cur->preempt_count);
         --cur->credits; 
-        if (cur->credits > 0 || cur->preempt_count > 0) {
-            // cur task continues to exec
+        // if (cur->credits > 0 || cur->preempt_count > 0) {
+        if (cur->credits > 0) { // cur task continues to exec
             I("<<<<<<<<<< leave timer_tick. no resche");
             release(&sched_lock); return;
         }
@@ -530,7 +534,7 @@ static void freeproc(struct task_struct *p) {
     p->flags = 0; 
     p->killed = 0; 
     p->credits = 0; 
-    p->preempt_count = 0; 
+    // p->preempt_count = 0; 
     p->chan = 0; 
     p->pid = 0; 
     p->xstate = 0; 
@@ -764,7 +768,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
 	p->flags = clone_flags;
 	p->credits = p->priority = cur->priority;
-	p->preempt_count = 1; //disable preemption until schedule_tail
+	// p->preempt_count = 1; //disable preemption until schedule_tail
 	
 	// TODO: init more field here
 	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
