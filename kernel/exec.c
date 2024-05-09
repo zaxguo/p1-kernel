@@ -166,7 +166,7 @@ int exec(char *path, char **argv) {
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
   // value, which goes in a0.
-  struct pt_regs *regs = task_pt_regs(p);
+  struct trampframe *regs = task_pt_regs(p);
   regs->regs[1] = sp; 
 
   // Save program name for debugging.

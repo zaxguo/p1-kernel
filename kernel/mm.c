@@ -220,7 +220,7 @@ fail:
 	Caller must hold dstmm->lock 
 */
 int dup_current_virt_memory(struct mm_struct *dstmm) {
-	struct pt_regs *regs = task_pt_regs(myproc());
+	struct trampframe *regs = task_pt_regs(myproc());
 	struct mm_struct* srcmm = myproc()->mm; BUG_ON(!srcmm); 
 
 	acquire(&srcmm->lock); 
@@ -588,7 +588,7 @@ bad:
 // 		TODO @ind is global. at least, it should be per task or per addr (?)
 static int ind = 1; // # of times we tried memory access
 int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
-	 __attribute__((unused))  struct pt_regs *regs = task_pt_regs(myproc());	 
+	 __attribute__((unused))  struct trampframe *regs = task_pt_regs(myproc());	 
 	unsigned long dfs = (esr & 0b111111);
 
 	if (addr > USER_VA_END) {

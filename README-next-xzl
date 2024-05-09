@@ -1180,3 +1180,11 @@ https://andrei.gherzan.ro/linux/raspbian-rpi4-64/#:~:text=The%20armstub%20is%20t
 https://github.com/raspberrypi/tools/blob/master/armstubs/armstub8.S
 
 the code is executed as firmware (by gpu?) after loading the kernel, before executing the kernel 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+overhaul sched locking. 
+get ride of the xv6 idea (fine grained, per task lock p->lock)
+instead, use a global sched_lock for the whole schedulier ... for any scheduling activities 
+
+therefore get ride of things like wait_lock, which is subsumed by sched_lock

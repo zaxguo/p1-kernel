@@ -95,11 +95,13 @@ struct task_struct {
   long credits;       // schedule "credits". dec by 1 for each timer tick; upon 0, calls schedule(); schedule() picks the task with most credits
   long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `credits`. Regulate CPU time the task gets relative to other tasks
   int xstate;         // Exit status to be returned to parent's wait
+  void *chan;         // If non-zero, sleeping on chan
 
   struct spinlock lock;
   // protect members below
   int killed;         // If non-zero, have been killed. Checked by entry.S.
-  void *chan;         // If non-zero, sleeping on chan
+  // killed protected by p->lock (instead of sched_lock) b/c it's not tied to schedule() logic and is 
+  // examined in many places
   int pid;            // still need this, ease of debugging...
 
   // wait_lock must be held when using this:
@@ -144,7 +146,7 @@ static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
 #define PSR_MODE_EL3t	0x0000000c
 #define PSR_MODE_EL3h	0x0000000d
 
-struct pt_regs {
+struct trampframe {
 	unsigned long regs[31];
 	unsigned long sp;
 	unsigned long pc;
@@ -162,7 +164,7 @@ struct pt_regs {
 #endif		// ! __ASSEMBLER__
 
 // exposed to asm...
-#define TASK_STRUCT_KILLED_OFFSET	336 	// see above
+#define TASK_STRUCT_KILLED_OFFSET	344 	// see above
 #define S_FRAME_SIZE			272 		// size of all saved registers 
 #define S_X0				    0		// offset of x0 register in saved stack frame
 

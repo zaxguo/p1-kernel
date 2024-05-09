@@ -282,7 +282,7 @@ el0_da:
 // x19 = fn; x20 = arg, populated by copy_process() 
 .globl ret_from_fork
 ret_from_fork:
-	bl	schedule_tail
+	bl	leave_scheduler
 	cbz	x19, ret_to_user			// branch to below if not a kernel thread
 	mov	x0, x20						// kernel thread, load fn/arg as populated by copy_process()
 	blr	x19

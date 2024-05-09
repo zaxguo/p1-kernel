@@ -60,7 +60,7 @@ void handle_generic_timer_irq(void)  {
 	// reschedule at SCHED_TICK_HZ could be too frequent, 
 	// so we throttle
 	// if (ticks % 50 == 0 || woken)  
-	if (ticks % 50 == 0)  
+	if (ticks % 10 == 0)  
 		timer_tick();
 	generic_timer_reset(interval);
 }

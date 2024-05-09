@@ -32,7 +32,7 @@
 
 // invoked from el0_svc (entry.S)
 // x0..x9 were intact since kernel entry (svc). hence they can be directly used as arguments
-// upon return, ret_from_syscall (entry.S) will copy x0 to pt_regs, as return value to user
+// upon return, ret_from_syscall (entry.S) will copy x0 to trampframe, as return value to user
 
 // Fetch the uint64 at addr from the current process.
 int
@@ -85,7 +85,7 @@ int sys_wait(unsigned long p /* user va*/) {
 
 unsigned long sys_sbrk(int incr) {
 	unsigned long sz, sz0; 
-	struct pt_regs *regs = task_pt_regs(myproc());
+	struct trampframe *regs = task_pt_regs(myproc());
 	
 	acquire(&myproc()->mm->lock); 
 	sz = myproc()->mm->sz; sz0=sz;  

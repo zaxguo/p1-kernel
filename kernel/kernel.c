@@ -47,7 +47,7 @@ void kernel_process() {
 		printf("Error while moving process to user mode\n\r");
 	} 
 	// this func is called from ret_from_fork (entry.S). after returning, it goes back to 
-	// ret_from_fork and does kernel_exit there. hence, pt_regs populated by move_to_user_mode()
+	// ret_from_fork and does kernel_exit there. hence, trampframe populated by move_to_user_mode()
 	// will take effect. 
 }
 
@@ -123,7 +123,7 @@ void kernel_main()
 	if (usbkb_init() == 0) I("usb kb init done"); 
 
 	// start other cores after all subsystems are init'd 
-	start_cores(); 
+	// start_cores(); 
 
 	// right now the cpu is on its boot stack (set in boot.S), idle task
 	// schedule() will jump off to kernel stacks belonging to normal tasks
@@ -133,7 +133,7 @@ void kernel_main()
 	while (1)
 	// don't call schedule() here, as each irq will call once -- too much
 	// instead, let timer_tick() throttle & decide when to call schedule()
-		asm volatile("wfi");
+		{W("idle task");asm volatile("wfi");}
 }
 
 // 1st normal task to run. only on core0
