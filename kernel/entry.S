@@ -283,13 +283,13 @@ el0_da:
 .globl ret_from_fork
 ret_from_fork:
 	bl	leave_scheduler
-	cbz	x19, ret_to_user			// branch to below if not a kernel thread
-	mov	x0, x20						// kernel thread, load fn/arg as populated by copy_process()
+	cbz	x19, ret_to_user  // if the new task is user, jump to below and leave el1
+	mov	x0, x20		// new task is kern, load fn/arg as populated by copy_process()
 	blr	x19
 	// kernel thread returns, and continues below to return to user
 ret_to_user:
 	bl disable_irq				
-	kernel_exit 0 					// will restore previously prepared processor state (pt_regs), hit eret, then EL0
+	kernel_exit 0 	// will restore previously prepared processor state (pt_regs), hit eret, then EL0
 
 .globl err_hang
 err_hang: b err_hang

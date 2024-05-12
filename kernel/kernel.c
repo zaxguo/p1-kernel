@@ -123,17 +123,20 @@ void kernel_main()
 	if (usbkb_init() == 0) I("usb kb init done"); 
 
 	// start other cores after all subsystems are init'd 
-	// start_cores(); 
+	start_cores(); 
 
 	// right now the cpu is on its boot stack (set in boot.S), idle task
 	// schedule() will jump off to kernel stacks belonging to normal tasks
 	schedule(); 
 	// cpu only switches back to the boot stack and returns here, 
-	// when scheduler has no normal tasks to run. 	
-	while (1)
-	// don't call schedule() here, as each irq will call once -- too much
-	// instead, let timer_tick() throttle & decide when to call schedule()
-		{W("idle task");asm volatile("wfi");}
+	// when scheduler has no normal tasks to run.
+    while (1) {
+        // don't call schedule() here, otherwise each irq will call schedule() 
+		// -- too much
+        // instead, let timer_tick() throttle & decide when to call schedule()
+        V("idle task");
+        asm volatile("wfi");
+    }
 }
 
 // 1st normal task to run. only on core0

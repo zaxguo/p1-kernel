@@ -34,35 +34,6 @@ cpuid:
 	and	x0, x0, #0xFF
 	ret
 
-// ----------------- arm generic timer  --------------------------- //
-
-/** 
-	Here, the physical timer at EL1 is used with the TimerValue views.
- *  Once the count-down reaches 0, the interrupt line is HIGH until
- *  a new timer value > 0 is written into the CNTP_TVAL_EL0 system register.
- *
- *  Read: 
- *  https://fxlin.github.io/p1-kernel/exp3/rpi-os/#arms-generic-hardware-timer
- * 
- *  Reference: AArch64-referenc-manual p.2326 at
- *  https://developer.arm.com/docs/ddi0487/ca/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
- */
-
-#if 0 
-.globl gen_timer_init
-gen_timer_init:
-	mov x0, #1
-	msr CNTP_CTL_EL0, x0
-	ret
-
-.globl gen_timer_reset
-gen_timer_reset:
-	# When called from C code, the function writes the 1st argument (x0) to TVAL, 
-	# which (roughly speaking) sets a "delta" for System Counter.
-	msr CNTP_TVAL_EL0, x0
-    ret
-#endif
-
 // ----------------------- pgd --------------------------------------------//
 // ttbr0, user va
 .globl set_pgd
@@ -83,7 +54,7 @@ get_pgd:
 	ret
 
 // ---------------------- misc -------------------------------------------- //
-// the _aligned funcs are faster than normal variants, but must be used with 
+// the _aligned funcs are faster than normal variants, but MUST BE used with 
 // care (unaligned addr will corrupt/miss contents) to avoid nasty bugs. 
 // unless the buf is large, the extra speed is not worth it
 .globl memcpy_aligned
@@ -181,14 +152,15 @@ __asm_invalidate_dcache_range:
     ret
 
 //////////// uart.S 
+// useful for secondary cores early debugging, before they have valid sp
+// but after core0 has done uart_init()
+// void uart_send_pa(char c); 
+
 #define VA_START 			0xffff000000000000
 #define PBASE   0x3F000000
 #define AUX_MU_LSR_REG  (PBASE+0x00215054)
 #define AUX_MU_IO_REG   (PBASE+0x00215040)
 
-// useful for secondary cores early debugging (on hw) w/o stack, 
-// but after core0 has done uart_init()
-// void uart_send_pa(char c); 
 .globl uart_send_pa
 uart_send_pa:
 1:

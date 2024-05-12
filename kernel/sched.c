@@ -226,24 +226,24 @@ void switch_to(struct task_struct * next) {
         // now, next->mm should be effective. 
         // can use gdb to inspect user mapping here
     }
-    // release(&next->lock); 
+    // release(&next->lock);
 
-	/*	 
-		below is where context switch happens. 
+    /*
+        below is where context switch happens.
 
-		after cpu_switch_to(), the @prev's cpu_context.pc points to the instruction right after  
-		cpu_switch_to(). this is where the @prev task will resume in the future. 
-		for example, shown as the arrow below: 
+        after cpu_switch_to(), the @prev's cpu_context.pc points to the instruction right after
+        cpu_switch_to(). this is where the @prev task will resume in the future.
+        for example, shown as the arrow below:
 
-			cpu_switch_to(prev, next);
-			80d50:       f9400fe1        ldr     x1, [sp, #24]
-			80d54:       f94017e0        ldr     x0, [sp, #40]
-			80d58:       9400083b        bl      82e44 <cpu_switch_to>
-		==> 80d5c:       14000002        b       80d64 <switch_to+0x58>
+            cpu_switch_to(prev, next);
+            80d50:       f9400fe1        ldr     x1, [sp, #24]
+            80d54:       f94017e0        ldr     x0, [sp, #40]
+            80d58:       9400083b        bl      82e44 <cpu_switch_to>
+        ==> 80d5c:       14000002        b       80d64 <switch_to+0x58>
 
         cpu_switch_to() does not need task::lock, cf "locking protocol" on the top
-	*/
-	cpu_switch_to(prev, next);  // sched.S will branch to @next->cpu_context.pc
+    */
+    cpu_switch_to(prev, next);  // sched.S will branch to @next->cpu_context.pc
 }
 
 // caller by timer irq handler, with irq automatically off by hardware
@@ -272,6 +272,24 @@ void timer_tick() {
         flag from spsr, which sets it on. */
 	disable_irq(); 
 }
+
+
+// sleep() wakeup() design patterns
+// 
+// sleep() always needs to hold a lock (lk). inside sleep() once the calling task grabs 
+// sched_lock (i.e. no other tasks can change their p->state), lk is released
+//
+// ONLY USE schedlock to serialize task A/B is not enough 
+// wakeup() does NOT need to hold lk. if that's the case, it's possible:
+//      task B: sleep(on chan) in a loop; 
+//      after it wakes up (no schedlock; only lk), before it calls sleep() again, 
+//      task A calls wakeup(chan), taking schelock and wakes up no task --> wakeup is lost
+// So our kernel cannot help on this case
+//
+// to avoid the above, task A calling wakeup() must hold lk beforehand. 
+// b/c of this, only after task B inside sleep() rls lk, task A can proceed to 
+// wakeup(). inside wakeup(), task A is further serialized on schedlock, which must wait 
+// until that task B has completely changed its p->state and is moved off the cpu
 
 // Wake up all processes sleeping on chan. Only change p->state; wont call schedule()
 // return # of tasks woken up
@@ -320,12 +338,14 @@ void sleep(void *chan, struct spinlock *lk) {
     // (e.g. lk protects the same buffer, cf pl011.c)
 
     // Once we hold sched_lock, we can be
-    // guaranteed that we won't miss any wakeup, b/c wakeup() can only 
+    // guaranteed that we won't miss any wakeup (meaning that another task 
+    // calling wakeup() w/ holding lk)
+    // b/c wakeup() can only 
     // start to wake up tasks after it locks sched_lock.
     // so it's okay to release lk.
     
     // corner case: lk==sched_lock, which is already held by cur task.
-    // the behavior is keep holding sched_lock and switch to idle task, which 
+    // the right behavior of sleep(): keep sched_lock and switch to idle task, which 
     // later will release the lock
     if (lk != &sched_lock) {
         acquire(&sched_lock);
@@ -347,6 +367,7 @@ void sleep(void *chan, struct spinlock *lk) {
     cpu_switch_to(p, idle);  
     
     // cpu_switch_to() back here when the cur task is woken up. 
+    // it now has sched_lock. 
 
     // Tidy up.
     p->chan = 0;
@@ -474,7 +495,9 @@ void exit_process(int status) {
     // switch the cpu away from zombie's kern stack to the idle task, which we
     // know exists for sure. the next timertick will call schedule() and switch 
     // to a normal task (if any)
-    cpu_switch_to(p, idle_tasks[cpuid()]);  // never return
+    struct task_struct *idle = idle_tasks[cpuid()];
+    mycpu()->proc = idle; 
+    cpu_switch_to(p, idle);  // never return
 
     // the "switch-to" task will resume from the schedule()'s exit path, 
     // which will release sched_lock
@@ -671,24 +694,25 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 
 static int lastpid=0; // a hint for the next free tcb slot. slowdown pid reuse for dbg ease
 
-// for creating both user and kernel tasks
+// For creating both user and kernel tasks
 // return pid on success, <0 on err
+// 
 // clone_flags: PF_KTHREAD for kernel thread, PF_UTHREAD for user thread
-// fn: only matters for PF_KTHREAD. task func entry 
+// fn: task func entry. only matters for PF_KTHREAD. 
 // arg: arg to kernel thread; or stack (userva) for user thread
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
 	struct task_struct *p = 0, *cur=myproc(); 
     int i, pid; 
-	acquire(&sched_lock);
-	
+
+	acquire(&sched_lock);	
 	// find an empty tcb slot
 	for (i = 0; i < NR_TASKS; i++) {
         pid = (lastpid+1+i) % NR_TASKS; 
 		p = task[pid]; BUG_ON(!p); 
 		if (p->state == TASK_UNUSED)
 			{V("alloc pid %d", pid); lastpid=pid; break;}
-	}	
+	}
 	if (i == NR_TASKS) 
 		{release(&sched_lock); return -1;}
 
@@ -700,28 +724,29 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
 	struct trampframe *childregs = task_pt_regs(p);
 
-	if (clone_flags & PF_KTHREAD) { /* create a kernel task */
+	if (clone_flags & PF_KTHREAD) { // to create a kernel task...
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
-    } else { /* fork user tasks */
+    } else { // to create a user task...
         struct trampframe *cur_regs = task_pt_regs(cur);
         *childregs = *cur_regs; // copy over the entire trampframe
-        childregs->regs[0] = 0; // return value (x0) for child
+        childregs->regs[0] = 0; // fork()'s return value for child 
         if (clone_flags & PF_UTHREAD) {	// fork a "thread", i.e. sharing an existing mm
             p->mm = cur->mm; BUG_ON(!p->mm);
             acquire(&p->mm->lock);
             p->mm->ref++;
             release(&p->mm->lock);
             childregs->sp = arg; V("childregs->sp %lx", childregs->sp);
-        } else {	// for a "process", alloc a new mm of its own
+            // same pc 
+        } else {	// fork a "process", having a mm of its own
             struct mm_struct *mm = alloc_mm();
             if (!mm) {BUG(); return -1;}  // XXX reverse task allocation
 			// now we hold mm->lock
             p->mm = mm; V("new mm %lx", (unsigned long)mm); 
             dup_current_virt_memory(mm); // duplicate virt memory (inc contents)
             release(&mm->lock);
+            // same pc, same sp
         }
-        // that's it, no modifying pc/sp/etc
 
 		// user task only: dup fds (kernel tasks won't need them)
 		// 		increment reference counts on open file descriptors.
@@ -736,19 +761,19 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
 	p->flags = clone_flags;
 	p->credits = p->priority = cur->priority;
-	// p->preempt_count = 1; //disable preemption until leave_scheduler
-	
+	p->pid = pid; 
+
 	// TODO: init more field here
 	// @page is 0-filled, many fields (e.g. mm.pgd) are implicitly init'd
 
+    // prep new task's scheduler context 
 	p->cpu_context.pc = (unsigned long)ret_from_fork; // entry.S
 	p->cpu_context.sp = (unsigned long)childregs; // XXX in fact PF_KTHREAD can use all the way to the top of the stack page...
-	p->pid = pid; 
+	
     release(&cur->lock);
 	release(&p->lock);
 
  	p->parent = cur;
-
 	// the last thing ... hence scheduler can pick up
 	p->state = TASK_RUNNABLE;
 

@@ -7,17 +7,6 @@
 
 #define THREAD_SIZE		PAGE_SIZE			// kernel stack size per task
 
-#define FIRST_TASK task[0]
-#define LAST_TASK task[NR_TASKS-1]
-
-/* 
-	By classic OS textbook/lectures, 
-	READY means ready to run but is not running because of no idle CPU, not scheduled yet, etc. 
-	RUNNING means the task is running and currently uses CPU.
-
-	However, in the simple impl. below, 
-	TASK_RUNNING represents either RUNNING or READY 
-*/
 #define TASK_UNUSED						0  // unused tcb slot 
 #define TASK_RUNNING					1	// task on a cpu
 #define TASK_SLEEPING					2
@@ -25,12 +14,12 @@
 #define TASK_RUNNABLE					4  // can run but not on any cpu
 /* TODO: define more task states (as constants) below, e.g. TASK_WAIT */
 
-#define PF_KTHREAD		 0x2
-#define PF_UTHREAD	 	 0x4		// user thread (sharing mm with other user tasks)
+#define PF_KTHREAD		 0x2	// kern thread
+#define PF_UTHREAD	 	 0x4	// user thread (p->mm shared with other user tasks)
 
 extern struct task_struct * task[NR_TASKS];
 
-// Contains values of all registers that might be different between the tasks.
+// a task's (partial) cpu regs for context switches in scheduling 
 // x0-x7 func call arguments; x9-x15 caller saved; x19-x29 callee saved
 struct cpu_context {	
 	unsigned long x19;
@@ -46,16 +35,22 @@ struct cpu_context {
 	unsigned long fp;
 	unsigned long sp;
 	unsigned long pc;
-};
-// 13 regs
+}; // 13 regs
 
 struct user_page {
 	unsigned long phys_addr;
 	unsigned long virt_addr; // user va
 };
 
-#include "spinlock.h"
+// a task's full cpu regs when taking exceptions (EL1->EL1, EL0->EL1)
+struct trampframe {
+	unsigned long regs[31];
+	unsigned long sp;
+	unsigned long pc;
+	unsigned long pstate;
+};
 
+#include "spinlock.h"
 
 // a user task's VM. a VM can be shared by multi user tasks
 // kernel thread has no such a thing, task_struct::mm=0
@@ -80,32 +75,30 @@ struct mm_struct {
 
 // the metadata describing a task
 struct task_struct {
-  // private to the task, no task->lock needed
-  struct cpu_context cpu_context; // MUST COME FIRST. register values.
-  struct file *ofile[NOFILE];     // Open files
-  struct inode *cwd;              // Current directory
-  char name[16];         // Process name (debugging)
-  struct mm_struct *mm;  // =0 for kernel thread. for user threads, multi task_structs may share a mm_struct
-  unsigned long flags;
-  long preempt_count; // cf: preempt_enable()  TO DELETE
+    // private to the task, no task->lock needed
+    struct cpu_context cpu_context; // MUST COME FIRST. register values.
+    struct file *ofile[NOFILE];     // Open files
+    struct inode *cwd;              // Current directory
+    char name[16];                  // Process name (debugging)
+    struct mm_struct *mm;           // =0 for kernel thread. for user threads, multi task_structs may share a mm_struct
+    unsigned long flags;
+    long preempt_count; // cf: preempt_enable()  TO DELETE
 
-  // sched_lock is needed for the following, b/c they are only examined
-  // by schedule() & friends
-  int state; // task state, e.g. TASK_RUNNING. TASK_UNUSED if task_struct is invalid
-  long credits;       // schedule "credits". dec by 1 for each timer tick; upon 0, calls schedule(); schedule() picks the task with most credits
-  long priority;      // when kernel schedules a new task, the kernel copies the task's  `priority` value to `credits`. Regulate CPU time the task gets relative to other tasks
-  int xstate;         // Exit status to be returned to parent's wait
-  void *chan;         // If non-zero, sleeping on chan
+    struct spinlock lock;
+    // protect members below
+    int killed; // If non-zero, have been killed. Checked by entry.S.
+    // killed protected by p->lock (instead of sched_lock) b/c it's not tied to schedule() logic and is
+    // examined in many places
+    int pid; // still need this, ease of debugging...
 
-  struct spinlock lock;
-  // protect members below
-  int killed;         // If non-zero, have been killed. Checked by entry.S.
-  // killed protected by p->lock (instead of sched_lock) b/c it's not tied to schedule() logic and is 
-  // examined in many places
-  int pid;            // still need this, ease of debugging...
-
-  // wait_lock must be held when using this:
-  struct task_struct *parent; // Parent process
+    // the global sched_lock is needed for the following, b/c they are only examined
+    // by schedule() & friends
+    int state;                  // task state, e.g. TASK_RUNNING. TASK_UNUSED if task_struct is invalid
+    long credits;               // schedule "credits". dec by 1 for each timer tick; upon 0, calls schedule(); schedule() picks the task with most credits
+    long priority;              // when kernel schedules a new task, the kernel copies the task's  `priority` value to `credits`. Regulate CPU time the task gets relative to other tasks
+    int xstate;                 // Exit status to be returned to parent's wait
+    void *chan;                 // If non-zero, sleeping on chan
+    struct task_struct *parent; // Parent process
 };
 
 // use this to check struct size at compile time
@@ -115,9 +108,7 @@ struct task_struct {
 // bottom half a page; make sure the top half enough space for ker stack...
 _Static_assert(sizeof(struct task_struct) < 1200);	// 1408 seems too big, corrupt stack?
 
-// --------------- processor related ----------------------- // 
-// we only support 1 cpu (as of now), but xv6 code is around multicore so we keep the 
-// ds here...
+// --------------- cpu related ----------------------- // 
 struct cpu {
   struct task_struct *proc;          // The process running on this cpu. never null as each core has an idle task
   int noff;                   		// Depth of push_off() nesting.
@@ -129,15 +120,11 @@ extern struct cpu cpus[NCPU];		// sched.c
 extern int cpuid(void); 
 static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
 
-// extern struct task_struct *current; // sched.c	// UP
+// UP ONLY 
+// extern struct task_struct *current; // sched.c	
 // static inline struct task_struct *myproc(void) {return current;}; 
 
-
 // --------------- fork related ----------------------- // 
-
-/*
- * PSR bits
- */
 #define PSR_MODE_EL0t	0x00000000
 #define PSR_MODE_EL1t	0x00000004
 #define PSR_MODE_EL1h	0x00000005
@@ -146,12 +133,6 @@ static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
 #define PSR_MODE_EL3t	0x0000000c
 #define PSR_MODE_EL3h	0x0000000d
 
-struct trampframe {
-	unsigned long regs[31];
-	unsigned long sp;
-	unsigned long pc;
-	unsigned long pstate;
-};
 
 #define MEMBER_OFFSET(type, member) ((long)(&((type *)0)->member))
 // task_struct::killed
@@ -161,10 +142,11 @@ struct trampframe {
 // https://stackoverflow.com/questions/11770451/what-is-the-meaning-of-attribute-packed-aligned4
 // e.g. "error: initialization of ‘char (*)[312]’ from ‘int’ ...."
 // char (*__kaboom)[TASK_STRUCT_KILLED_OFFSET_C] = 1; 
+
 #endif		// ! __ASSEMBLER__
 
 // exposed to asm...
-#define TASK_STRUCT_KILLED_OFFSET	344 	// see above
+#define TASK_STRUCT_KILLED_OFFSET	304 	// see above
 #define S_FRAME_SIZE			272 		// size of all saved registers 
 #define S_X0				    0		// offset of x0 register in saved stack frame
 

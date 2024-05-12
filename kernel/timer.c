@@ -29,9 +29,23 @@ int interval = (1 * 1000 * 1000 / SCHED_TICK_HZ);
 struct spinlock tickslock = {.locked = 0, .cpu=0, .name="tickslock"};
 unsigned int ticks; 	// sleep() tasks sleep on this var. 
 
-/* 	These are for Arm generic timers. 
-	They are fully functional on both QEMU and Rpi3.
-*/
+// ----------------- arm generic timer  --------------------------- //
+
+/**
+ * 
+ *  Arm generic timers. Each core has its own instance. 
+ *
+	Here, the physical timer at EL1 is used with the TimerValue views.
+ *  Once the count-down reaches 0, the interrupt line is HIGH until
+ *  a new timer value > 0 is written into the CNTP_TVAL_EL0 system register.
+ *
+ *  Read: 
+ *  https://fxlin.github.io/p1-kernel/exp3/rpi-os/#arms-generic-hardware-timer
+ * 
+ *  Reference: AArch64-referenc-manual p.2326 at
+ *  https://developer.arm.com/docs/ddi0487/ca/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
+ */
+
 void generic_timer_reset(unsigned long intv) {
 	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(intv));
 }
