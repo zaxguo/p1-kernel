@@ -1,6 +1,6 @@
-// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_VERBOSE
 // #define K2_DEBUG_INFO
-#define K2_DEBUG_WARN
+// #define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"
@@ -155,6 +155,7 @@ void schedule() {
                 || p->state == TASK_RUNNABLE) {
                 has_runnable = 1; 
                 // NB: p->credits protected by sched_lock
+                V("cpu%d pid %d credits %ld", cpu, i, p->credits);
 				if (p->credits > max_cr) { max_cr = p->credits; next = i; }
 			}
 		}        
@@ -249,7 +250,7 @@ void switch_to(struct task_struct * next) {
     cpu_switch_to(prev, next);  // sched.S will branch to @next->cpu_context.pc
 }
 
-// caller by timer irq handler, with irq automatically off by hardware
+// caller by timer irq handler, with irq automatically turned off by hardware
 void timer_tick() {
     struct task_struct *cur = myproc();
     __attribute_maybe_unused__ int cpu = cpuid();
@@ -361,10 +362,14 @@ void sleep(void *chan, struct spinlock *lk) {
     p->chan = chan;
     p->state = TASK_SLEEPING;
 
+    // although the task has not used up the current tick, bill it regardless.
+    // thus this task will be disadvantaged in future scheduling 
+    p->credits --; 
+
     // switch the cpu away from the current kern stack to the idle task, which we
     // know exists for sure. the idle task will return from the schedule() and 
     // rls sched_lock. the next timertick will call schedule() and switch 
-    // to a normal task (if any), 
+    // to a normal task (if any) 
     struct task_struct *idle = idle_tasks[cpuid()];
     mycpu()->proc = idle; 
     cpu_switch_to(p, idle);  
