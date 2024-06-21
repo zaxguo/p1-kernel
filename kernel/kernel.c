@@ -38,17 +38,16 @@ void kernel_process() {
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
-	test_kernel_tasks(); 
-	while (1);
+	// test_kernel_tasks(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
 	} 
-	// this func is called from ret_from_fork (entry.S). after returning, it goes back to 
-	// ret_from_fork and does kernel_exit there. hence, trampframe populated by move_to_user_mode()
-	// will take effect. 
+	// this func is called from ret_from_fork (entry.S). after returning from 
+	// this func, it goes back to ret_from_fork and performs kernel_exit there. 
+	// hence, trampframe populated by move_to_user_mode() will take effect. 
 }
 
 unsigned long * spin_cpu = PA2VA(0xd8);  // boot.S
@@ -56,14 +55,9 @@ extern unsigned long core_flags[4];  // boot.S
 extern unsigned long core2_state[4];  // boot.S
 extern unsigned long _start;
 
-// static struct spinlock testlock = {.locked=0, .cpu=0, .name="test_lock"};
-
-void uart_send_string(char* str);
 void secondary_core(int core_id)
 {
-	uart_send_string("secondary_core()\n");
-
-	printf("Hello from core %d", core_id);
+	printf("Hello core %d\n", core_id); // output may interleave with those from other cpus
 
 	generic_timer_init(); 
 	enable_interrupt_controller(core_id);
@@ -74,15 +68,15 @@ void secondary_core(int core_id)
 		asm volatile("wfi"); 
 }
 
-__attribute__((unused))
 static void start_cores(void) {		
-	// Flush the whole kernel memory 
+	// Flush the whole kernel memory (must)
 	// My theory: cpu1+ were down when cpu0 was init kernel state; so they might
 	// have missed cache transactions and therefore could see stale kernel states
 	// e.g. cpu1+ couldn't see the effect of init_printf() and hence failed to 
 	// print msgs. 
 	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
 
+	// wake up cpu1+ by changing core_flags
 	for (int i=1; i <NCPU; i++) {
 #ifdef PLAT_RPI3QEMU		
 		spin_cpu[i] = VA2PA(&_start); 
@@ -96,8 +90,9 @@ static void start_cores(void) {
 
 extern void uart_send_va(char c); 
 extern void uart_send_pa(char c); 
-void kernel_main()
-{
+
+// core0 only
+void kernel_main() {
 	uart_init();
 	init_printf(NULL, putc);	
 	printf("------ kernel boot ------ %d\n\r", (int)cpuid());
@@ -125,21 +120,21 @@ void kernel_main()
 	// start other cores after all subsystems are init'd 
 	start_cores(); 
 
-	// right now the cpu is on its boot stack (set in boot.S), idle task
+	// now cpu is on its boot stack (boot.S) belonging to the idle task
 	// schedule() will jump off to kernel stacks belonging to normal tasks
+	// (i.e. init_task as set up in sched_init(), sched.c)
 	schedule(); 
-	// cpu only switches back to the boot stack and returns here, 
-	// when scheduler has no normal tasks to run.
+	// only when scheduler has no normal tasks to run for the current cpu,
+	// the cpu switches back to the boot stack and returns here
     while (1) {
-        // don't call schedule() here, otherwise each irq will call schedule() 
-		// -- too much
+        // don't call schedule(), otherwise each irq calls schedule(): too much
         // instead, let timer_tick() throttle & decide when to call schedule()
         V("idle task");
         asm volatile("wfi");
     }
 }
 
-// 1st normal task to run. only on core0
+// the 1st normal task to created by sched_init()
 void init(int arg/*ignored*/) {
 	int wpid; 
     W("entering init");

@@ -1,9 +1,8 @@
-// has to be a single file 
 // included by both the kernel (c and asm) and mkfs
 
 // -------------- configuration -------------------------- //
 #define NOFILE          16  // open files per process
-#define NCPU	        2
+#define NCPU	        2   // # of cpu cores kernel supported 
 #define MAXPATH         128   // maximum file path name
 #define NINODE          50  // maximum number of active i-nodes
 // #define NDEV            10  // maximum major device number
@@ -14,10 +13,9 @@
 #define NR_TASKS				32   // 128     // 32 should be fine. usertests.c seems to expect > 100
 #define NR_MMS              NR_TASKS
 
-// 1-ramdisk, 2-virt_disk
-#define DEV_RAMDISK     1
-#define DEV_VIRTDISK    2       // qemu's virtio
-// sd card (phys or qemu's)
+#define DEV_RAMDISK     1       // ramdisk
+#define DEV_VIRTDISK    2       // qemu's virtio device
+// below is for sd card (phys or emulated)
 #define DEV_SD0          3       // partition0
 #define DEV_SD1          4       // partition1
 #define DEV_SD2          5       // partition2

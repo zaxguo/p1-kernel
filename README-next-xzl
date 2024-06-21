@@ -1188,3 +1188,28 @@ get ride of the xv6 idea (fine grained, per task lock p->lock)
 instead, use a global sched_lock for the whole schedulier ... for any scheduling activities 
 
 therefore get ride of things like wait_lock, which is subsumed by sched_lock
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+jun 2024... resume 
+1. clean up existing code, write doc
+    also design 4414 exp 
+
+2. multi tasking exp ... 
+    [ THE LAST EXPERIMNET ]
+    running llm? (pthread can be tedious to port
+        ++ cool
+        -- another new app... take times to setup & understand 
+    running multiple apps on same screen (super mario? doom?
+        also io multiplexing 
+        ++ can reuse existing experience 
+        ++ can be a good benchmark (doom, replay demos
+
+multicore ... measure and show cpu usage, render to screeen 
+
+MULTICORE IS A UNIQUE PERK/FEATURE on real hardware.... (against NJU OS
+
+
+    
+
+
+
+

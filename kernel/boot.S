@@ -1,3 +1,4 @@
+// kernel boot code
 #include "param.h"
 #include "sysregs.h"
 #include "plat.h"
@@ -5,7 +6,7 @@
 
 .section ".text.boot"
 
-// reg for cpuid_reg throughout boot.S. shall not be used for other purposes
+// use x28 for cpuid_reg throughout boot.S. x28 not to be used for other purposes
 cpuid_reg 	.req 	x28 
 
 .globl _start
@@ -15,12 +16,17 @@ _start:
 	and	cpuid_reg, cpuid_reg, #0xFF	// x28: core id
 	b check_flag
 
-// the mechanism used by firmware that wants to "park" the cores
-// * qemu-8 implements this mechanism
-// * rpi3 hw cannot boot w/o this table (the OS does NOT need to change the flags though. why?)
+// core "park" mechanism: 
+// only one core shall execute the boot code; all other cores must be paused (i.e. 'parked') until 
+// the boot code is finished, before jumping to the code for execution. 
+// otherwise, multi cores will have race condition, corruption the kernel state (unable to boot) 
+
+// the table used by firmware that wants to "park" the cores
+// >> qemu-8 implements this mechanism
+// >> rpi3 hw cannot boot w/o this table (the OS does NOT need to change the flags though. why?)
 .ltorg // emit literal pool; reuse the padding space
-.org 0xd8  // relative to this section
-        .quad 1  // emit 8 bytes of 0s. as the placeholder of core0's flag 
+.org 0xd8  // addr offset within the current section (.text.boot)
+        .quad 1  // core0's flag  (.quad emits 8 bytes)
 .org 0xe0
         .quad 0 // core1
 .org 0xe8
@@ -28,19 +34,19 @@ _start:
 .org 0xf0
         .quad 0 // core3
 
-	// mechanism to park core(s) to avoid race condition, which will results in being unable to boot
-	// if cores are already "parked" by firmware, we won't need this. but we dont know
+// the kernel's own mechanism to park core(s): spin on core_flags until them become 1	
+// if cores are already "parked" by firmware, we won't need this. but we dont know
 check_flag:	
-    adr     x5, core_flags	 // spin on core_flags until them become 1	
-	ldr     x4, [x5, cpuid_reg, lsl #3]	// x4: the core's flag. 
-    cbnz    x4, core_boot			// Flag non zero. This core may proceed. 
+    adr     x5, core_flags
+	ldr     x4, [x5, cpuid_reg, lsl #3]	// x4: the current core's flag. 
+    cbnz    x4, core_boot			// Flag is non zero. the current core may proceed. 
 	wfe		// wait to be signaled. (low power)
 	b 		check_flag
 
 core_boot:
+	//  (dbg code) 
 	//cbz cpuid_reg, 1f
-	///  SIGN OF LIFE .........
-	//add x0, cpuid_reg, 'A'
+	//add x0, cpuid_reg, 'A'	// SIGN OF LIFE
 	//bl uart_send_pa
 1:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
@@ -54,16 +60,15 @@ core_boot:
 	MSR     CPACR_EL1, x1
 	ISB
 
-	/* -------- Below: exception level switch ---------------
+	/* -------- Exception level switch ---------------
 	  check the current exception level: EL3 (rpi3 hardware) or EL2 (qemu)?
 	  both eret to EL1  */
-
 	mrs x0, CurrentEL
   	lsr x0, x0, #2
 	cmp x0, #3
 	beq el3		
 
-	# current: EL2 
+	# Current EL: EL2 
 	# set EL1 to be running in AArch64
 	mrs	x0, hcr_el2
 	orr	x0, x0, #HCR_RW  
@@ -77,7 +82,7 @@ core_boot:
 	msr	elr_el2, x0
 	eret	// switch to EL1
 
-el3: 		// current: EL3
+el3: 		// Current EL: EL3
   	ldr x0, =HCR_VALUE
   	msr hcr_el2, x0
 
@@ -92,10 +97,11 @@ el3: 		// current: EL3
 	msr	elr_el3, x0	
 	eret	// switch to EL1				
 
-	/* ------- Below: EL1 execution ------- */
+	/* ------- Start of EL1 execution ------- */
 el1_entry:	
 	cbnz cpuid_reg, setup_sp 
-	// cpu0 execution only
+
+	// below: executed by core0 only
 
 	// bss_begin/end are linking addr (kernel virt). convert them to phys.
 	// they are (at least) 8 bytes aligned in link script
@@ -130,17 +136,17 @@ el1_entry:
 // https://www.raspberrypi.org/forums/viewtopic.php?t=222408
 	bl	__create_idmap
 #endif
-
-	// create kernel's pgtable (for memory and IO)
+	
 #if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)	
-	bl 	__create_page_tables_rpi3
+	bl 	__create_page_tables_rpi3 	// kernel's pgtable (for memory and IO)
 #elif defined(PLAT_VIRT)	
-	bl 	__create_page_tables_virt
+	bl 	__create_page_tables_virt	// kernel's pgtable (for memory and IO)
 #else
 	#error "not implemented"
 #endif	
+	// NB: these pgtables are not effective yet
 
-	// exec by all cpus
+	// Below: executed by all cores
 	// set virt sp = (cpuid_reg+1)*4096 + boot_stacks
 	// (assuming linear mapping, phys 0 --> virt VA_START)	
 setup_sp: 	
@@ -156,26 +162,24 @@ setup_sp:
 	msr		ttbr1_el1, x0
 	isb 		// memory barrier 
 
-	// configuring mm translation (granule, user/kernel split, etc)
-	// tcr_el1: Translation Control Register. cf mmu.h
+	// configuring mm translation (granule, user/kernel split, etc)	
 	ldr	x0, =(TCR_VALUE)		
-	msr	tcr_el1, x0 
+	msr	tcr_el1, x0  // tcr_el1: Translation Control Register. cf mmu.h
 	isb 		// memory barrier 
-
-	// memory attributes
-	ldr	x0, =(MAIR_VALUE)
+	
+	ldr	x0, =(MAIR_VALUE)	// memory attributes. cf mmu.h
 	msr	mair_el1, x0
 
 #ifdef PLAT_RPI3QEMU
-	adrp	x0, idmap_dir
+	adrp	x0, idmap_dir	// all cores install idmap 
 	msr	ttbr0_el1, x0	
 #endif
 
-	// irq_vector_init, each core has to do this
-	ldr x0, =vectors		// load VBAR_EL1 vector table addr (kern VA)
+	// all cores: install irq vectors
+	ldr x0, =vectors	// load VBAR_EL1 vector table addr (kern VA)
 	msr	vbar_el1, x0	
 
-	// still alive?
+	// (dbg) still alive?
 	//add x0, cpuid_reg, 'A'
 	//bl uart_send_pa
 		
@@ -183,9 +187,8 @@ setup_sp:
 	b.eq 1f
 	// cpu1+, load the linking (virt) addr of secondary_core_asm
 	ldr x2, =secondary_core_asm
-	//ldr x2, =secondary_core
 	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
-	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
+	msr	sctlr_el1, x0	// BOOM! after this, this core runs on virtual addr
 	br 	x2				
 
 1:
@@ -196,9 +199,9 @@ setup_sp:
 	br 	x2				// Jump to kernel_main() (kernel.c)
 
 secondary_core_asm:	
-	// now: VM is on, cache is on
 	// trampoline for cpu1+, before jumping to the c code (secondary_core())
-	// a good place for debugging cpu1+ states
+	// Now: VM is on, cache is on. a good place for debugging cpu1+ states
+	// (dbg)
 	//add x0, cpuid_reg, 'X'	// are we alive?
 	//bl uart_send_va	
 
@@ -210,7 +213,8 @@ secondary_core_asm:
 	mov x0, cpuid_reg
 	bl secondary_core
 
-// ------------------------ pgtable utilities below --------------------------- //
+////////////////////////////////////////////////////////////////////////////////
+// ------------------------ pgtable utilities below --------------------------//
 
 	// Given a virt addr and the PGD, set the PGD entry, allocate one PUD and one PMD.
 	//		link PGD -> PUD and PUD -> PMD

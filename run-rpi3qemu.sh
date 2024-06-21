@@ -72,8 +72,6 @@ qemu_full () {
 # -nographic \
 # -drive file=fat:rw:/tmp/testdir,if=sd,format=raw
 
-
-
 if [ "$1" = "min" ]
 then
     qemu_min
@@ -83,7 +81,7 @@ then
 elif [ "$1" = "mon" ]    
 then
     qemu_mon
-else
+else    # default ...     
     qemu_small
 fi
 

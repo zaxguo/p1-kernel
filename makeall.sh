@@ -1,3 +1,5 @@
+# build userspace, then kernel
+
 pushd .
 cd kernel/addon/usb/lib
 make -j10

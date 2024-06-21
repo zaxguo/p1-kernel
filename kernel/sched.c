@@ -1,6 +1,6 @@
 // #define K2_DEBUG_VERBOSE
-#define K2_DEBUG_INFO
-// #define K2_DEBUG_WARN
+// #define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"
@@ -175,7 +175,10 @@ void schedule() {
                 }                
             }
         } else { // reason2: no normal tasks RUNNABLE (inc. cur task)
-            I("cpu%d nothing to run. switch to idle", cpu); procdump(); 
+            I("cpu%d nothing to run. switch to idle", cpu); 
+            #ifdef K2_DEBUG_VERBOSE
+            procdump(); 
+            #endif
             switch_to(idle_tasks[cpu]); // if already on idle task, this will do nothing
             break;
         }
@@ -585,13 +588,12 @@ int killed(struct task_struct *p) {
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
 void procdump(void) {
-#ifdef K2_DEBUG_VERBOSE
     static char *states[] = {
-        [TASK_UNUSED] "unused ",
-        [TASK_RUNNING] "running",
-        [TASK_SLEEPING] "sleep  ",
-        [TASK_RUNNING] "run    ",
-        [TASK_ZOMBIE] "zombie "};
+        [TASK_UNUSED]   "UNUSED  ",
+        [TASK_RUNNING]  "RUNNING ",
+        [TASK_SLEEPING] "SLEEP   ",
+        [TASK_RUNNABLE] "RUNNABLE",
+        [TASK_ZOMBIE]   "ZOMBIE  "};
     struct task_struct *p;
     char *state;
 
@@ -603,10 +605,9 @@ void procdump(void) {
             state = states[p->state];
         else
             state = "???";
-        printf("\t\t pid %d state %s chan %lx\n", p->pid, state,
+        printf("\t\t pid %d %s %s chan %lx\n", p->pid, state, p->name, 
                (unsigned long)p->chan);
     }
-#endif
 }
 
 ////// fork.c 
