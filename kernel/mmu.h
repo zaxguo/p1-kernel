@@ -68,7 +68,10 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d43_1_vmsav8-64_translation_tab
 Access flag (AF). "D4.4.1 Memory access control"
 https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.html#
 */
-#define MM_ACCESS			    (0x1 << 10)  // AF. "indicates when a page or section of memory is accessed for the first time". if 0, exception. to be set by kernel
+#define MM_AF		(0x1<<10)  // "indicates when a page or section of memory is accessed for the first time". if 0, exception. to be set by kernel
+
+#define MM_SH_INNER (0x3<<8) // 00 Non-shareable 10b outer sharable 11b inner sharable
+
 /* Access permission, bit7:6 in descriptor */
 #define MM_AP_MASK              (0x3UL << 6)
 #define MM_AP_EL1_RW            (0x0 << 6)      // EL0:no access; EL1/2/3: rw
@@ -81,12 +84,14 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 #define MM_PXN (1UL<<53)   // Privileged execute-never bit (Determines whether the region is executable at EL1)
 #define MM_XN_MASK              (0x3UL << 53)
 
+#define MM_ACCESS (MM_AF | MM_SH_INNER)
+
 // extract perm bits from pte
 #define PTE_TO_PERM(x)      (x & (unsigned long)(MM_AP_MASK | MM_XN_MASK))
 // extract pa from pte. assuming pa within 32bits TODO: fix this for larger phys mem system...
 #define PTE_TO_PA(x)        (x & (0xffffffff) & PAGE_MASK)
 #ifndef __ASSEMBLER__    
-    _Static_assert(PHYS_SIZE < 0xffffffff); 		
+    _Static_assert(PHYS_SIZE < 0xffffffff);
 #endif
 
 /*
@@ -113,7 +118,7 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 #define MT_DEVICE_nGnRnE_FLAGS		0x00  // "equivalent to Strongly Ordered memory in the ARMv7 architecture".
 #define MT_NORMAL_NC_FLAGS  		0x44
 #define MT_NORMAL_WT_FLAGS  		0xbb
-#define MT_NORMAL_FLAGS  		    0xff    
+#define MT_NORMAL_FLAGS  		    0xff
 
 #define MAIR_VALUE			((MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE))     \
                                     | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))    \
