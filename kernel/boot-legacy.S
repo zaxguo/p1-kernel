@@ -1,6 +1,7 @@
-// kernel boot code, shall be used with newer rpi3 firmware that builds in
-//	armstub, which boots kernel at 0x80000 and EL2
-// the firmware also provides spintable for SMP
+// kernel boot code - legacy
+
+// used with old_kernel=1 in config.txt, which boots the kernel in EL3 at 0x0, 
+// 	bypassing firmware init
 
 #include "param.h"
 #include "sysregs.h"
@@ -17,11 +18,40 @@ _start:
 	/* ---------- Below: handle multicore -------------- */
 	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
 	and	cpuid_reg, cpuid_reg, #0xFF	// x28: core id
+	b check_flag
 
+// core "park" mechanism: 
+// only one core shall execute the boot code; all other cores must be paused (i.e. 'parked') until 
+// the boot code is finished, before jumping to the code for execution. 
+// otherwise, multi cores will have race condition, corruption the kernel state (unable to boot) 
+
+// the table used by firmware that wants to "park" the cores
+// >> qemu-8 implements this mechanism
+// >> rpi3 hw cannot boot w/o this table (the OS does NOT need to change the flags though. why?)
+.ltorg // emit literal pool; reuse the padding space
+.org 0xd8  // addr offset within the current section (.text.boot)
+        .quad 1  // core0's flag  (.quad emits 8 bytes)
+.org 0xe0
+        .quad 0 // core1
+.org 0xe8
+        .quad 0 // core2
+.org 0xf0
+        .quad 0 // core3
+
+// the kernel's own mechanism to park core(s): spin on core_flags until them become 1	
+// if cores are already "parked" by firmware, we won't need this. but we dont know
+check_flag:	
+    adr     x5, core_flags
+	ldr     x4, [x5, cpuid_reg, lsl #3]	// x4: the current core's flag. 
+    cbnz    x4, core_boot			// Flag is non zero. the current core may proceed. 
+	wfe		// wait to be signaled. (low power)
+	b 		check_flag
+
+core_boot:
 	//  (dbg code) 
-	cbz cpuid_reg, 1f
-	add x0, cpuid_reg, 'A'	// SIGN OF LIFE
-	bl uart_send_pa
+	//cbz cpuid_reg, 1f
+	//add x0, cpuid_reg, 'A'	// SIGN OF LIFE
+	//bl uart_send_pa
 1:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
 	msr	sctlr_el1, x0
@@ -34,9 +64,16 @@ _start:
 	MSR     CPACR_EL1, x1
 	ISB
 
+	# cortex a53 specific. armstub sets this. if we boot w/o armstub, we must
+	# do it here
+	mrs     x0, S3_1_c15_c2_1
+	orr     x0, x0, #0x40
+	msr     S3_1_c15_c2_1, x0
+	isb
+	
 	/* -------- Exception level switch ---------------
-	  check the current exception level: EL3 or EL2?
-	  Either way, eret to EL1  */
+	  check the current exception level: EL3 (rpi3 hardware) or EL2 (qemu)?
+	  both eret to EL1  */
 	mrs x0, CurrentEL
   	lsr x0, x0, #2
 	cmp x0, #3
@@ -152,6 +189,10 @@ setup_sp:
 	ldr x0, =vectors	// load VBAR_EL1 vector table addr (kern VA)
 	msr	vbar_el1, x0	
 
+	// (dbg) still alive?
+	//add x0, cpuid_reg, 'A'
+	//bl uart_send_pa
+		
 	cmp cpuid_reg, #0
 	b.eq 1f
 	// cpu1+, load the linking (virt) addr of secondary_core_asm
@@ -168,6 +209,17 @@ setup_sp:
 	br 	x2				// Jump to kernel_main() (kernel.c)
 
 secondary_core_asm:	
+	// trampoline for cpu1+, before jumping to the c code (secondary_core())
+	// Now: VM is on, cache is on. a good place for debugging cpu1+ states
+	// (dbg)
+	//add x0, cpuid_reg, 'X'	// are we alive?
+	//bl uart_send_va	
+
+	// invalidate all cache (failed to boot..why?) 
+	//ldr x0, =VA_START
+	//add x1, x0, #(4*SECTION_SIZE)
+	//bl __asm_invalidate_dcache_range
+
 	mov x0, cpuid_reg
 	bl secondary_core
 
@@ -350,3 +402,10 @@ __create_page_tables_rpi3: // for rpi3
 	mov	x30, x29						// restore return address
 	ret
 #endif
+
+.globl core_flags
+core_flags: 
+	.quad 1	// 8 bytes
+	.quad 0
+	.quad 0
+	.quad 0

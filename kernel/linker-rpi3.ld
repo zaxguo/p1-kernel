@@ -2,8 +2,7 @@
 
 SECTIONS
 {
-	/* cannot figure out how to change to 0? tried config.txt old_kernel kernel_address options...*/
-	. = 0xffff000000000000;			
+	. = 0xffff000000080000;
 	.text.boot : { *(.text.boot) }
 	. = ALIGN(0x00001000);
 	user_begin = .;

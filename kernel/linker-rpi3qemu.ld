@@ -1,7 +1,5 @@
 /* linker script for rpi3 emulated by qemu */
 
-	/* . = 0xffff000000000000; */
-	
 SECTIONS
 {
 	. = 0xffff000000080000;  

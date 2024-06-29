@@ -1,4 +1,5 @@
-#define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_WARN
 
 #include <stddef.h>
 #include <stdint.h>
@@ -18,9 +19,10 @@ extern void test_fb();
 extern void test_sound(); 
 extern void test_sd(); 
 extern void test_kernel_tasks();
+extern void test_spinlock();
 
 // 1st user process
-extern unsigned long user_begin;	// linker script
+extern unsigned long user_begin;	// cf the linker script
 extern unsigned long user_end;
 extern void user_process(); // user.c
 
@@ -38,7 +40,8 @@ void kernel_process() {
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
-	// test_kernel_tasks(); while (1);
+	test_kernel_tasks(); while (1);
+	// test_spinlock(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
@@ -50,14 +53,90 @@ void kernel_process() {
 	// hence, trampframe populated by move_to_user_mode() will take effect. 
 }
 
-unsigned long * spin_cpu = PA2VA(0xd8);  // boot.S
-extern unsigned long core_flags[4];  // boot.S
-extern unsigned long core2_state[4];  // boot.S
-extern unsigned long _start;
+// unsigned long *core_flags_pa = (unsigned long *)VA2PA(core_flags);
 
+static struct spinlock testlock0 = {.locked=0, .cpu=0, .name="testlock"};
+// static spinlock_t testlock = {.lock=0};
+// volatile int flag = 0; 
+
+void uart_send_string(char* str);
+
+extern unsigned long pg_dir; 
+#define N 4
+void dump_pgdir(void) {
+	unsigned long *p = &pg_dir; 
+
+	printf("PGD va %lx\n", (unsigned long)&pg_dir); 
+	for (int i =0; i<N; i++)
+		printf("	PGD[%d] %lx\n", i, p[i]); 
+	
+	p += (4096/sizeof(unsigned long)); 
+	printf("PUD va %lx\n", (unsigned long)p); 
+	for (int i =0; i<N; i++)
+		printf("	PUD[%d] %lx\n", i, p[i]); 
+
+	p += (4096/sizeof(unsigned long)); 
+	printf("PMD va %lx\n", (unsigned long)p); 
+	for (int i =0; i<N; i++)
+		printf("	PMD[%d] %lx\n", i, p[i]); 
+
+	p += (4096/sizeof(unsigned long)); 
+	printf("PMD va %lx\n", (unsigned long)p); 
+	for (int i =0; i<N; i++)
+		printf("	PMD[%d] %lx\n", i, p[i]); 		
+
+
+	unsigned long nFlags;
+	asm volatile ("mrs %0, sctlr_el1" : "=r" (nFlags));
+	printf("sctlr_el1 %016lx\n", nFlags); 
+	asm volatile ("mrs %0, tcr_el1" : "=r" (nFlags));
+	printf("tcr_el1 %016lx\n", nFlags); 
+}
+
+// the table used by firmware that wants to "park" the cores. implemented by:
+// 	 rpi3 firmware (https://github.com/raspberrypi/tools/tree/master/armstubs)
+//   qemu 
+unsigned long *core_flags = (unsigned long *)PA2VA(0x000000D8); 
+
+// called from boot.S, after setting up sp, MMU, pgtables, etc
 void secondary_core(int core_id)
 {
-	printf("Hello core %d\n", core_id); // output may interleave with those from other cpus
+	// W("coreflags %lx %lx %lx %lx", core_flags[0], core_flags[1], core_flags[2], 
+	// 	core_flags[3]);
+
+	dump_pgdir();
+	
+	core_flags[core_id] = 0; // notifying cpu0: this cpu has MMU up, so cpu0 can go
+
+	// __asm_flush_dcache_range((unsigned long*)core_flags+core_id, 
+	// 	(unsigned long*)core_flags+core_id+1);
+
+	printf("11111111111111111\n");
+
+	for (int i=0; i<10;i++) {
+		acquire(&testlock0);
+		// __asm_flush_dcache_range(&testlock, (char *)&testlock+4);
+
+		// do {
+		// 	__asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
+		// 	printf("X");
+		// } while (flag != 0); 
+		// flag = 1; 
+		// __asm_flush_dcache_range((void *)&flag, (char *)&flag+4);
+		// __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
+
+		printf("Hello core %d\n", core_id);		
+		release(&testlock0);
+	}
+	W("coreflags %lx %lx %lx %lx", core_flags[0], core_flags[1], core_flags[2], 
+		core_flags[3]);
+	// W("coreflags pa %lx %lx %lx %lx", core_flags_pa[0], core_flags_pa[1], core_flags_pa[2], 
+	// 	core_flags_pa[3]);		
+
+	while (1); 
+
+	// acquire(&testlock0); 
+	// printf("Hello core %d\n", core_id);
 
 	generic_timer_init(); 
 	enable_interrupt_controller(core_id);
@@ -68,8 +147,10 @@ void secondary_core(int core_id)
 		asm volatile("wfi"); 
 }
 
+extern unsigned long _start;  // boot.S
+
 static void start_cores(void) {		
-	// Flush the whole kernel memory (must)
+	// cpu0: Flush the whole kernel memory (must)
 	// My theory: cpu1+ were down when cpu0 was init kernel state; so they might
 	// have missed cache transactions and therefore could see stale kernel states
 	// e.g. cpu1+ couldn't see the effect of init_printf() and hence failed to 
@@ -77,15 +158,28 @@ static void start_cores(void) {
 	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
 
 	// wake up cpu1+ by changing core_flags
+	for (int i=1; i <NCPU; i++) 
+		core_flags[i] = VA2PA(&_start); // cpu1+ run from _start
+	__asm_flush_dcache_range((unsigned long*)core_flags, 
+		(unsigned long*)core_flags+4);
+	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
+
+	asm volatile ("dsb sy");
+	asm volatile ("sev");
+	
+	int timeout=100; 
 	for (int i=1; i <NCPU; i++) {
-#ifdef PLAT_RPI3QEMU		
-		spin_cpu[i] = VA2PA(&_start); 
-#endif		
-		core_flags[i] = 1; 
-		__asm_flush_dcache_range(spin_cpu, spin_cpu+4);
-		__asm_flush_dcache_range(core_flags, core_flags+4);
-		asm volatile ("sev");
+		while (core_flags[i]) {
+			if (timeout-- <= 0) {
+				E("failed to start core %d", i); 
+				E("coreflags %lx %lx %lx %lx", core_flags[0], core_flags[1], core_flags[2], 
+					core_flags[3]);
+				BUG(); 
+			}
+			ms_delay(1); 
+		}
 	}
+	W("start cores ok");
 }
 
 extern void uart_send_va(char c); 
@@ -109,16 +203,44 @@ void kernel_main() {
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
 	if (sd_init()!=0) E("sd init failed");
-	// irq_vector_init();
-	generic_timer_init(); 	// for sched ticks
+	// generic_timer_init(); 	// for sched ticks
 	sys_timer_init(); 		// for kernel timer
 	enable_interrupt_controller(0/*coreid*/);
-	enable_irq();
+	enable_irq();	// after this, scheduler is on
 	
 	if (usbkb_init() == 0) I("usb kb init done"); 
+	
+	// dump_pgdir();
 
 	// start other cores after all subsystems are init'd 
 	start_cores(); 
+
+	// ms_delay(50); 
+	
+	for (int i =0; i<10;i++)  {
+		acquire(&testlock0);
+		// __asm_flush_dcache_range(&testlock, (char *)&testlock+4);
+		// printf("core0....\n");
+		printf("0000000000000\n");
+		release(&testlock0);
+		// __asm_flush_dcache_range(&testlock, (char *)&testlock+4);
+
+		// do {
+		// __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
+		// } while (flag != 0); 
+		// flag = 1;  __asm_flush_dcache_range((void *)&flag, (char *)&flag+4);
+		// printf("core0....\n");		
+		// uart_send_string("0000000000000\n");
+		// flag = 0;  __asm_flush_dcache_range((void *)&flag, (char *)&flag+4);
+		// __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
+
+		
+		// acquire(&testlock0); 
+		// printf("core0....\n");
+		// release(&testlock0);
+	}		
+
+	generic_timer_init(); 	// for sched ticks
 
 	// now cpu is on its boot stack (boot.S) belonging to the idle task
 	// schedule() will jump off to kernel stacks belonging to normal tasks

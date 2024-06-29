@@ -1207,9 +1207,33 @@ multicore ... measure and show cpu usage, render to screeen
 
 MULTICORE IS A UNIQUE PERK/FEATURE on real hardware.... (against NJU OS
 
+---------------------------------------------------------------------------------------------------
 
-    
+xzl: 
+it seems without old_kernel=1, (default?) firmware will load and kernel will boot in EL2, at 0x80000;
+    the firmware can be override with supplied armstub=XXXX
+    this is what QEMU emulates
+
+w/ old_kernel=1, the kernel will directly boot (w/o any firmware before it); boot in EL3 at 0x0
 
 
+https://forums.raspberrypi.com/viewtopic.php?t=323977#p1938907
+
+Why are the armstub files needed?
+
+"With the "kernel_old=1" setting in config.txt you can boot in EL3. To be more compatible with the other RPi models I prefer to use the standard boot mode. There is no ARM stub and no config.txt needed and also on the RPi 4 a custom ARM stub must be loaded with Circle only, if the FIQ is used."
+
+cf:
+https://github.com/raspberrypi/tools/tree/master/armstubs
+https://trustedfirmware-a.readthedocs.io/en/v2.9/plat/rpi3.html
+
+---------------------------------------------------------------------------------------------------
+multicore cache coherency ... three things 
+
+TCR_VALUE --- SH0 & SH1, inner shareable   mmu.h
+pgtables -- MM_SH_INNER, inner shareable mmu.h
+S3_1_c15_c2_1 -- (cortex a53 specific. armstub sets this. if we boot w/o armstub, we must set it up)
+https://developer.arm.com/documentation/ddi0500/j/BABGHHEJ
+https://u-boot.denx.narkive.com/l1g1jI7V/patch-armv8-enable-cpuectlr-smpen-for-data-coherency
 
 
