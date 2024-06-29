@@ -12,35 +12,38 @@
 // use x28 for cpuid_reg throughout boot.S. x28 not to be used for other purposes
 cpuid_reg 	.req 	x28 
 
+// all cpus start here. 
+// yet, on power up only cpu0 runs, which will release cpu1+ later (cf start_cores())
 .globl _start
-_start:
-	/* ---------- Below: handle multicore -------------- */
-	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
-	and	cpuid_reg, cpuid_reg, #0xFF	// x28: core id
+_start:		
+	bl __asm_flush_dcache_all // seems needed for uboot, otherwise sometimes fail to boot
+	// load core id to x28
+	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
+	mrs	cpuid_reg, mpidr_el1	
+	and	cpuid_reg, cpuid_reg, #0xFF
 
-	//  (dbg code) 
-	cbz cpuid_reg, 1f
-	add x0, cpuid_reg, 'A'	// SIGN OF LIFE
-	bl uart_send_pa
 1:
-	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
+	// MMU off, until we set pgtables. cf: sysregs.h
+	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  
 	msr	sctlr_el1, x0
 	
-	# don't trap EL0/EL1 access to advanced simd, fp registers.
-	# cf: https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CPACR-EL1--Architectural-Feature-Access-Control-Register
-	# 	some code may contain them (e.g. usblib StringFormat uses q0/q1...)
+	// No trapping EL0/EL1 access to advanced simd, fp registers.
+	// cf: https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CPACR-EL1--Architectural-Feature-Access-Control-Register
+	//	some code may contain them (e.g. usblib StringFormat uses q0/q1...)
 	MRS     x1, CPACR_EL1
 	ORR     x1, x1, #(0x3 << 20)    // Write CPACR_EL1.FPEN bits
 	MSR     CPACR_EL1, x1
 	ISB
 
-	/* -------- Exception level switch ---------------
-	  check the current exception level: EL3 or EL2?
-	  Either way, eret to EL1  */
+	// For Cortex A53 SMP coherency, setting S3_1_c15_c2_1 is needed. 
+	// However we assume that it's done by uboot or armstub
+
+	/* -------- Exception level switch -------------- */
+	// Check the current exception level: EL3 or EL2?	
 	mrs x0, CurrentEL
   	lsr x0, x0, #2
 	cmp x0, #3
-	beq el3		
+	beq el3
 
 	# Current EL: EL2 
 	# set EL1 to be running in AArch64
@@ -57,6 +60,8 @@ _start:
 	eret	// switch to EL1
 
 el3: 		// Current EL: EL3
+	// 	With rpi3 firmware (armstub) or qemu, kernel always starts in EL2; 
+	//  We leave EL3 code here for completeness
   	ldr x0, =HCR_VALUE
   	msr hcr_el2, x0
 
@@ -75,8 +80,7 @@ el3: 		// Current EL: EL3
 el1_entry:	
 	cbnz cpuid_reg, setup_sp 
 
-	// below: executed by core0 only
-
+	// Below: cpu0 only. Clean up bss region. 
 	// bss_begin/end are linking addr (kernel virt). convert them to phys.
 	// they are (at least) 8 bytes aligned in link script
 	ldr	x0, =bss_begin
@@ -117,10 +121,10 @@ el1_entry:
 #else
 	#error "not implemented"
 #endif	
-	// NB: these pgtables are not effective yet
+	// NB: pgtables are set up, but not effective yet
 
-	// Below: executed by all cores
-	// set virt sp = (cpuid_reg+1)*4096 + boot_stacks
+	// Below: executed by all cpus
+	// Set virt sp = (cpuid_reg+1)*4096 + boot_stacks
 	// (assuming linear mapping, phys 0 --> virt VA_START)	
 setup_sp: 	
 	add x0, cpuid_reg, #1
@@ -135,12 +139,13 @@ setup_sp:
 	msr		ttbr1_el1, x0
 	isb 		// memory barrier 
 
-	// tcr: translation control reg. (granule, user/kernel split, etc)	
+	// tcr: translation control reg. (xslat granule, user/kernel split, etc)	
 	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el1, x0  // tcr_el1: Translation Control Register. cf mmu.h
 	isb 		// memory barrier 
 	
-	ldr	x0, =(MAIR_VALUE)	// memory attributes. cf mmu.h
+	// mair: memory attributes. cf mmu.h
+	ldr	x0, =(MAIR_VALUE)	
 	msr	mair_el1, x0
 
 #ifdef PLAT_RPI3QEMU
@@ -152,6 +157,7 @@ setup_sp:
 	ldr x0, =vectors	// load VBAR_EL1 vector table addr (kern VA)
 	msr	vbar_el1, x0	
 
+	// below: cpu0 and cpu1+ jump to their respective code
 	cmp cpuid_reg, #0
 	b.eq 1f
 	// cpu1+, load the linking (virt) addr of secondary_core_asm
@@ -173,6 +179,8 @@ secondary_core_asm:
 
 ////////////////////////////////////////////////////////////////////////////////
 // ------------------------ pgtable utilities below --------------------------//
+// We use ASM instead of C, b/c we want to set up pgtables (&VA) before jumping
+// to C code with a virtual SP. 
 
 	// Given a virt addr and the PGD, set the PGD entry, allocate one PUD and one PMD.
 	//		link PGD -> PUD and PUD -> PMD
