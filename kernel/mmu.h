@@ -129,6 +129,7 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 #define MMU_PTE_FLAGS		(MM_TYPE_PAGE | (MT_NORMAL << 2) | MM_ACCESS)	    /* need to be used with MP_AP_xxx, MM_XN */
 
 // https://developer.arm.com/documentation/ddi0601/2024-03/AArch64-Registers/TCR-EL1--Translation-Control-Register--EL1-?lang=en
+// cf: circle memory64.cpp, 
 #define TCR_T0SZ			(64 - 48)       // The size offset of the memory region addressed by TTBR0_EL1.
 #define TCR_T1SZ			((64 - 48) << 16) // ... for TTBR1_EL1
 #define TCR_TG0_4K			(0 << 14)       // Granule size 4KB for the TTBR0_EL1 
@@ -144,7 +145,7 @@ https://armv8-ref.codingbelief.com/en/chapter_d4/d44_1_memory_access_control.htm
 					 (0b11LL << 28)  |  /* SH1=3 inner ... options 00 = Non-shareable, 01 = INVALID, 10 = Outer Shareable, 11 = Inner Shareable */\
 					 (0b01LL << 26)  |  /* ORGN1=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
 					 (0b01LL << 24)  |  /* IRGN1=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
-					 (0b0LL  << 23)  |  /* EPD1 ... Translation table walk disable for translations using TTBR1_EL1  0 = walk, 1 = generate fault */\
+					 (0b0LL  << 23)  |  /* EPD1 ... Translation table walk disable for translations using TTBR0_EL1  0 = walk, 1 = generate fault */\
 					 (16LL   << 16)  |  /* T1SZ=25 (512G) ... The region size is 2 POWER (64-T1SZ) bytes */\
 					 (0b00LL << 14)  |  /* TG0=4k  ... options are 00=4KB, 01=64KB, 10=16KB,  ... take care differs from TG1 */\
 					 (0b11LL << 12)  |  /* SH0=3 inner ... .. options 00 = Non-shareable, 01 = INVALID, 10 = Outer Shareable, 11 = Inner Shareable */\

@@ -27,6 +27,7 @@
 					  (1 << 2)   |		/* C, Data cache enable. This is an enable bit for data caches at EL0 and EL1 */\
 					  (1 << 0) )		/* set M, enable MMU */
 
+
 // below: gcc by default does not do aligned access; will have to change lots of makefiles
 					//   (1 << 1)   |		/* A, Alignment check enable bit */\
 
