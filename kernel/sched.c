@@ -1,6 +1,6 @@
-#define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_VERBOSE
 // #define K2_DEBUG_INFO
-// #define K2_DEBUG_WARN
+#define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"
@@ -93,7 +93,7 @@ void sched_init(void) {
         initlock(&mm_tables[i].lock, "mmlock");
     
     // init task, will be picked up once cpu0 calls schedule() for the 1st time
-    // current = init_task = task[0]; // UP    
+    // current = init_task = task[0]; // UP
     init_task = task[0]; 
     init_task->state = TASK_RUNNABLE;
     init_task->cpu_context.x19 = (unsigned long)init; 
@@ -180,7 +180,7 @@ void schedule() {
             #ifdef K2_DEBUG_VERBOSE
             procdump(); 
             #endif
-            switch_to(idle_tasks[cpu]); // if already on idle task, this will do nothing
+            switch_to(idle_tasks[cpu]); // if cpu already on idle task, this will do nothing
             break;
         }
 	}
@@ -278,12 +278,12 @@ void timer_tick() {
 }
 
 
-// sleep() wakeup() design patterns
+// Design patterns for sleep() & wakeup() 
 // 
-// sleep() always needs to hold a lock (lk). inside sleep() once the calling task grabs 
+// sleep() always needs to hold a lock (lk). inside sleep(), once the calling task grabs 
 // sched_lock (i.e. no other tasks can change their p->state), lk is released
 //
-// ONLY USE schedlock to serialize task A/B is not enough 
+// ONLY USE sched_lock to serialize task A/B is not enough 
 // wakeup() does NOT need to hold lk. if that's the case, it's possible:
 //      task B: sleep(on chan) in a loop; 
 //      after it wakes up (no schedlock; only lk), before it calls sleep() again, 
@@ -318,7 +318,7 @@ static int wakeup_nolock(void *chan) {
     return cnt; 
 }
 
-// Must be called WITHOUT without sched_lock 
+// Must be called WITHOUT sched_lock 
 // Called from irq (many drivers) or task
 int wakeup(void *chan) {
     int cnt; 
@@ -328,8 +328,8 @@ int wakeup(void *chan) {
     return cnt; 
 }
 
-// Atomically release lock and sleep on chan.
-// Reacquires lock when awakened.
+// Atomically release "lk" and sleep on chan.
+// Reacquires lk when awakened.
 // Called by tasks with @lk held
 void sleep(void *chan, struct spinlock *lk) {
     struct task_struct *p = myproc();
@@ -458,7 +458,7 @@ int wait(uint64 addr /*dst user va to copy status to*/) {
     }
 }
 
-// becomes a zombie task and switch away from it 
+// Becomes a zombie task and switch the cpu away from it 
 // only when parent calls wait() this zombie task successfully, the zombie's 
 // kernel stack (and task_struct on it) will be recycled.
 void exit_process(int status) {
@@ -515,27 +515,29 @@ void exit_process(int status) {
     panic("zombie exit");
 }
 
-// xzl: destroys a task: task_struct, kernel stack, etc. 
+// Destroys a task: task_struct, kernel stack, etc. 
 // free a proc structure and the data hanging from it,
 // including user & kernel pages. 
 //
 // sched_lock must be held.  p->lock must be held
 static void freeproc(struct task_struct *p) {
-    BUG_ON(!p || !p->mm); V("%s entered. pid %d", __func__, p->pid);
+    BUG_ON(!p); V("%s entered. pid %d", __func__, p->pid);
 
     p->state = TASK_UNUSED; // mark the slot as unused
     // no need to zero task_struct, which is among the task's kernel page
     // FIX: since we cannot recycle task slot now, so we dont dec nr_tasks ...
 
-    acquire(&p->mm->lock);
-    p->mm->ref --; BUG_ON(p->mm->ref<0);
-    if (p->mm->ref == 0) { // this marks p->mm as unused
-        V("<<<< free mm %lu", p->mm-mm_tables); 
-        free_task_pages(p->mm, 0 /* free all user and kernel pages*/);        
-    } 
-    release(&p->mm->lock); 
-    
-    p->mm = 0; 
+    if (p->mm) {    // kernel task has mm==0
+        acquire(&p->mm->lock);
+        p->mm->ref --; BUG_ON(p->mm->ref<0);
+        if (p->mm->ref == 0) { // this marks p->mm as unused
+            V("<<<< free mm %lu", p->mm-mm_tables); 
+            free_task_pages(p->mm, 0 /* free all user and kernel pages*/);        
+        } 
+        release(&p->mm->lock);     
+        p->mm = 0; 
+    }
+
     p->flags = 0; 
     p->killed = 0; 
     p->credits = 0; 
@@ -573,7 +575,7 @@ int kill(int pid) {
 }
 
 // mark a task as "killed" (e.g. a faulty one)
-// causes exit_process() to be called in ret_from_syscall (entry.S)
+// Set a flag, so exit_process() is called in ret_from_syscall (entry.S)
 // useful only if p is known RUNNING (e.g. p is cur). otherwise, use kill()
 void setkilled(struct task_struct *p) {
     acquire(&p->lock);
@@ -652,8 +654,7 @@ static struct mm_struct *alloc_mm(void) {
     return 0 on ok, -1 on failure
 */
 
-int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
-{
+int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc) {
     BUG_ON(size > PAGE_SIZE); // initially, user va only covers [0,PAGE_SIZE)
     struct task_struct *cur = myproc();
 
@@ -774,7 +775,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
     // prep new task's scheduler context 
 	p->cpu_context.pc = (unsigned long)ret_from_fork; // entry.S
-	p->cpu_context.sp = (unsigned long)childregs; // XXX in fact PF_KTHREAD can use all the way to the top of the stack page...
+	p->cpu_context.sp = (unsigned long)childregs; // XXX in fact a kernel task (PF_KTHREAD) can use all the way from the top of the stack page...
 	
     release(&cur->lock);
 	release(&p->lock);
