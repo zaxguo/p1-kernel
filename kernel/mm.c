@@ -628,3 +628,115 @@ bad:
 	// exit_process(-1);
 	return 0; // handled
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// ------------------------ pgtable utilities below --------------------------//
+// NB the code only works for our simple pgtable (PGD|PUD|PMD1|PMD2)
+
+// Given a current lv pgtable (either PGD or PUD) and a virt addr to map, setting up 
+// the corresponding pgtable entry pointing to the next lv pgtable. 
+//
+// @tbl:  pointing to the "current" pgtable in a memory region
+// @virt: the virtual address that we are currently mapping
+// @shift: for the "current" pgtable lv. 39 in case of PGD and 30 in case of PUD
+// 		   apply to the virtual address in order to extract current table index. 
+// @off: the offset between "tbl" and the next lv pgtable. 1 or 2
+static void create_table_entry(unsigned long *tbl, unsigned long virt, int shift, int off) {
+	unsigned long desc, idx; 
+	idx = (virt >> shift) & (PTRS_PER_TABLE-1); // extracted table index in the current lv. 	
+	desc = (unsigned long)(tbl + off*PTRS_PER_TABLE); // addr of a next level pgtable (PUD or PMD). 
+	desc |= MM_TYPE_PAGE_TABLE; 
+	tbl[idx] = desc; 
+}
+
+// Populating entries in a PUD or PMD table for a given virt addr range 
+// "block map": mappings larger than 4KB, e.g. 1GB or 2MB
+// 
+// @tbl: pointing to the base of PUD/PMD table
+// @phys: the start of the physical region to be mapped
+// @start/@end: virtual address of the first/last section to be mapped
+// @flags: to be copied into lower attributes of the block descriptor
+// @shift: SUPERSECTION_SHIFT for PUD, SECTION_SHIFT for PMD
+static void _create_block_map(unsigned long *tbl, 
+	unsigned long phys, unsigned long start, unsigned long end, 
+	unsigned long flags, int shift) {
+
+	unsigned long idx1, idx2, desc; 
+
+	idx1 = (start >> shift) & (PTRS_PER_TABLE-1);
+	idx2 = (end >> shift) & (PTRS_PER_TABLE-1); // inclusive
+	desc = ((phys >> shift) << shift) | flags; 
+
+	do {
+		tbl[idx1++] = desc; 
+		desc += (1<<shift); 
+	} while (idx1 <= idx2); 
+}
+
+#define create_block_map_supersection(tbl, phys, start, end, flags) \
+	_create_block_map(tbl, phys, start, end, flags, SUPERSECTION_SHIFT)
+
+#define create_block_map_section(tbl, phys, start, end, flags) \
+	_create_block_map(tbl, phys, start, end, flags, SECTION_SHIFT)	
+
+// NB: we are on PA
+// kern pgtable dir layout: PGD|PUD|PMD1|PMD2	each one page. total 4 pages
+
+void create_page_tables_rpi3(void) {
+	unsigned long *pgd = (unsigned long *)VA2PA(&pg_dir); 
+	unsigned long *pud = pgd + PTRS_PER_TABLE;
+	unsigned long *pmd1 = pgd + 2*PTRS_PER_TABLE, *pmd2 = pgd + 3*PTRS_PER_TABLE;
+	
+	// clear the mem region backing pgtables
+	memzero_aligned(pgd, PG_DIR_SIZE); 
+
+	// allocate PUD & PMD1; link PGD (pg_dir)->PUD, and PUD->PMD1
+	create_table_entry(pgd, VA_START, PGD_SHIFT, 1); 
+	create_table_entry(pud, VA_START, PUD_SHIFT, 1);
+
+	// 1. kernel mem (PMD1). Phys addr range: 0--DEVICE_BASE
+	create_block_map_section(pmd1, 0, VA_START, 
+		VA_START + DEVICE_BASE - SECTION_SIZE, MMU_FLAGS); 
+
+	// 2. device memory (PMD1). Phys addr range: DEVICE_BASE--DEVICE_LOW(0x40000000)
+	create_block_map_section(pmd1, DEVICE_BASE, VA_START+DEVICE_BASE, 
+		VA_START + DEVICE_LOW - SECTION_SIZE, MMU_DEVICE_FLAGS); 
+
+	// link PUD->PMD2
+	create_table_entry(pud, VA_START+DEVICE_LOW, PUD_SHIFT, 2); 
+
+	// 3. extra device mem (PMD2). Phys addr range: DEVICE_LOW--+SECTION_SIZE
+	create_block_map_section(pmd2, DEVICE_LOW, 
+		VA_START+DEVICE_LOW, VA_START+DEVICE_LOW, MMU_DEVICE_FLAGS); 	
+}
+
+#define N 4	// # of entries to dump per table
+void dump_pgdir(void) {
+	unsigned long *p = &pg_dir; 
+
+	printf("PGD va %lx\n", (unsigned long)&pg_dir); 
+	for (int i =0; i<N; i++)
+		printf("	PGD[%d] %lx\n", i, p[i]); 
+	
+	p += (4096/sizeof(unsigned long)); 
+	printf("PUD va %lx\n", (unsigned long)p); 
+	for (int i =0; i<N; i++)
+		printf("	PUD[%d] %lx\n", i, p[i]); 
+
+	p += (4096/sizeof(unsigned long)); 
+	printf("PMD1 va %lx\n", (unsigned long)p); 
+	for (int i =0; i<N; i++)
+		printf("	PMD[%d] %lx\n", i, p[i]); 
+
+	p += (4096/sizeof(unsigned long)); 
+	printf("PMD2 va %lx\n", (unsigned long)p); 
+	for (int i =0; i<N; i++)
+		printf("	PMD[%d] %lx\n", i, p[i]); 		
+
+
+	unsigned long nFlags;
+	asm volatile ("mrs %0, sctlr_el1" : "=r" (nFlags));
+	printf("sctlr_el1 %016lx\n", nFlags); 
+	asm volatile ("mrs %0, tcr_el1" : "=r" (nFlags));
+	printf("tcr_el1 %016lx\n", nFlags); 
+}

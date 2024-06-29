@@ -2,6 +2,9 @@
 //	armstub, which boots kernel at 0x80000 and EL2
 // the firmware also provides spintable for SMP
 
+// NB: qemu/gdb cannot do source-level debugging for boot.S (before MMU is on),
+// b/c we are on PA
+
 #include "param.h"
 #include "sysregs.h"
 #include "plat.h"
@@ -114,8 +117,13 @@ el1_entry:
 	bl	__create_idmap
 #endif
 	
+	ldr x0, =PHYS_SIZE
+	mov sp, x0 
+	//bl create_page_tables_rpi3
+	
 #if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)	
-	bl 	__create_page_tables_rpi3 	// kernel's pgtable (for memory and IO)
+	//bl 	__create_page_tables_rpi3 	// kernel's pgtable (for memory and IO)
+	bl create_page_tables_rpi3
 #elif defined(PLAT_VIRT)	
 	bl 	__create_page_tables_virt	// kernel's pgtable (for memory and IO)
 #else
@@ -305,7 +313,7 @@ __create_page_tables_virt: // for qemu's virt plat
 	create_block_map_supersection x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 	//_create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, SUPERSECTION_SHIFT, x4
 
-	/* Mapping kernel and init stack. Phys addr range: 0x4000:0000, +PHYS_SIZE */
+	/* Mapping kernel mem. Phys addr range: 0x4000:0000, +PHYS_SIZE */
 	mov 	x1, #PHYS_BASE				// x1 = starting phys addr. set x1 to 0. 
 	ldr 	x2, =(VA_START + DEVICE_BASE + DEVICE_SIZE)	 // x2 = the virtual base of the first section
 	ldr		x3, =(VA_START + DEVICE_BASE + DEVICE_SIZE + PHYS_SIZE - SUPERSECTION_SIZE)  // x3 = the virtual base of the last section
@@ -332,13 +340,13 @@ __create_page_tables_rpi3: // for rpi3
 	create_pgd_entry x0, x1, x2, x3
 	// after this, x0 points to the new PMD table
 
-	/* Mapping kernel and init stack. Phys addr range: 0--DEVICE_BASE */
+	// Mapping kernel mem. Phys addr range: 0--DEVICE_BASE
 	mov 	x1, xzr				// x1 = starting phys addr. set x1 to 0. 
 	mov 	x2, #VA_START		// x2 = the virtual base of the first section
 	ldr		x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)  // x3 = the virtual base of the last section
 	create_block_map_section x0, x1, x2, x3, MMU_FLAGS, x4
 
-	/* Mapping device memory. Phys addr range: DEVICE_BASE--PHYS_MEMORY_SIZE(0x40000000) */
+	// Mapping device memory. Phys addr range: DEVICE_BASE--PHYS_MEMORY_SIZE(0x40000000)
 	mov 	x1, #DEVICE_BASE					// x1 = start mapping from device base address 
 	ldr 	x2, =(VA_START + DEVICE_BASE)				// x2 = first virtual address
 	ldr		x3, =(VA_START + DEVICE_LOW - SECTION_SIZE)	// x3 = the virtual base of the last section
