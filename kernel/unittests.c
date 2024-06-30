@@ -362,15 +362,17 @@ out:
     kfree(buf); 
 }
 
+//////////////////////////////////////////////
+
 #include "sched.h"
-int sys_sleep(int n); 
 static void kernel_task(int arg) {
     while (1) {
         printf("cpu %d task %d arg %d\n", cpuid(), myproc()->pid, arg);
-        sys_sleep(10); 
+        // sys_sleep(10); 
     }
 }
     
+// spawn multiple tasks, each printing msgs in an inf loop
 void test_kernel_tasks() {
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 0/*arg*/);
 	BUG_ON(res<0);
@@ -378,6 +380,44 @@ void test_kernel_tasks() {
     BUG_ON(res<0);
     while (1) {
         printf("cpu %d task %d \n", cpuid(), myproc()->pid);
-        sys_sleep(10); 
+        // sys_sleep(10); 
     }
+}
+
+//////////////////////////////////////////////
+// test spinlock correctness PASSED 
+__attribute__((unused))
+static struct spinlock testlock = {.locked=0, .cpu=0, .name="testlock"};
+static long long the_counter = 0;
+
+static void add (long long *pointer, long long value) {
+    long long sum = *pointer + value;
+    *pointer = sum;
+}
+
+static void add_iterate(int val, int iterations) {
+    for (int i = 0; i < iterations; i++) {
+        acquire(&testlock);     // toggle spinlock
+        add(&the_counter, val);
+        release(&testlock);     // toggle spinlock
+    }
+}
+
+extern int sys_exit(int c); 
+static void kernel_task1(int arg) {
+    add_iterate(1, arg);
+    add_iterate(-1, arg);
+    sys_exit(0);
+}
+
+void test_spinlock() {
+	int res1 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/);
+	BUG_ON(res1<0);
+    int res2 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/);
+    BUG_ON(res2<0);
+    
+    int wt = wait(0); BUG_ON(wt<0);
+    wt = wait(0); BUG_ON(wt<0);
+    // expect = 0 w spinlock on, !=0 w/ spinlock commented out (see above)
+    printf("counter = %lld", the_counter); 
 }

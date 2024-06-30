@@ -1236,4 +1236,36 @@ S3_1_c15_c2_1 -- (cortex a53 specific. armstub sets this. if we boot w/o armstub
 https://developer.arm.com/documentation/ddi0500/j/BABGHHEJ
 https://u-boot.denx.narkive.com/l1g1jI7V/patch-armv8-enable-cpuectlr-smpen-for-data-coherency
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+uboot 
+ref: (rt thread os)
+\\wsl$\Ubuntu-20.04\home\xzl\rt-thread-5.0.2\bsp\raspberry-pi\raspi4-64
+
+code ~/workspace-rpi3/u-boot
+
+git clone https://github.com/u-boot/u-boot --depth=1
+make rpi_3_b_plus_defconfig ARCH=arm CROSS_COMPILE=aarch64-linux-gnu-
+make -j12 ARCH=arm CROSS_COMPILE=aarch64-linux-gnu-
+
+then copy u-boot.bin to sd card. 
+
+chagne config.txt: 
+enable_uart=1
+arm_64bit=1
+kernel=u-boot.bin
+
+set tftp server on Windows ... tftpd64
+
+uboot command:
+
+setenv bootcmd "dhcp 0x80000 10.10.10.173:kernel8-rpi3.img;go 0x80000"
+saveenv
+reset
+
+KNOWN BUGs: uboot sometimes cannot boot the kernel.... 
+    will boot either "cleanall makeall", or reboot a few times,.... why???
+    dcache problem???
+
+    simple kernel "hello world" can boot eveery time. why
+
 

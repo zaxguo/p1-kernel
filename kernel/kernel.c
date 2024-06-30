@@ -53,62 +53,23 @@ void kernel_process() {
 	// hence, trampframe populated by move_to_user_mode() will take effect. 
 }
 
-// unsigned long *core_flags_pa = (unsigned long *)VA2PA(core_flags);
-
-static struct spinlock testlock0 = {.locked=0, .cpu=0, .name="testlock"};
-// static spinlock_t testlock = {.lock=0};
-// volatile int flag = 0; 
-
 void uart_send_string(char* str);
 
 // the table used by firmware that wants to "park" the cores. implemented by:
-// 	 rpi3 firmware (https://github.com/raspberrypi/tools/tree/master/armstubs)
-//   qemu 
+// 	 - rpi3 firmware (https://github.com/raspberrypi/tools/tree/master/armstubs)
+//   - qemu 
 unsigned long *core_flags = (unsigned long *)PA2VA(0x000000D8); 
 
 // called from boot.S, after setting up sp, MMU, pgtables, etc
 void secondary_core(int core_id)
 {
-	// W("coreflags %lx %lx %lx %lx", core_flags[0], core_flags[1], core_flags[2], 
-	// 	core_flags[3]);
-
-	// dump_pgdir();
-	
 	core_flags[core_id] = 0; // notifying cpu0: this cpu has MMU up, so cpu0 can go
 
-	// __asm_flush_dcache_range((unsigned long*)core_flags+core_id, 
-	// 	(unsigned long*)core_flags+core_id+1);
-
-	printf("11111111111111111\n");
-
-	for (int i=0; i<10;i++) {
-		acquire(&testlock0);
-		// __asm_flush_dcache_range(&testlock, (char *)&testlock+4);
-
-		// do {
-		// 	__asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
-		// 	printf("X");
-		// } while (flag != 0); 
-		// flag = 1; 
-		// __asm_flush_dcache_range((void *)&flag, (char *)&flag+4);
-		// __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
-
-		printf("Hello core %d\n", core_id);		
-		release(&testlock0);
-	}
-	W("coreflags %lx %lx %lx %lx", core_flags[0], core_flags[1], core_flags[2], 
-		core_flags[3]);
-	// W("coreflags pa %lx %lx %lx %lx", core_flags_pa[0], core_flags_pa[1], core_flags_pa[2], 
-	// 	core_flags_pa[3]);		
-
-	while (1); 
-
-	// acquire(&testlock0); 
-	// printf("Hello core %d\n", core_id);
+	printf("Hello core %d\n", core_id);
 
 	generic_timer_init(); 
 	enable_interrupt_controller(core_id);
-	enable_irq();
+	enable_irq(); // preemptive scheduling on
 	// so far, on boot stack and as the "idle" task
 	schedule(); 
 	while (1)	// cf kernel_main()
@@ -118,24 +79,23 @@ void secondary_core(int core_id)
 extern unsigned long _start;  // boot.S
 
 static void start_cores(void) {		
-	// cpu0: Flush the whole kernel memory (must)
-	// My theory: cpu1+ were down when cpu0 was init kernel state; so they might
+	// wake up cpu1+ by changing core_flags
+	for (int i=1; i <NCPU; i++) 
+		core_flags[i] = VA2PA(&_start); // cpu1+ run from _start
+
+	// cpu0: Flush the whole kernel memory
+	// 1. make core_flags update visible to cpu1+ (which has no cache/mmu yet)
+	// 2. cpu1+ were down when cpu0 was init kernel state; so they might
 	// have missed cache transactions and therefore could see stale kernel states
 	// e.g. cpu1+ couldn't see the effect of init_printf() and hence failed to 
 	// print msgs. 
 	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
 
-	// wake up cpu1+ by changing core_flags
-	for (int i=1; i <NCPU; i++) 
-		core_flags[i] = VA2PA(&_start); // cpu1+ run from _start
-	__asm_flush_dcache_range((unsigned long*)core_flags, 
-		(unsigned long*)core_flags+4);
-	__asm_flush_dcache_range((void *)VA_START,  (void*)VA_START + DEVICE_BASE); 
-
 	asm volatile ("dsb sy");
 	asm volatile ("sev");
 	
-	int timeout=100; 
+	// wait for cpu1+ to boot
+	int timeout=100; // ms
 	for (int i=1; i <NCPU; i++) {
 		while (core_flags[i]) {
 			if (timeout-- <= 0) {
@@ -147,11 +107,8 @@ static void start_cores(void) {
 			ms_delay(1); 
 		}
 	}
-	W("start cores ok");
+	I("start cores ok");
 }
-
-extern void uart_send_va(char c); 
-extern void uart_send_pa(char c); 
 
 extern void dump_pgdir(void); // mm.c
 
@@ -159,11 +116,11 @@ extern void dump_pgdir(void); // mm.c
 void kernel_main() {
 	uart_init();
 	init_printf(NULL, putc);	
-	printf("------ kernel boot ------ %d\n\r", (int)cpuid());
+	printf("------ kernel boot ------ %d\n\r", cpuid());
 		
 	paging_init(); 
 	dump_pgdir();
-	sched_init(); // must be before schedule() or timertick() 
+	sched_init(); 	// must be before schedule() or timertick() 
 	fb_init(); 		// reserve fb memory other page allocations
 	consoleinit(); 	
 	binit();         // buffer cache
@@ -174,46 +131,16 @@ void kernel_main() {
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
 	if (sd_init()!=0) E("sd init failed");
-	// generic_timer_init(); 	// for sched ticks
 	sys_timer_init(); 		// for kernel timer
 	enable_interrupt_controller(0/*coreid*/);
-	enable_irq();	// after this, scheduler is on
+	enable_irq();
 	
 	if (usbkb_init() == 0) I("usb kb init done"); 
-	
-	// dump_pgdir();
-
-	// start other cores after all subsystems are init'd 
-	start_cores(); 
-
-	// ms_delay(50); 
-	
-	for (int i =0; i<10;i++)  {
-		acquire(&testlock0);
-		// __asm_flush_dcache_range(&testlock, (char *)&testlock+4);
-		// printf("core0....\n");
-		printf("0000000000000\n");
-		release(&testlock0);
-		// __asm_flush_dcache_range(&testlock, (char *)&testlock+4);
-
-		// do {
-		// __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
-		// } while (flag != 0); 
-		// flag = 1;  __asm_flush_dcache_range((void *)&flag, (char *)&flag+4);
-		// printf("core0....\n");		
-		// uart_send_string("0000000000000\n");
-		// flag = 0;  __asm_flush_dcache_range((void *)&flag, (char *)&flag+4);
-		// __asm__ volatile ("dmb sy" ::: "memory");    // mem barrier, ensuring msg in mem
-
 		
-		// acquire(&testlock0); 
-		// printf("core0....\n");
-		// release(&testlock0);
-	}		
+	start_cores();  // start cpu1+
+	generic_timer_init();  // sched ticks alive. preemptive scheduler is on
 
-	generic_timer_init(); 	// for sched ticks
-
-	// now cpu is on its boot stack (boot.S) belonging to the idle task
+	// now cpu is on its boot stack (boot.S) belonging to the idle task. 
 	// schedule() will jump off to kernel stacks belonging to normal tasks
 	// (i.e. init_task as set up in sched_init(), sched.c)
 	schedule(); 
@@ -227,7 +154,7 @@ void kernel_main() {
     }
 }
 
-// the 1st normal task to created by sched_init()
+// the 1st normal task, created by sched_init()
 void init(int arg/*ignored*/) {
 	int wpid; 
     W("entering init");
