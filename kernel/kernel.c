@@ -61,38 +61,6 @@ static struct spinlock testlock0 = {.locked=0, .cpu=0, .name="testlock"};
 
 void uart_send_string(char* str);
 
-extern unsigned long pg_dir; 
-#define N 4
-void dump_pgdir(void) {
-	unsigned long *p = &pg_dir; 
-
-	printf("PGD va %lx\n", (unsigned long)&pg_dir); 
-	for (int i =0; i<N; i++)
-		printf("	PGD[%d] %lx\n", i, p[i]); 
-	
-	p += (4096/sizeof(unsigned long)); 
-	printf("PUD va %lx\n", (unsigned long)p); 
-	for (int i =0; i<N; i++)
-		printf("	PUD[%d] %lx\n", i, p[i]); 
-
-	p += (4096/sizeof(unsigned long)); 
-	printf("PMD va %lx\n", (unsigned long)p); 
-	for (int i =0; i<N; i++)
-		printf("	PMD[%d] %lx\n", i, p[i]); 
-
-	p += (4096/sizeof(unsigned long)); 
-	printf("PMD va %lx\n", (unsigned long)p); 
-	for (int i =0; i<N; i++)
-		printf("	PMD[%d] %lx\n", i, p[i]); 		
-
-
-	unsigned long nFlags;
-	asm volatile ("mrs %0, sctlr_el1" : "=r" (nFlags));
-	printf("sctlr_el1 %016lx\n", nFlags); 
-	asm volatile ("mrs %0, tcr_el1" : "=r" (nFlags));
-	printf("tcr_el1 %016lx\n", nFlags); 
-}
-
 // the table used by firmware that wants to "park" the cores. implemented by:
 // 	 rpi3 firmware (https://github.com/raspberrypi/tools/tree/master/armstubs)
 //   qemu 
@@ -104,7 +72,7 @@ void secondary_core(int core_id)
 	// W("coreflags %lx %lx %lx %lx", core_flags[0], core_flags[1], core_flags[2], 
 	// 	core_flags[3]);
 
-	dump_pgdir();
+	// dump_pgdir();
 	
 	core_flags[core_id] = 0; // notifying cpu0: this cpu has MMU up, so cpu0 can go
 
@@ -185,6 +153,8 @@ static void start_cores(void) {
 extern void uart_send_va(char c); 
 extern void uart_send_pa(char c); 
 
+extern void dump_pgdir(void); // mm.c
+
 // core0 only
 void kernel_main() {
 	uart_init();
@@ -192,7 +162,8 @@ void kernel_main() {
 	printf("------ kernel boot ------ %d\n\r", (int)cpuid());
 		
 	paging_init(); 
-	sched_init(); I("sched_init done"); // must be before schedule() or timertick() 
+	dump_pgdir();
+	sched_init(); // must be before schedule() or timertick() 
 	fb_init(); 		// reserve fb memory other page allocations
 	consoleinit(); 	
 	binit();         // buffer cache

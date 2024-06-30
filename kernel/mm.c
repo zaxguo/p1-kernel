@@ -630,8 +630,10 @@ bad:
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ------------------------ pgtable utilities below --------------------------//
-// NB the code only works for our simple pgtable (PGD|PUD|PMD1|PMD2)
+// ------------ pgtable utilities (cf boot-pgtable.S)-------------------------//
+// NB 
+// - we are still on PA
+// - only works for our simple pgtable (PGD|PUD|PMD1|PMD2)
 
 // Given a current lv pgtable (either PGD or PUD) and a virt addr to map, setting up 
 // the corresponding pgtable entry pointing to the next lv pgtable. 
@@ -681,8 +683,8 @@ static void _create_block_map(unsigned long *tbl,
 
 // NB: we are on PA
 // kern pgtable dir layout: PGD|PUD|PMD1|PMD2	each one page. total 4 pages
-
-void create_page_tables_rpi3(void) {
+#if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)	
+static void create_page_tables_rpi3(void) {
 	unsigned long *pgd = (unsigned long *)VA2PA(&pg_dir); 
 	unsigned long *pud = pgd + PTRS_PER_TABLE;
 	unsigned long *pmd1 = pgd + 2*PTRS_PER_TABLE, *pmd2 = pgd + 3*PTRS_PER_TABLE;
@@ -709,30 +711,100 @@ void create_page_tables_rpi3(void) {
 	create_block_map_section(pmd2, DEVICE_LOW, 
 		VA_START+DEVICE_LOW, VA_START+DEVICE_LOW, MMU_DEVICE_FLAGS); 	
 }
+#endif
+
+#ifdef PLAT_VIRT
+// kern pgtable dir layout: PGD|PUD, each one page. total 2 pages. 
+// (untested) cf: __create_page_tables_virt
+static void create_page_tables_virt(void) {
+	unsigned long *pgd = (unsigned long *)VA2PA(&pg_dir); 
+	unsigned long *pud = pgd + PTRS_PER_TABLE;
+	unsigned long *pmd1 = pgd + 2*PTRS_PER_TABLE;
+
+	// clear the mem region backing pgtables
+	memzero_aligned(pgd, PG_DIR_SIZE); 
+
+	// allocate one PUD; link PGD (pg_dir)->PUD. use 2 supersections
+	create_table_entry(pgd, VA_START, PGD_SHIFT, 1); 
+
+	// 1. device mem (PUD). Phys addr range: DEVICE_BASE(0)--DEVICE_SIZE(0x40000000)
+	create_block_map_supersection(pud, DEVICE_BASE, VA_START + DEVICE_BASE, 
+		VA_START + DEVICE_BASE + DEVICE_SIZE - SUPERSECTION_SIZE, MMU_DEVICE_FLAGS); 
+
+	// 2. kern mem (PUD). Phys addr range: 0x4000:0000, +PHYS_SIZE 
+	create_block_map_supersection(pud, PHYS_BASE, VA_START + DEVICE_BASE + DEVICE_SIZE, 
+		VA_START + DEVICE_BASE + DEVICE_SIZE + PHYS_SIZE - SUPERSECTION_SIZE, MMU_FLAGS); 
+}
+#endif
+
+// A workaround for QEMU's quirks on MMU emulation, which also showcases how __create_page_tables
+// can be used. 
+// 
+// As soon as the MMU is on and CPU switches from physical addresses to virtual addresses, 
+// the emulated CPU seems to be still fetching next (few) instructions using the physical 
+// addresses of those instructions. These addresses will go through MMU for translation 
+// as if they are virtual addresses. Of course our kernel pgtables do not have translation
+// for these addresses (TTBR1 is for translating virtual addresses at 0xffff...). That causes 
+// MMU to throw a Prefetch abort. (prefetch == instruction loading)
+//
+// Real Rpi3 hardware has no such a problem: after MMU is on, it will not fetch instructions 
+// at addresses calculated before MMU is on. 
+//
+// The workaround is to set an "identity" mapping. That is, we create an additional 
+// pgtable tree loaded at TTBR0 that maps all physical DRAM (0 -- PHYS_MEMORY_SIZE) to virtual 
+// addresses with the same values. That keeps translation going on at the switch of MMU. 
+//
+// Cf: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
+// https://www.raspberrypi.org/forums/viewtopic.php?t=222408
+
+// PGD|PUD, each one page. total 2 pages. use 1 supersection
+extern unsigned long idmap_dir;  // allocated in linker-qemu.ld
+void create_kern_idmap(void) {
+	unsigned long *pgd = (unsigned long *)VA2PA(&idmap_dir); 
+	unsigned long *pud = pgd + PTRS_PER_TABLE;
+
+	memzero_aligned(pgd, 2 * PAGE_SIZE); 
+
+	// allocate one PUD; link PGD (pg_dir)->PUD. 
+	create_table_entry(pgd, VA_START, PGD_SHIFT, 1); 
+
+	//1. kernel mem (PUD). Phys addr range: PHYS_BASE, +PHYS_SIZE
+	create_block_map_supersection(pud, PHYS_BASE, PHYS_BASE, 
+		PHYS_BASE + PHYS_SIZE - SUPERSECTION_SIZE, MMU_FLAGS); 
+}
+
+void create_kern_pgtables(void) {
+#if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)
+	create_page_tables_rpi3();
+#elif defined(PLAT_VIRT)	
+	create_page_tables_virt();
+#else
+	#error
+#endif	
+}
 
 #define N 4	// # of entries to dump per table
 void dump_pgdir(void) {
-	unsigned long *p = &pg_dir; 
+	unsigned long *p = (unsigned long *)&pg_dir; 
 
 	printf("PGD va %lx\n", (unsigned long)&pg_dir); 
 	for (int i =0; i<N; i++)
 		printf("	PGD[%d] %lx\n", i, p[i]); 
 	
-	p += (4096/sizeof(unsigned long)); 
+	p += PTRS_PER_TABLE; 
 	printf("PUD va %lx\n", (unsigned long)p); 
 	for (int i =0; i<N; i++)
 		printf("	PUD[%d] %lx\n", i, p[i]); 
 
-	p += (4096/sizeof(unsigned long)); 
+	p += PTRS_PER_TABLE; 
 	printf("PMD1 va %lx\n", (unsigned long)p); 
 	for (int i =0; i<N; i++)
 		printf("	PMD[%d] %lx\n", i, p[i]); 
 
-	p += (4096/sizeof(unsigned long)); 
+	p += PTRS_PER_TABLE; 
 	printf("PMD2 va %lx\n", (unsigned long)p); 
 	for (int i =0; i<N; i++)
 		printf("	PMD[%d] %lx\n", i, p[i]); 		
-
 
 	unsigned long nFlags;
 	asm volatile ("mrs %0, sctlr_el1" : "=r" (nFlags));

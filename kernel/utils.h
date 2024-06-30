@@ -116,10 +116,6 @@ void free_task_pages(struct mm_struct *mm, int useronly);
 unsigned long walkaddr(struct mm_struct *mm, unsigned long va);
 unsigned long growproc (struct mm_struct *mm, int incr);
 
-// the virtual base address of the pgtables. Its actual value is set by the linker. 
-//  cf the linker script (e.g. linker-qemu.ld)
-extern unsigned long pg_dir;  
-
 extern void set_pgd(unsigned long pgd);     // util.S
 extern unsigned long get_pgd();
 

@@ -41,10 +41,15 @@
 #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
 
-/* The kernel uses section mapping. The whole pgtable tree only needs three pgtables (each PAGE_SIZE). 
-That is, one pgtable at each of PGD/PUD/PMD. See our project document */
-// virt: 2pgs enough (supersection); rpi3: 4 pages PGD|PUD|PMD1|PMD2
+// size of kern pgtable tree. cf linker-XXX.ld, mm.c
 #define PG_DIR_SIZE			(4 * PAGE_SIZE)
+
+#ifndef __ASSEMBLER__
+// the virtual base address of the pgtables. Its actual value is set by the linker. 
+//  cf the linker script (e.g. linker-qemu.ld)
+// array size here appeases gcc (out-of-bound check)
+extern unsigned long pg_dir[PTRS_PER_TABLE*4];
+#endif 
 
 // -------------- page table formats, defs ------------------------ //  
 /* reference: 

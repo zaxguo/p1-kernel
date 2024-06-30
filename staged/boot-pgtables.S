@@ -1,195 +1,10 @@
-#include "param.h"
-#include "sysregs.h"
-#include "plat.h"
-#include "mmu.h"
+// spin off from boot.S, pgtables utilities written in asm
+// replaced by C counterparts (mm.c) for readability 
 
-/* 
-	unified code for virt and rpi3 
-	for register details, cf sysregs.h
-*/
-.section ".text.boot"
-
-// reg for cpuid_reg throughout boot.S. shall not be used for other purposes
-cpuid_reg 	.req 	x28 
-
-.globl _start
-_start:
-	/* ---------- Below: handle multicore -------------- */
-	mrs	cpuid_reg, mpidr_el1	// cf: https://developer.arm.com/documentation/100095/0002/system-control/aarch64-register-descriptions/multiprocessor-affinity-register--el1
-	and	cpuid_reg, cpuid_reg, #0xFF	// Check processor id	
-	cbz cpuid_reg, rls_cores	//cpuid==0, release other cores
-
-	// core1+: wait a bit, until core0 populates kernel pgtables shared
-	// by all cores. 
-	mov x0, #0xfffff  // an emprical value
-	bl delay
-	cmp cpuid_reg, #NCPU
-	b.lo core_config // 0<cpuid<NCPU, continue to configure itself
-core_sleep: // cpuid_reg>=NCPU, sleep forever in a loop
-	wfi 
-	b core_sleep
-
-	// upon power on, core1-3 are "on hold", until core0 writes 
-	// to 0xe0/0xe8/exf0 to let them go
-rls_cores: 
-	mov x3, #(NCPU-1)
-	adr x1, _start	// core1-3 starts execute from this address (PA)
-	
-	// rls core1
-	cbz x3, core_config
-	mov x0, #0xe0 	
-	str x1, [x0]
-	
-	// rls core2
-	sub x3, x3, 1
-	cbz x3, core_config
-	mov x0, #0xe8
-	str x1, [x0]
-
-	// rls core3
-	sub x3, x3, 1
-	cbz x3, core_config
-	mov x0, #0xf0
-	str x1, [x0]
-
-core_config:
-	ldr	x0, =SCTLR_VALUE_MMU_DISABLED  // cf: sysregs.h
-	msr	sctlr_el1, x0
-	
-	# don't trap EL0/EL1 access to advanced simd, fp registers.
-	# cf: https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CPACR-EL1--Architectural-Feature-Access-Control-Register
-	# 	some code may contain them (e.g. usblib StringFormat uses q0/q1...)
-	MRS     x1, CPACR_EL1
-	ORR     x1, x1, #(0x3 << 20)    // Write CPACR_EL1.FPEN bits
-	MSR     CPACR_EL1, x1
-	ISB
-
-	/* -------- Below: exception level switch ---------------
-	  check the current exception level: EL3 (rpi3 hardware) or EL2 (qemu)?
-	  both eret to EL1  */
-
-	mrs x0, CurrentEL
-  	lsr x0, x0, #2
-	cmp x0, #3
-	beq el3		
-
-	# current: EL2 
-	# set EL1 to be running in AArch64
-	mrs	x0, hcr_el2
-	orr	x0, x0, #HCR_RW  
-	msr	hcr_el2, x0
-
-	# prepare to switch to EL1
-	mov x0, #SPSR_VALUE
-	msr	spsr_el2, x0
-
-	adr	x0, el1_entry
-	msr	elr_el2, x0
-	eret	# switch to EL1
-
-el3: # current: EL3
-  	ldr x0, =HCR_VALUE
-  	msr hcr_el2, x0
-
-	ldr	x0, =SCR_VALUE
-	msr	scr_el3, x0
-
-	# prepare to switch to EL1
-	ldr	x0, =SPSR_VALUE
-	msr	spsr_el3, x0
-
-	adr	x0, el1_entry		
-	msr	elr_el3, x0	
-	eret	# switch to EL1				
-
-	/* ------- Below: EL1 execution starts ------- */
-el1_entry:	
-	cbnz cpuid_reg, setup_sp // all cores but cpu0 skip code below
-	
-	// bss_begin/end are linking addr (kernel virt). convert them to phys.
-	// they are (at least) 8 bytes aligned in link script
-	ldr	x0, =bss_begin
-	ldr	x1, =bss_end
-	ldr x2, =VA_START
-	sub x0, x0, x2
-	sub x1, x1, x2
-	sub	x1, x1, x0
-	bl 	memzero_aligned
-
-#if defined(PLAT_VIRT) || defined(PLAT_RPI3QEMU)
-// A workaround for QEMU's quirks on MMU emulation, which also showcases how __create_page_tables
-// can be used. 
-// 
-// As soon as the MMU is on and CPU switches from physical addresses to virtual addresses, 
-// the emulated CPU seems to be still fetching next (few) instructions using the physical 
-// addresses of those instructions. These addresses will go through MMU for translation 
-// as if they are virtual addresses. Of course our kernel pgtables do not have translation
-// for these addresses (TTBR1 is for translating virtual addresses at 0xffff...). That causes 
-// MMU to throw a Prefetch abort. (prefetch == instruction loading)
-//
-// Real Rpi3 hardware has no such a problem: after MMU is on, it will not fetch instructions 
-// at addresses calculated before MMU is on. 
-//
-// The workaround is to set an "identity" mapping. That is, we create an additional 
-// pgtable tree at TTBR0 that maps all physical DRAM (0 -- PHYS_MEMORY_SIZE) to virtual 
-// addresses with the same values. That keeps translation going on at the switch of MMU. 
-// (cannot be TTBR1 which cannot map low virt addr)
-//
-// Cf: https://github.com/s-matyukevich/raspberry-pi-os/issues/8
-// https://www.raspberrypi.org/forums/viewtopic.php?t=222408
-	bl	__create_idmap
-	//adrp	x0, idmap_dir
-	//msr	ttbr0_el1, x0
-#endif
-
-	// create kernel's pgtable (for memory and IO)
-#if defined(PLAT_RPI3QEMU) || defined(PLAT_RPI3)	
-	bl 	__create_page_tables_rpi3
-#elif defined(PLAT_VIRT)	
-	bl 	__create_page_tables_virt
-#else
-	#error "not implemented"
-#endif	
-
-	// set virt sp = (cpuid_reg+1)*kernel_stack_size + kernel_stack_start
-	// (assuming linear mapping, phys 0 --> virt VA_START)
-	// NB: we won't use sp until mmu is on
-setup_sp: 	
-	add x0, cpuid_reg, #1
-	//lsl x0, x0, #PAGE_SHIFT
-	mov x1, #(PAGE_SIZE * NPAGES_PER_KERNEL_STACK)
-	mul x0, x0, x1
-	ldr x1, =kernel_stack_start	// kernel.c
-	add x0, x0, x1
-	mov sp, x0 
-
-	// load kernel's pgtable
-	adrp	x0, pg_dir			// @pg_dir: the virtual base address of the pgtables. cf utils.h
-	msr		ttbr1_el1, x0
-	isb 		// memory barrier 
-
-	// configuring mm translation (granule, user/kernel split, etc)
-	// tcr_el1: Translation Control Register. cf mmu.h
-	ldr	x0, =(TCR_VALUE)		
-	msr	tcr_el1, x0 
-	isb 		// memory barrier 
-
-	// memory attributes.
-	ldr	x0, =(MAIR_VALUE)
-	msr	mair_el1, x0
-
-	adrp	x0, idmap_dir
-	msr	ttbr0_el1, x0	
-	
-	// load the linking (virt) addr of kernel_main
-	ldr	x2, =kernel_main
-
-	ldr x0, =SCTLR_VALUE // Turn on MMU. cf sysregs.h
-
-	msr	sctlr_el1, x0	// BOOM! we are on virtual after this.	
-	br 	x2				// Jump to kernel_main() (kernel.c)
-
-// ------------------------ pgtable utilities below --------------------------- //
+////////////////////////////////////////////////////////////////////////////////
+// ------------------------ pgtable utilities below --------------------------//
+// We use ASM instead of C, b/c we want to set up pgtables (&VA) before jumping
+// to C code with a virtual SP. 
 
 	// Given a virt addr and the PGD, set the PGD entry, allocate one PUD and one PMD.
 	//		link PGD -> PUD and PUD -> PMD
@@ -262,20 +77,21 @@ setup_sp:
 	b.ls	9999b
 	.endm
 
+	// cf comment for "_create_block_map"
 .macro	create_block_map_supersection, tbl, phys, start, end, flags, tmp1
 	_create_block_map \tbl, \phys, \start, \end, \flags, SUPERSECTION_SHIFT, \tmp1
 	.endm
 
+	// cf comment for "_create_block_map"
 .macro	create_block_map_section, tbl, phys, start, end, flags, tmp1
 	_create_block_map \tbl, \phys, \start, \end, \flags, SECTION_SHIFT, \tmp1
 	.endm
 
-#if defined(PLAT_VIRT) || defined(PLAT_RPI3QEMU)
 __create_idmap:
 	mov	x29, x30
 	
-	adrp	x0, idmap_dir		// idmap_dir allocated in linker-qemu.ld, 3 pages. 
-	mov	x1, #PG_DIR_SIZE		// 3pgs, PGD|PUD|PMD
+	adrp	x0, idmap_dir		// idmap_dir allocated in linker-qemu.ld
+	mov	x1, #PG_DIR_SIZE		// 2pgs enough, PGD|PUD
 	bl	memzero_aligned
 
 	adrp	x0, idmap_dir
@@ -290,7 +106,6 @@ __create_idmap:
 
 	mov	x30, x29
 	ret
-#endif
 
 #ifdef PLAT_VIRT
 __create_page_tables_virt: // for qemu's virt plat
@@ -314,7 +129,7 @@ __create_page_tables_virt: // for qemu's virt plat
 	create_block_map_supersection x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 	//_create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, SUPERSECTION_SHIFT, x4
 
-	/* Mapping kernel and init stack. Phys addr range: 0x4000:0000, +PHYS_SIZE */
+	/* Mapping kernel mem. Phys addr range: 0x4000:0000, +PHYS_SIZE */
 	mov 	x1, #PHYS_BASE				// x1 = starting phys addr. set x1 to 0. 
 	ldr 	x2, =(VA_START + DEVICE_BASE + DEVICE_SIZE)	 // x2 = the virtual base of the first section
 	ldr		x3, =(VA_START + DEVICE_BASE + DEVICE_SIZE + PHYS_SIZE - SUPERSECTION_SIZE)  // x3 = the virtual base of the last section
@@ -341,13 +156,13 @@ __create_page_tables_rpi3: // for rpi3
 	create_pgd_entry x0, x1, x2, x3
 	// after this, x0 points to the new PMD table
 
-	/* Mapping kernel and init stack. Phys addr range: 0--DEVICE_BASE */
+	// Mapping kernel mem. Phys addr range: 0--DEVICE_BASE
 	mov 	x1, xzr				// x1 = starting phys addr. set x1 to 0. 
 	mov 	x2, #VA_START		// x2 = the virtual base of the first section
 	ldr		x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)  // x3 = the virtual base of the last section
 	create_block_map_section x0, x1, x2, x3, MMU_FLAGS, x4
 
-	/* Mapping device memory. Phys addr range: DEVICE_BASE--PHYS_MEMORY_SIZE(0x40000000) */
+	// Mapping device memory. Phys addr range: DEVICE_BASE--PHYS_MEMORY_SIZE(0x40000000)
 	mov 	x1, #DEVICE_BASE					// x1 = start mapping from device base address 
 	ldr 	x2, =(VA_START + DEVICE_BASE)				// x2 = first virtual address
 	ldr		x3, =(VA_START + DEVICE_LOW - SECTION_SIZE)	// x3 = the virtual base of the last section
