@@ -432,7 +432,7 @@ extern int procfs_sbctl_gen(char *txtbuf, int sz);  // sound.c
 // return: len of content generated. can be multi lines.
 #define TXTSIZE  256 
 int procfs_gen_content(int major, char *txtbuf, int sz) {
-    int len; 
+    int len = 0; 
 
     switch (major)
     {
@@ -461,7 +461,19 @@ int procfs_gen_content(int major, char *txtbuf, int sz) {
     case PROCFS_SBCTL: 
         len = procfs_sbctl_gen(txtbuf, sz); 
         break; 
+    case PROCFS_CPUINFO: //cpu util, e.g. "10 20 30 40"
+        {
+            // XXX probably need certain locks for cpu::last_util
+            char *p = txtbuf; int ll; 
+            for (int i = 0; i<NCPU; i++) {                
+                ll = snprintf(p, sz, "%d ", cpus[i].last_util); 
+                len += ll; sz -= ll; p += ll; 
+            }
+            len += snprintf(p, sz, "\n"); 
+        }
+        break;
     default:
+        // implement more procfs type here
         len = snprintf(txtbuf, sz, "%s\n", "TBD"); 
         break;
     }

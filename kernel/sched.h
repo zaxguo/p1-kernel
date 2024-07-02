@@ -115,7 +115,7 @@ struct cpu {
   int intena;                 		// Were interrupts enabled before push_off()?
   // # of ticks
   int busy; 		// # of busy ticks in current measurement interval
-  int last_util;	// out of 1000, cpu util in the past interval
+  int last_util;	// out of 100, cpu util in the past interval
   unsigned long total; // since cpu boot 
 };
 extern struct cpu cpus[NCPU];		// sched.c

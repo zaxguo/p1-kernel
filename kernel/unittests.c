@@ -363,6 +363,7 @@ out:
 }
 
 //////////////////////////////////////////////
+extern int sys_sleep(int n);  // sys.c 
 
 #include "sched.h"
 static void kernel_task(int arg) {
@@ -419,5 +420,16 @@ void test_spinlock() {
     int wt = wait(0); BUG_ON(wt<0);
     wt = wait(0); BUG_ON(wt<0);
     // expect = 0 w spinlock on, !=0 w/ spinlock commented out (see above)
-    printf("done. counter = %lld", the_counter); 
+    printf("done. counter = %lld\n", the_counter); 
+
+
+    // test cpu utils: expect to see cpu utils go from almost 100 to 0 
+    // XXX probably need certain locks for cpu::last_util
+    printf("cpu util\n"); 
+    for (int j = 0; j < 10; j++) {
+        for (int i = 0; i<NCPU; i++)
+            printf("%d ", cpus[i].last_util); 
+        printf("\n");
+        sys_sleep(100); 
+    }
 }

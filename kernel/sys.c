@@ -125,7 +125,9 @@ int sys_getpid(void) {
 }
 
 // n: # of sched ticks to sleep (cf timer.c)
-// NB: in current design, each timer irq will wakeup() "ticks" (i.e. signal it); 
+// NB: 
+// 1. this is NOT sleep() (sched.c)
+// 2. in current design, each timer irq will wakeup() "ticks" (i.e. signal it); 
 // this however, does not necessarily result in schedule() at each timer irq. 
 // this is b/c wakeup() only change p->state. it is up to the next schedule()
 // invocation to pick up the woken up task for running. 

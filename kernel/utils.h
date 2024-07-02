@@ -56,6 +56,7 @@ int             uartgetc(void);
 void sys_timer_init ( void );
 void sys_timer_irq ( void );
 
+// both busy spinning
 void ms_delay(unsigned ms); 
 void us_delay(unsigned us);
 

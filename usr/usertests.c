@@ -2011,8 +2011,10 @@ forktest(char *s)
   }
 }
 
-// xzl add
-// for __atomic built-ins, search for "6.55 Built-in Functions for Memory Model Aware Atomic Operations"
+// test clone() and that threads indeed share memory 
+// each thread uses cas to incre a shared counter 
+// for __atomic built-ins, Google for "6.55 Built-in Functions for Memory Model Aware Atomic Operations"
+// by xzl 
 int counter = 100; 
 int thread_func(void *arg) {
   int val = __atomic_add_fetch(&counter, 1, __ATOMIC_SEQ_CST);
@@ -2025,6 +2027,7 @@ void clonetest(char *s) {
   enum{ N = 4 };
   int n, pid;
 
+  // create N threads, each with own stack 
   for(n=0; n<N; n++){
     pid = clone(thread_func, stacks+n*124, CLONE_VM, 0);
     if(pid < 0)
@@ -2036,11 +2039,7 @@ void clonetest(char *s) {
     exit(1);
   }
 
-  // if(n == N){
-  //   printf("%s: fork claimed to work 1000 times!\n", s);
-  //   exit(1);
-  // }
-
+  // reap the threads
   for(; n > 0; n--){
     // printf("wait %d", n);
     if(wait(0) < 0){

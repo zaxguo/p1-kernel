@@ -265,12 +265,14 @@ void timer_tick() {
             cp->busy++; 
 
         if ((cp->total++ % CPU_UTIL_INTERVAL) == CPU_UTIL_INTERVAL - 1) {
-            cp->last_util = cp->busy * 1000 / CPU_UTIL_INTERVAL; 
+            cp->last_util = cp->busy * 100 / CPU_UTIL_INTERVAL; 
             cp->busy = 0; 
-            W("cpu%d util %d/100, cur %s", cpuid(), cp->last_util/10, cur->name); 
+            V("cpu%d util %d/100, cur %s", cpuid(), cp->last_util, cur->name); 
+            #if K2_ACTUAL_DEBUG_LEVEL <= 20     // "V"
             extern void procdump(void);
             if (cpuid()==0)
                 procdump();
+            #endif
         }
 
         acquire(&sched_lock); 
@@ -620,6 +622,8 @@ void procdump(void) {
     struct task_struct *p;
     char *state;
 
+    printf("\t %5s %10s %10s %20s\n", "pid", "state", "name", "sleep-on");
+
     for (int i = 0; i < NR_TASKS; i++) {
         p = task[i];
         if (p->state == TASK_UNUSED)
@@ -628,7 +632,7 @@ void procdump(void) {
             state = states[p->state];
         else
             state = "???";
-        printf("\t\t pid %d %s %s chan %lx\n", p->pid, state, p->name, 
+        printf("\t %5d %10s %10s %20lx\n", p->pid, state, p->name, 
                (unsigned long)p->chan);
     }
 }
