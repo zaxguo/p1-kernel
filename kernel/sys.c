@@ -60,7 +60,7 @@ fetchstr(uint64 addr, char *buf, int max)
 int argstr(uint64 addr, char *buf, int max) {return fetchstr(addr, buf, max);};
 
 int sys_fork(void) {
-	return copy_process(0 /*clone_flags*/, 0 /*fn*/, 0 /*arg*/);
+	return copy_process(0 /*clone_flags*/, 0 /*fn*/, 0 /*arg*/, 0/*inherit name*/);
 }
 
 // https://man7.org/linux/man-pages/man2/clone.2.html
@@ -70,7 +70,7 @@ long sys_clone(unsigned long flags, unsigned long userstack,
                      unsigned long parent_tid, unsigned long usertls,
                      unsigned long child_tid) {
 	if (flags != CLONE_VM) return -1; 
-	return copy_process(PF_UTHREAD, 0 /*fn*/, userstack); 
+	return copy_process(PF_UTHREAD, 0 /*fn*/, userstack, 0/*inherit name*/); 
 }
 
 int sys_exit(int c){

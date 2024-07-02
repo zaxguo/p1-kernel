@@ -40,7 +40,7 @@ void kernel_process() {
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
-	// test_spinlock(); while (1);
+	test_spinlock(); while (1);
 	// test_kernel_tasks(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
@@ -81,7 +81,7 @@ extern unsigned long _start;  // boot.S
 static void start_cores(void) {		
 	// wake up cpu1+ by changing core_flags
 	for (int i=1; i <NCPU; i++) 
-		core_flags[i] = VA2PA(&_start); // cpu1+ run from _start
+		core_flags[i] = VA2PA(&_start); // code entry point for cpu1+ 
 
 	// cpu0: Flush the whole kernel memory
 	// 1. make core_flags update visible to cpu1+ (which has no cache/mmu yet)
@@ -154,16 +154,15 @@ void kernel_main() {
     }
 }
 
-// the 1st normal task, created by sched_init()
+// the 1st task (other than "idle"), created by sched_init()
 void init(int arg/*ignored*/) {
 	int wpid; 
     W("entering init");
 
-	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0/*arg*/);
-	if (res < 0) {
-		printf("error while starting kernel process");
-		return;
-	}
+	// create a kern task as our launchpad: running kernel tests, launch user
+	//  tasks, etc.
+	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0/*arg*/,
+		 "kern-1"); BUG_ON(res<0); 
         
 	while (1) {
 		wpid = wait(0 /* does not care about status */); 

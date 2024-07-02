@@ -261,13 +261,16 @@ void timer_tick() {
 
     if (cur) {
         V("enter timer_tick cpu%d task %s pid %d", cpuid(), cur->name, cur->pid);
-        if (cur->pid>=0) // not "idle" (pid -1)
+        if (cur->pid>=0 && cur->state == TASK_RUNNING) // not "idle" (pid -1), and running
             cp->busy++; 
 
         if ((cp->total++ % CPU_UTIL_INTERVAL) == CPU_UTIL_INTERVAL - 1) {
             cp->last_util = cp->busy * 1000 / CPU_UTIL_INTERVAL; 
             cp->busy = 0; 
-            W("cpu%d util %d/100", cpuid(), cp->last_util/10); 
+            W("cpu%d util %d/100, cur %s", cpuid(), cp->last_util/10, cur->name); 
+            extern void procdump(void);
+            if (cpuid()==0)
+                procdump();
         }
 
         acquire(&sched_lock); 
@@ -722,8 +725,9 @@ static int lastpid=0; // a hint for the next free tcb slot. slowdown pid reuse f
 // clone_flags: PF_KTHREAD for kernel thread, PF_UTHREAD for user thread
 // fn: task func entry. only matters for PF_KTHREAD. 
 // arg: arg to kernel thread; or stack (userva) for user thread
-int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
-{
+// name: to be copied to task->name[]. if null, copy parent's name
+int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
+    const char *name) {
 	struct task_struct *p = 0, *cur=myproc(); 
     int i, pid; 
 
@@ -779,7 +783,10 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
     }
 
     // also inherit task name
-	safestrcpy(p->name, cur->name, sizeof(cur->name));		
+    if (name)
+        safestrcpy(p->name, name, sizeof(p->name));
+    else 
+	    safestrcpy(p->name, cur->name, sizeof(cur->name));
 
 	p->flags = clone_flags;
 	p->credits = p->priority = cur->priority;

@@ -374,9 +374,9 @@ static void kernel_task(int arg) {
     
 // spawn multiple tasks, each printing msgs in an inf loop
 void test_kernel_tasks() {
-	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 0/*arg*/);
+	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 0/*arg*/, "pr1");
 	BUG_ON(res<0);
-    res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 1/*arg*/);
+    res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task, 1/*arg*/, "pr2");
     BUG_ON(res<0);
     while (1) {
         printf("cpu %d task %d \n", cpuid(), myproc()->pid);
@@ -411,13 +411,13 @@ static void kernel_task1(int arg) {
 }
 
 void test_spinlock() {
-	int res1 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/);
+	int res1 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/, "lk1");
 	BUG_ON(res1<0);
-    int res2 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/);
+    int res2 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/, "lk2");
     BUG_ON(res2<0);
     
     int wt = wait(0); BUG_ON(wt<0);
     wt = wait(0); BUG_ON(wt<0);
     // expect = 0 w spinlock on, !=0 w/ spinlock commented out (see above)
-    printf("counter = %lld", the_counter); 
+    printf("done. counter = %lld", the_counter); 
 }
