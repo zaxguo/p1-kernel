@@ -9,7 +9,8 @@ $(error PLAT must be set to virt|rpi3qemu|rpi3. e.g. export PLAT=rpi3qemu)
 endif
 
 # support for fat32 fs
-CONFIG_FAT ?= 1
+# comment out == disable fatfs & secondary device
+# CONFIG_FAT ?= 1
 
 BUILD_DIR = build-$(PLAT)
 SRC_DIR = .
@@ -21,6 +22,7 @@ COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -mgeneral-regs-only \
 -g 
 
+# the default debug level, to be overridden by less verbose levels in individual files 
 COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
 # COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
 # COPS += -DUSE_LFB		# uncomment this to enable GUI console. 

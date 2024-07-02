@@ -785,6 +785,7 @@ void create_kern_pgtables(void) {
 
 #define N 4	// # of entries to dump per table
 void dump_pgdir(void) {
+#if K2_ACTUAL_DEBUG_LEVEL <= 20     // "V"
 	unsigned long *p = (unsigned long *)&pg_dir; 
 
 	printf("PGD va %lx\n", (unsigned long)&pg_dir); 
@@ -811,4 +812,5 @@ void dump_pgdir(void) {
 	printf("sctlr_el1 %016lx\n", nFlags); 
 	asm volatile ("mrs %0, tcr_el1" : "=r" (nFlags));
 	printf("tcr_el1 %016lx\n", nFlags); 
+#endif	
 }

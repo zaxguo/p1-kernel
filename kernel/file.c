@@ -2,6 +2,8 @@
 //  Like vfs; derived from xv6-riscv
 //  tightly coupled with fs.c (fs code...)
 
+#define K2_DEBUG_WARN 
+
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"

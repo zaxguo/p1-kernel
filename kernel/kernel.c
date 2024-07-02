@@ -30,7 +30,7 @@ extern void user_process(); // user.c
 void kernel_process() {
 	unsigned long begin = (unsigned long)&user_begin;  	// defined in linker-qemu.ld
 	unsigned long end = (unsigned long)&user_end;
-	unsigned long process = (unsigned long)&user_process;
+	unsigned long process = (unsigned long)&user_process; // user.c
 
 	// test_ktimer(); while (1); 
 	// test_malloc(); while (1); 
@@ -40,14 +40,14 @@ void kernel_process() {
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
-	test_kernel_tasks(); while (1);
 	// test_spinlock(); while (1);
+	// test_kernel_tasks(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
-	} 
+	} else I("move_to_user_mode ok");
 	// this func is called from ret_from_fork (entry.S). after returning from 
 	// this func, it goes back to ret_from_fork and performs kernel_exit there. 
 	// hence, trampframe populated by move_to_user_mode() will take effect. 
@@ -130,8 +130,8 @@ void kernel_main() {
 #ifdef PLAT_VIRT	
     virtio_disk_init(); // emulated hard disk - blk dev2
 #endif
+	sys_timer_init(); 		// kernel timer: delay, timekeeping...
 	if (sd_init()!=0) E("sd init failed");
-	sys_timer_init(); 		// for kernel timer
 	enable_interrupt_controller(0/*coreid*/);
 	enable_irq();
 	

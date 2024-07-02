@@ -93,7 +93,7 @@ void uart_hex(unsigned int d) {}
 #define CMD_ALL_SEND_CID    0x02010000
 #define CMD_SEND_REL_ADDR   0x03020000
 #define CMD_CARD_SELECT     0x07030000
-#define CMD_SEND_IF_COND    0x08020000
+#define CMD_SEND_IF_COND    0x08020000  // xzl: set interface op condition
 #define CMD_STOP_TRANS      0x0C030000
 #define CMD_READ_SINGLE     0x11220010
 #define CMD_READ_MULTI      0x12220032
@@ -175,7 +175,7 @@ int sd_int(unsigned int mask)
     unsigned int r, m=mask | INT_ERROR_MASK;
     int cnt = 1000000; while(!(*EMMC_INTERRUPT & m) && cnt--) wait_msec(1);
     r=*EMMC_INTERRUPT;
-    if(cnt<=0 || (r & INT_CMD_TIMEOUT) || (r & INT_DATA_TIMEOUT) ) { *EMMC_INTERRUPT=r; return SD_TIMEOUT; } else
+    if(cnt<=0 || (r & INT_CMD_TIMEOUT) || (r & INT_DATA_TIMEOUT) ) {E("cnt %d r %x",cnt, r); *EMMC_INTERRUPT=r; return SD_TIMEOUT; } else
     if(r & INT_ERROR_MASK) { *EMMC_INTERRUPT=r; return SD_ERROR; }
     *EMMC_INTERRUPT=mask;
     return 0;
@@ -198,7 +198,7 @@ int sd_cmd(unsigned int code, unsigned int arg)
     *EMMC_INTERRUPT=*EMMC_INTERRUPT; *EMMC_ARG1=arg; *EMMC_CMDTM=code;
     if(code==CMD_SEND_OP_COND) wait_msec(1000); else
     if(code==CMD_SEND_IF_COND || code==CMD_APP_CMD) wait_msec(100);
-    if((r=sd_int(INT_CMD_DONE))) {uart_puts("ERROR: failed to send EMMC command\n");sd_err=r;return 0;}
+    if((r=sd_int(INT_CMD_DONE))) {uart_puts("ERROR: failed to send EMMC command\n");uart_hex(r);sd_err=r;return 0;}
     r=*EMMC_RESP0;
     if(code==CMD_GO_IDLE || code==CMD_APP_CMD) return 0; else
     if(code==(CMD_APP_CMD|CMD_RSPNS_48)) return r&SR_APP_CMD; else
@@ -325,6 +325,7 @@ static int sd_clk(unsigned int f)
     return SD_OK;
 }
 
+//-----------------------  partition support -------------------------------//
 // for MBR, cf: https://wiki.osdev.org/MBR_(x86)
 //      illustration: https://cpl.li/posts/2019-03-12-mbrfat/
 //          ("MBR, LBA, FAT32" by Alexandru-Paul Copil)
@@ -395,6 +396,30 @@ out:
     return ret;
 }
 
+// cf: rt_thread drv_sdio.c dump_registers() 
+// bcm2837 man pp66, "EMMC Address Map"
+static void sd_dump_regs() 
+{
+#if K2_ACTUAL_DEBUG_LEVEL <= 20     // "V"    
+    printf("EMMC regs\n");
+    volatile unsigned int * i;
+    for (i = EMMC_ARG2; i <= EMMC_CONTROL2; i++) {
+        printf("\t%lx:%x\n", (unsigned long)i, *i);
+    }
+    
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300050); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300070); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300074); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300080); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300084); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300088); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x0030008c); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x00300090); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x003000f0); printf("\t%lx:%x\n", (unsigned long)i, *i);
+    i=(volatile unsigned int *)(MMIO_BASE+0x003000fC); printf("\t%lx:%x\n", (unsigned long)i, *i);
+#endif
+}
+
 /**
  * initialize EMMC to read SDHC card
  * return 0 on OK
@@ -406,7 +431,6 @@ int sd_init()
     // xzl: below configure GPIO pins for SDIO. a common protocol per soc manual, 
     // first set the desired values in SEL, then "clock" the value to gpio module
     // cf gpio.c
-
     // GPIO_CD      xzl: card detection?
     r=*GPFSEL4; r&=~(7<<(7*3)); *GPFSEL4=r;
     *GPPUD=2; wait_cycles(150); *GPPUDCLK1=(1<<15); wait_cycles(150); *GPPUD=0; *GPPUDCLK1=0;
@@ -421,9 +445,9 @@ int sd_init()
     *GPPUD=2; wait_cycles(150);
     *GPPUDCLK1=(1<<18) | (1<<19) | (1<<20) | (1<<21);
     wait_cycles(150); *GPPUD=0; *GPPUDCLK1=0;
-
     sd_hv = (*EMMC_SLOTISR_VER & HOST_SPEC_NUM) >> HOST_SPEC_NUM_SHIFT;
     V("EMMC: GPIO set up");
+
     // Reset the card.
     *EMMC_CONTROL0 = 0; *EMMC_CONTROL1 |= C1_SRST_HC;
     cnt=10000; do{wait_msec(10);} while( (*EMMC_CONTROL1 & C1_SRST_HC) && cnt-- );
@@ -441,6 +465,8 @@ int sd_init()
     sd_scr[0]=sd_scr[1]=sd_rca=sd_err=0;
     sd_cmd(CMD_GO_IDLE,0);
     if(sd_err) return sd_err;
+
+    sd_dump_regs(); 
 
     sd_cmd(CMD_SEND_IF_COND,0x000001AA);
     if(sd_err) return sd_err;

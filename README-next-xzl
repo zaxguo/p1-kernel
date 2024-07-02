@@ -1268,4 +1268,13 @@ KNOWN BUGs: uboot sometimes cannot boot the kernel....
 
     simple kernel "hello world" can boot eveery time. why
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+fix smp problem, cache coherency, understand bootloader better (armstub etc) 
+switch change boot addr to 0x80000 (gfive up old_kernel=1). hence better
+compatible with newer firemware. (also understand it better) 
 
+try uboot and it works (therefore streamline dev workflow) 
+
+clean up boot, reimplement pgtable utilies (asm) in C (much simpiler) 
+
+simple smp works

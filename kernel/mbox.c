@@ -246,7 +246,7 @@ int fb_set_voffsets(int offsetx, int offsety) {
     mbox[7] = MBOX_TAG_LAST;
 
     if(!mbox_call(MBOX_CH_PROP)) {
-        E("failed to set virt offsets");
+        E("failed to set virt offsets, requested x=%d y=%d", offsetx, offsety);
         return -1;
     }     
      if (mbox[5] != offsetx || mbox[6] != offsety) {

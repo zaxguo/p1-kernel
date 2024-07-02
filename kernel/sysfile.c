@@ -432,6 +432,7 @@ int sys_open(unsigned long upath, int omode) {
     return -1;
   }
 
+  goto prepfile; // appeases gcc when !CONFIG_FAT
 prepfile: 
   // populate file struct (for kernel); fd (for user)
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){

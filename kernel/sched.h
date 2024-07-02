@@ -113,6 +113,10 @@ struct cpu {
   struct task_struct *proc;          // The process running on this cpu. never null as each core has an idle task
   int noff;                   		// Depth of push_off() nesting.
   int intena;                 		// Were interrupts enabled before push_off()?
+  // # of ticks
+  int busy; 		// # of busy ticks in current measurement interval
+  int last_util;	// out of 1000, cpu util in the past interval
+  unsigned long total; // since cpu boot 
 };
 extern struct cpu cpus[NCPU];		// sched.c
 

@@ -83,6 +83,8 @@ void sched_init(void) {
         idle_tasks[i] = (struct task_struct *)(&boot_stacks[i][0]); 
         cpus[i].proc = idle_tasks[i]; 
         initlock(&(idle_tasks[i]->lock), "idle"); // some code will try to grab
+        snprintf(idle_tasks[i]->name, 10, "idle-%d", i); 
+        idle_tasks[i]->pid = -1; // not meaningful. a placeholder
         // when each cpu calls schedule() for the first time, they will 
         // jump off the idle task to "normal" ones, saving cpu_context 
         // (inc sp/pc) to idle_tasks[i]
@@ -176,7 +178,7 @@ void schedule() {
                 }                
             }
         } else { // reason2: no normal tasks RUNNABLE (inc. cur task)
-            I("cpu%d nothing to run. switch to idle", cpu); 
+            V("cpu%d nothing to run. switch to idle", cpu); 
             #ifdef K2_DEBUG_VERBOSE
             procdump(); 
             #endif
@@ -250,13 +252,24 @@ void switch_to(struct task_struct * next) {
     cpu_switch_to(prev, next);  // sched.S will branch to @next->cpu_context.pc
 }
 
+#define CPU_UTIL_INTERVAL 10  // cal cpu measurement every X ticks
+
 // caller by timer irq handler, with irq automatically turned off by hardware
 void timer_tick() {
     struct task_struct *cur = myproc();
-    __attribute_maybe_unused__ int cpu = cpuid();
-    // V("enter timer_tick");
+    struct cpu* cp = mycpu(); 
+
     if (cur) {
-        I("enter timer_tick cpu%d pid %d", cpu, cur->pid);
+        V("enter timer_tick cpu%d task %s pid %d", cpuid(), cur->name, cur->pid);
+        if (cur->pid>=0) // not "idle" (pid -1)
+            cp->busy++; 
+
+        if ((cp->total++ % CPU_UTIL_INTERVAL) == CPU_UTIL_INTERVAL - 1) {
+            cp->last_util = cp->busy * 1000 / CPU_UTIL_INTERVAL; 
+            cp->busy = 0; 
+            W("cpu%d util %d/100", cpuid(), cp->last_util/10); 
+        }
+
         acquire(&sched_lock); 
         if (--cur->credits > 0) { // cur task continues to exec
             I("leave timer_tick. no resche");
@@ -271,7 +284,7 @@ void timer_tick() {
             twice back-to-back, no interleaving so we're fine. */
 	schedule();
 
-    I("leave timer_tick cpu%d pid %d", cpuid(), cur->pid);
+    V("leave timer_tick cpu%d task %s pid %d", cpu, cur->name, cur->pid);
 	/* disable irq until kernel_exit, in which eret will resort the interrupt 
         flag from spsr, which sets it on. */
 	disable_irq(); 
@@ -694,7 +707,9 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
     fsinit(ROOTDEV);
+#ifdef CONFIG_FAT        
 	fsinit(SECONDDEV); // fat
+#endif    
 	
 	return 0;
 }
