@@ -414,14 +414,16 @@ static void kernel_task1(int arg) {
 
 void test_spinlock() {
     W("test_spinlock"); 
+    int res, wt; 
 
-	int res1 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/, "lk1");
-	BUG_ON(res1<0);
-    int res2 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/, "lk2");
-    BUG_ON(res2<0);
+    for (int i = 0; i < NCPU; i++) {
+        res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 3*1000*1000/*arg*/, "lk");
+        BUG_ON(res<0);
+    }
     
-    int wt = wait(0); BUG_ON(wt<0);
-    wt = wait(0); BUG_ON(wt<0);
+    for (int i = 0; i < NCPU; i++) {
+        wt = wait(0); BUG_ON(wt<0);
+    }
     // expect = 0 w spinlock on, !=0 w/ spinlock commented out (see above)
     printf("done. counter = %lld\n", the_counter); 
 
