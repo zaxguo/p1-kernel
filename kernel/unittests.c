@@ -408,10 +408,13 @@ extern int sys_exit(int c);
 static void kernel_task1(int arg) {
     add_iterate(1, arg);
     add_iterate(-1, arg);
+    // W("kernel_task1 done"); 
     sys_exit(0);
 }
 
 void test_spinlock() {
+    W("test_spinlock"); 
+
 	int res1 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/, "lk1");
 	BUG_ON(res1<0);
     int res2 = copy_process(PF_KTHREAD, (unsigned long)&kernel_task1, 5*1000*1000/*arg*/, "lk2");
@@ -422,8 +425,7 @@ void test_spinlock() {
     // expect = 0 w spinlock on, !=0 w/ spinlock commented out (see above)
     printf("done. counter = %lld\n", the_counter); 
 
-
-    // test cpu utils: expect to see cpu utils go from almost 100 to 0 
+    // also test cpu utils: expect to see cpu utils go from almost 100 to 0 
     // XXX probably need certain locks for cpu::last_util
     printf("cpu util\n"); 
     for (int j = 0; j < 10; j++) {

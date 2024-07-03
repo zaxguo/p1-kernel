@@ -59,9 +59,8 @@ struct task_struct *myproc(void) {
 // NB: after myproc(), it's ok if the cur task is moved to a diff cpu; b/c local
 // var is on the task's kern stack, the task_struct * is still valid.
 
-/* get a task's saved registers ("trapframe"), at the top of the task's kernel page. 
-   these regs are saved/restored by kernel_entry()/kernel_exit(). 
-*/
+// get a task's saved registers ("trapframe"), at the top of the task's kernel page. 
+// these regs are saved/restored by kernel_entry()/kernel_exit(). 
 struct trampframe * task_pt_regs(struct task_struct *tsk) {
 	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct trampframe);
 	return (struct trampframe *)p;
@@ -496,9 +495,11 @@ void exit_process(int status) {
         }
     }
 
-    begin_op();
-    iput(p->cwd);
-    end_op();
+    if (p->cwd) {
+        begin_op();
+        iput(p->cwd);
+        end_op();
+    }
     p->cwd = 0;
 
     // This prevents to parent from checking & recycling this zombie until 

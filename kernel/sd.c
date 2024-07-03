@@ -1,3 +1,5 @@
+#define K2_DEBUG_WARN
+
 /*
  * Copyright (C) 2018 bzt (bztsrc@github)
  *

@@ -1,8 +1,7 @@
+// simple user lib. derived from xv6. slighly augmented. 
 #include "user.h"
 
-//
 // wrapper so that it's OK if main() does not call exit().
-//
 void
 _main()
 {

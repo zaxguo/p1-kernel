@@ -1278,3 +1278,8 @@ try uboot and it works (therefore streamline dev workflow)
 clean up boot, reimplement pgtable utilies (asm) in C (much simpiler) 
 
 simple smp works
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+project idea --- make students implement procfs, 
+maybe cpu util? 
+/proc/cpuinfo 
+
