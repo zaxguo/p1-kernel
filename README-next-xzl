@@ -1283,3 +1283,8 @@ project idea --- make students implement procfs,
 maybe cpu util? 
 /proc/cpuinfo 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+semaphore syscall idea: xinu os
+https://www.cs.mu.edu/~pmcgee6/doxygen/group__semaphores.html
+
+(no mutex syscall in otehr os??? linux, xv5, rt thread os....

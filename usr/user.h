@@ -60,6 +60,14 @@ int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
 unsigned atoi16(const char*); // xzl
 
+// simplified spinlock for user
+struct spinlock_u {
+    unsigned int locked; 
+}; 
+void spinlock_init(struct spinlock_u *lk); 
+void spinlock_lock(struct spinlock_u *lk); 
+void spinlock_unlock(struct spinlock_u *lk); 
+
 // tinyprintf.c, so far we only uses its sprintf()
 void tfp_printf(char *fmt, ...);
 void tfp_sprintf(char* s,char *fmt, ...);   // xzl: TODO const chat *fmt...

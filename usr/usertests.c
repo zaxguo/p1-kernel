@@ -2011,6 +2011,9 @@ forktest(char *s)
   }
 }
 
+///////////////  threading related //////////////////////////////
+char stacks[4*128]; 
+
 // test clone() and that threads indeed share memory 
 // each thread uses cas to incre a shared counter 
 // for __atomic built-ins, Google for "6.55 Built-in Functions for Memory Model Aware Atomic Operations"
@@ -2022,7 +2025,6 @@ int thread_func(void *arg) {
   return 1; 
 }
 
-char stacks[4*128]; 
 void clonetest(char *s) {
   enum{ N = 4 };
   int n, pid;
@@ -2053,6 +2055,56 @@ void clonetest(char *s) {
     exit(1);
   }
   // printf("all done");
+}
+
+///////////////////////////////////////////////////////
+// spinlocktest
+__attribute__((unused)) static struct spinlock_u testlock = {.locked=0};
+static int the_counter = 0;
+
+static void add_iterate(int val, int iterations) {
+    for (int i = 0; i < iterations; i++) {
+        spinlock_lock(&testlock);     // toggle spinlock
+        the_counter += val; 
+        spinlock_unlock(&testlock);   // toggle spinlock
+    }
+}
+
+int thread_func1(void *arg) {
+  add_iterate(1, 3*1000*1000 /* iterations */);
+  add_iterate(-1, 3*1000*1000);
+  return 1; 
+}
+
+void spinlocktest(char *s) {
+  enum{ N = 4 };
+  int n, pid;
+
+  // create N threads, each with own stack 
+  for(n=0; n<N; n++){
+    pid = clone(thread_func1, stacks+n*124, CLONE_VM, 0);
+    if(pid < 0)
+      break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
+  }
+
+  if (n == 0) {
+    printf("%s: no fork at all!\n", s);
+    exit(1);
+  }
+
+  // reap the threads
+  for(; n > 0; n--){
+    if(wait(0) < 0){
+      printf("%s: wait stopped early\n", s);
+      exit(1);
+    }
+  }
+
+  if(wait(0) != -1){
+    printf("%s: wait got too many\n", s);
+    exit(1);
+  }
+  printf("done. counter = %d\n", the_counter); 
 }
 
 void
@@ -2890,7 +2942,8 @@ struct test {
   {fbstatic, "fb"},
   {seektest, "seek"},
   {pipe3, "pipe3"},  // [x]  
-  {clonetest, "clonetest"},   // [x]
+  {clonetest, "clone"},   // [x]
+  {spinlocktest, "spinlock"},   // [x]
   { 0, 0},
 };
 

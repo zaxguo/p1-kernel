@@ -386,7 +386,7 @@ void test_kernel_tasks() {
 }
 
 //////////////////////////////////////////////
-// test spinlock correctness PASSED 
+// spinlock correctness 
 __attribute__((unused))
 static struct spinlock testlock = {.locked=0, .cpu=0, .name="testlock"};
 static long long the_counter = 0;
@@ -408,7 +408,6 @@ extern int sys_exit(int c);
 static void kernel_task1(int arg) {
     add_iterate(1, arg);
     add_iterate(-1, arg);
-    // W("kernel_task1 done"); 
     sys_exit(0);
 }
 
@@ -437,3 +436,46 @@ void test_spinlock() {
         sys_sleep(100); 
     }
 }
+
+//////////////////////////////////////////////
+// semaphore correctness 
+int sem; 
+
+extern int sys_semcreate(int count); 
+extern int sys_semfree(int sem); 
+extern int sys_semp(int sem); 
+extern int sys_semv(int sem); 
+
+static void kernel_task2(int id) {
+    int ret; 
+    printf("task %d: start\n", id);
+    ret = sys_semp(sem); BUG_ON(ret <0); printf("task %d: P ok\n", id);
+    ret = sys_semv(sem); BUG_ON(ret <0); printf("task %d: V ok\n", id);
+
+    sys_exit(0);
+}
+
+void test_sem() {
+    W("test_sem"); 
+    int res, wt; 
+
+    sem = sys_semcreate(0); BUG_ON(sem<0); 
+    
+    for (int i = 0; i < NCPU; i++) {
+        res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task2, i/*arg*/, "semtest");
+        BUG_ON(res<0);
+    }
+    W("test_sem: sleep..."); 
+    sys_sleep(500); 
+    W("test_sem: woke"); 
+    for (int i = 0; i < 1; i++)
+        sys_semv(sem);
+
+    for (int i = 0; i < NCPU; i++) {
+        wt = wait(0); BUG_ON(wt<0);
+    }
+    res = sys_semfree(sem); BUG_ON(wt<0);
+    W("done");    
+}
+
+

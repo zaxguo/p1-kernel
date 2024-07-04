@@ -186,6 +186,21 @@ unsigned atoi16(const char *num) {
     return value;
 }
 
+void spinlock_init(struct spinlock_u *lk) {
+  lk->locked = 0; 
+}
+
+void spinlock_lock(struct spinlock_u *lk) {
+  while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
+    ;
+  __sync_synchronize();
+}
+
+void spinlock_unlock(struct spinlock_u *lk) {
+  __sync_synchronize();
+  __sync_lock_release(&lk->locked);
+}
+
 /// assert. needed by assert()
 void __assert_fail(const char * assertion, const char * file, 
   unsigned int line, const char * function) {  

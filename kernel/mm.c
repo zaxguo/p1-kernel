@@ -615,7 +615,7 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 				myproc()->pid, ind); 
 			goto bad; 	
 		}
-		W("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
+		I("demand paging at user va 0x%lx, elr 0x%lx", addr, regs->pc);
 		return 0;
 	}
 	/* other causes, e.g. permission... */

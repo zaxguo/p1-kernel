@@ -1,5 +1,5 @@
-// #define K2_DEBUG_WARN
-#define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
+// #define K2_DEBUG_INFO
 
 // File system implementation.  Five layers:
 //   + Blocks: allocator for raw disk blocks.  
@@ -388,7 +388,6 @@ iunlock(struct inode *ip)
 void
 iput(struct inode *ip)
 {
-  E("here");
   acquire(&itable.lock);
 
   if(ip->ref == 1 && ip->valid && ip->nlink == 0){

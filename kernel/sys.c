@@ -126,7 +126,7 @@ int sys_getpid(void) {
 
 // n: # of sched ticks to sleep (cf timer.c)
 // NB: 
-// 1. this is NOT sleep() (sched.c)
+// 1. this is NOT sleep() in sched.c
 // 2. in current design, each timer irq will wakeup() "ticks" (i.e. signal it); 
 // this however, does not necessarily result in schedule() at each timer irq. 
 // this is b/c wakeup() only change p->state. it is up to the next schedule()
@@ -174,7 +174,10 @@ extern int sys_fork();		// sys.c
 extern long sys_clone(unsigned long flags, unsigned long userstack,
                      unsigned long parent_tid, unsigned long usertls,
                      unsigned long child_tid); // sys.c
-
+extern int sys_semcreate(int count); 
+extern int sys_semfree(int sem); 
+extern int sys_semp(int sem); 
+extern int sys_semv(int sem); 
 // mm.c
 extern unsigned long sys_sbrk(int incr); 
 
@@ -206,4 +209,8 @@ void * const sys_call_table[] = {
 	[SYS_close]   sys_close,	
 	[SYS_lseek]   sys_lseek,	
 	[SYS_clone]   sys_clone,
+	[SYS_semcreate]   sys_semcreate,
+	[SYS_semfree]   sys_semfree,
+	[SYS_semp]   sys_semp,
+	[SYS_semv]   sys_semv,
 };

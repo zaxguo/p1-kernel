@@ -11,4 +11,10 @@ struct spinlock {
   struct cpu *cpu;   // The cpu holding the lock. 
 };
 
+/* semaphore table entry */
+struct sem {
+  char used;  // 0 if free; otherwise used
+  int count;    // sem count
+}; 
+
 #endif

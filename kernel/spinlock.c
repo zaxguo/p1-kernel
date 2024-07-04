@@ -124,3 +124,92 @@ pop_off(void)
     // intr_on();
     enable_irq(); 
 }
+
+///////////////// simple semaphore. as syscall ////////////////////////////
+#define NSEM 32
+static struct {
+  // coarse grained lock (TBD: besides this, each sem has own spinlock)
+  struct spinlock lock; 
+  struct sem sem[NSEM];
+} semtable; 
+
+// maybe not needed, if we are confident bss is cleared..
+void seminit(void) { 
+  memzero(&semtable, sizeof(semtable));
+}
+
+// count: desired sem count 
+// return: id of sem (sys-wide); -1 on err 
+int sys_semcreate(int count) {
+  int i; 
+  acquire(&semtable.lock); 
+  for (i = 0; i < NSEM; i++) {
+    if (!semtable.sem[i].used) {
+      semtable.sem[i].used = 1;
+      semtable.sem[i].count = count; 
+      break; 
+    }
+  }
+  if (i == NSEM)
+    i = -1;   
+  release(&semtable.lock); 
+  return i; 
+}
+
+// return: 0 on success; -1 on err 
+//  if already freed, return 0
+int sys_semfree(int sem) {
+  if (sem<0 || sem>=NSEM)
+    return -1; 
+  acquire(&semtable.lock); 
+  semtable.sem[sem].used = 0; 
+  semtable.sem[sem].count = 0; 
+  release(&semtable.lock); 
+  return 0; 
+}
+
+// block calling task if sem.count==0, then sem.count--
+// return: <0 on err; 0 on success
+int sys_semp(int sem) {
+  int ret; 
+  if (sem<0 || sem>=NSEM)
+    return -1; 
+
+  acquire(&semtable.lock); 
+  if (!semtable.sem[sem].used) {
+    ret = -2; 
+    goto out; 
+  }
+
+  while (semtable.sem[sem].count == 0) {
+    sleep(&semtable.sem[sem], &semtable.lock); 
+  }
+  semtable.sem[sem].count --; BUG_ON(semtable.sem[sem].count < 0);
+  ret = 0; 
+out: 
+  release(&semtable.lock); 
+  return ret; 
+}
+
+// sem.count++ and wakeup all waiting tasks
+// <0 on err; 0 on success
+int sys_semv(int sem) {
+  int ret; 
+  if (sem<0 || sem>=NSEM)
+    return -1; 
+
+  acquire(&semtable.lock); 
+  if (!semtable.sem[sem].used) {
+    ret = -2; 
+    goto out; 
+  }
+
+  BUG_ON(semtable.sem[sem].count < 0);
+
+  semtable.sem[sem].count++; 
+  wakeup(&semtable.sem[sem]);   
+  ret = 0; 
+out: 
+  release(&semtable.lock); 
+  return ret; 
+}

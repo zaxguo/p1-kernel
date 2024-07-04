@@ -20,6 +20,7 @@ extern void test_sound();
 extern void test_sd(); 
 extern void test_kernel_tasks();
 extern void test_spinlock();
+extern void test_sem();
 
 // 1st user process
 extern unsigned long user_begin;	// cf the linker script
@@ -40,8 +41,9 @@ void kernel_process() {
 	// test_fb(); while (1); 
 	// test_sound(); while (1); 
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
-	test_spinlock(); while (1);
+	// test_spinlock(); while (1);
 	// test_kernel_tasks(); while (1);
+	test_sem(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
