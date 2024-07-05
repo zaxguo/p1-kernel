@@ -48,9 +48,9 @@ void test_ktimer() {
 
 // to be called in a kernel process
 void test_sys_sleep() {
-    printf("test_sys_sleep. to sleep 1sec"); 
+    I("test_sys_sleep. to sleep 1sec"); 
     sys_sleep(1000);
-    printf("done"); 
+    I("done"); 
 }
 
 void test_malloc() {

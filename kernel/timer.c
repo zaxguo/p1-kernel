@@ -1,4 +1,5 @@
-#define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "mmu.h"
@@ -72,17 +73,11 @@ void generic_timer_init (void) {
 unsigned int ticks; 	// sys_sleep() tasks sleep on this var
 
 void handle_generic_timer_irq(void)  {
-	__attribute_maybe_unused__ int woken; 
-
 	// UP sys_sleep() see comment above
 	// acquire(&tickslock); 
 	// ticks++;
-	// woken = wakeup(&ticks); // NB: only change state, wont call schedule()
+	// int woken = wakeup(&ticks); // NB: only change state, wont call schedule()
 	// release(&tickslock);
-
-	static unsigned long c0; 
-	c0 = (((unsigned long) get32va(TIMER_CHI) << 32) | get32va(TIMER_CLO));
-	W("c0 %ld irq_masked %d", c0, is_irq_masked());
 
 	// if schedule at SCHED_TICK_HZ could be too frequent. can throttle like: 
 	// if (ticks % 10 == 0 || woken)
@@ -271,7 +266,7 @@ int ktimer_start(unsigned delayms, TKernelTimerHandler *handler,
 	return ret;
 }
 
-// see ktimer_sleep() below. 
+// cf ktimer_sleep() below. 
 // Note that this func is called by irq handler, with timerlock held
 static void wakehandler(TKernelTimerHandle hTimer, void *param, void *context) {
 	wakeup(timers+hTimer); 
@@ -290,7 +285,7 @@ int sys_sleep(int ms) {
 	// we still hold timerlock, so timer irq hanler won't race w/ us
 	
 	while (current_counter() - c0 < ms * TICKPERMS) {
-		// this task may wake up prematurely, b/c getting kill()ed
+		// this task may wake up prematurely, if got kill()ed
 		if (killed(myproc())) {
             release(&timerlock);
             return -1;

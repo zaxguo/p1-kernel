@@ -1288,3 +1288,8 @@ semaphore syscall idea: xinu os
 https://www.cs.mu.edu/~pmcgee6/doxygen/group__semaphores.html
 
 (no mutex syscall in otehr os??? linux, xv5, rt thread os....
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+cleanup  timer.c and commments 
+
+sys_sleep, sys_uptime ---> no longer base on sche ticks
