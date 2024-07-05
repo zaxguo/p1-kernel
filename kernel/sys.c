@@ -124,6 +124,8 @@ int sys_getpid(void) {
 	return myproc()->pid; 
 }
 
+// UP sys_sleep(), based on sched ticks (simple but inefficient)
+// cf: sys_sleep in timer.c for a ktimer based design
 // n: # of sched ticks to sleep (cf timer.c)
 // NB: 
 // 1. this is NOT sleep() in sched.c
@@ -131,6 +133,7 @@ int sys_getpid(void) {
 // this however, does not necessarily result in schedule() at each timer irq. 
 // this is b/c wakeup() only change p->state. it is up to the next schedule()
 // invocation to pick up the woken up task for running. 
+#if 0
 int sys_sleep(int n) {
 	uint ticks0;
     acquire(&tickslock);
@@ -145,7 +148,11 @@ int sys_sleep(int n) {
     release(&tickslock);
     return 0;
 }
+#endif
 
+// implementation based on sched ticks. 
+// return: # of sched ticks
+#if 0
 int sys_uptime(void) {
     uint xticks;
 
@@ -153,6 +160,14 @@ int sys_uptime(void) {
     xticks = ticks;
     release(&tickslock);
     return (int)xticks;		// xzl: loss of precision?
+}
+#endif
+
+// return: # of ms
+int sys_uptime(void) {
+    uint sec, msec; 
+	current_time(&sec, &msec); 
+    return (int)(sec * 1000 + msec);  // xzl: loss of precision ...
 }
 
 // sysfile.c
@@ -170,16 +185,19 @@ extern int sys_mknod(unsigned long upath, short major, short minor);
 extern int sys_chdir(unsigned long upath);
 extern int sys_exec(unsigned long upath, unsigned long uargv);
 extern int sys_pipe(unsigned long fdarray);
+
 extern int sys_fork();		// sys.c
 extern long sys_clone(unsigned long flags, unsigned long userstack,
                      unsigned long parent_tid, unsigned long usertls,
                      unsigned long child_tid); // sys.c
+// spinlock.c					 
 extern int sys_semcreate(int count); 
 extern int sys_semfree(int sem); 
 extern int sys_semp(int sem); 
 extern int sys_semv(int sem); 
-// mm.c
-extern unsigned long sys_sbrk(int incr); 
+
+extern unsigned long sys_sbrk(int incr); // mm.c
+extern int sys_sleep(int ms); // timer.c
 
 /* An array of pointers to all syscall handlers. 
 	Each syscall has a "syscall number" (sys.h) — which is just an index in this array 		

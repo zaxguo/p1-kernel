@@ -1,6 +1,6 @@
-// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_VERBOSE
 // #define K2_DEBUG_INFO
-#define K2_DEBUG_WARN
+// #define K2_DEBUG_WARN
 
 #include "plat.h"
 #include "utils.h"
@@ -253,7 +253,8 @@ void switch_to(struct task_struct * next) {
 
 #define CPU_UTIL_INTERVAL 10  // cal cpu measurement every X ticks
 
-// caller by timer irq handler, with irq automatically turned off by hardware
+// caller by timer irq handler, with irq automatically turned off by hardware,
+//      which can be verified by is_irq_masked()
 void timer_tick() {
     struct task_struct *cur = myproc();
     struct cpu* cp = mycpu(); 
@@ -263,6 +264,7 @@ void timer_tick() {
         if (cur->pid>=0 && cur->state == TASK_RUNNING) // not "idle" (pid -1), and running
             cp->busy++; 
 
+        // calculate cpu util % 
         if ((cp->total++ % CPU_UTIL_INTERVAL) == CPU_UTIL_INTERVAL - 1) {
             cp->last_util = cp->busy * 100 / CPU_UTIL_INTERVAL; 
             cp->busy = 0; 
@@ -284,11 +286,15 @@ void timer_tick() {
     }
 
 	enable_irq();
-        /* what if a timer irq happens here? schedule() will be called 
-            twice back-to-back, no interleaving so we're fine. */
+        /* what if a timer irq happens here? schedule() will be called twice
+            back-to-back, no interleaving so we're fine. HOWEVER, if timer irqs
+            occur more often than we can handle, the earlier schedule() calls
+            may never have a chance to finish, the kernel stack will exhaust,
+            corrupting the kernel memory. (the kernel will throw strange bugs) 
+        */
 	schedule();
 
-    V("leave timer_tick cpu%d task %s pid %d", cpu, cur->name, cur->pid);
+    V("leave timer_tick cpu%d task %s pid %d", cpuid(), cur->name, cur->pid);
 	/* disable irq until kernel_exit, in which eret will resort the interrupt 
         flag from spsr, which sets it on. */
 	disable_irq(); 
@@ -297,23 +303,24 @@ void timer_tick() {
 
 // Design patterns for sleep() & wakeup() 
 // 
-// sleep() always needs to hold a lock (lk). inside sleep(), once the calling task grabs 
-// sched_lock (i.e. no other tasks can change their p->state), lk is released
+// sleep() always needs to hold a lock (lk). inside sleep(), once the calling
+// task grabs sched_lock (i.e. no other tasks can change their p->state), lk is
+// released
 //
-// ONLY USE sched_lock to serialize task A/B is not enough 
-// wakeup() does NOT need to hold lk. if that's the case, it's possible:
-//      task B: sleep(on chan) in a loop; 
-//      after it wakes up (no schedlock; only lk), before it calls sleep() again, 
-//      task A calls wakeup(chan), taking schelock and wakes up no task --> wakeup is lost
-// So our kernel cannot help on this case
+// ONLY USE sched_lock to serialize task A/B is not enough wakeup() does NOT
+// need to hold lk. if that's the case, it's possible: task B: sleep(on chan) in
+// a loop; after it wakes up (no schedlock; only lk), before it calls sleep()
+// again, task A calls wakeup(chan), taking schelock and wakes up no task -->
+// wakeup is lost So our kernel cannot help on this case
 //
-// to avoid the above, task A calling wakeup() must hold lk beforehand. 
-// b/c of this, only after task B inside sleep() rls lk, task A can proceed to 
-// wakeup(). inside wakeup(), task A is further serialized on schedlock, which must wait 
-// until that task B has completely changed its p->state and is moved off the cpu
+// to avoid the above, task A calling wakeup() must hold lk beforehand. b/c of
+// this, only after task B inside sleep() rls lk, task A can proceed to
+// wakeup(). inside wakeup(), task A is further serialized on schedlock, which
+// must wait until that task B has completely changed its p->state and is moved
+// off the cpu
 
-// Wake up all processes sleeping on chan. Only change p->state; wont call schedule()
-// return # of tasks woken up
+// Wake up all processes sleeping on chan. Only change p->state; wont call
+// schedule() return # of tasks woken up.
 // Caller must hold sched_lock 
 static int wakeup_nolock(void *chan) {
     struct task_struct *p;
@@ -337,6 +344,7 @@ static int wakeup_nolock(void *chan) {
 
 // Must be called WITHOUT sched_lock 
 // Called from irq (many drivers) or task
+// return # of tasks woken up
 int wakeup(void *chan) {
     int cnt; 
     acquire(&sched_lock);     

@@ -1,4 +1,4 @@
-#define K2_DEBUG_INFO 
+#define K2_DEBUG_VERBOSE
 
 #include "plat.h"
 #include "mmu.h"
@@ -7,16 +7,21 @@
 #include "spinlock.h"
 #include "sched.h"
 
-// current design. 
-// scheduler ticks (& user sleep()) are based on arm generic timers. 
-// higher precision timekeeping (e.g. ms/us delay, kernel timers) are calibrated
-// and based on Arm system timers 
+// Use of harware timers 
+// - Per-core "arm generic timers": driving scheduler ticks
+// - Chip-level "arm system timer": timekeeping, virtual timers w/ callbacks,
+//   sys_sleeep(), etc. 
+// It's possible to only use "arm generic timer" for all these purposes like
+// xv5 (+ software tricks like sched tick throttling, distinguishing timers on
+// different cpus, etc) which however result in more complex design. 
 
-// below are for arm generic timers
-// 10Hz (100ms per tick) is assumed by some user tests. 
-// TODO could be too slow for games which renders by sleep(). 60Hz then?
-
-#define SCHED_TICK_HZ	60 
+// Sched ticks should occur periodically, but not too often -- otherwise 
+// numerous nested calls to schedule() will exhaust & corrupt the kernel state. 
+// So be careful when you change the HZ below 
+// 10Hz assumed by some code in usertests.c
+#define SCHED_TICK_HZ	10
+// sys_sleep() based on sched ticks -- too coarse grained for certain apps, e.g.
+// NES emulator relies on sys_sleep() to sleep/wake at 60Hz for its rendering.
 
 #ifdef PLAT_VIRT
 int interval = ((1 << 26) / SCHED_TICK_HZ); // (1 << 26) around 1 sec
@@ -26,13 +31,9 @@ int interval = ((1 << 26) / SCHED_TICK_HZ); // (1 << 26) around 1 sec
 int interval = (1 * 1000 * 1000 / SCHED_TICK_HZ);
 #endif
 
-struct spinlock tickslock = {.locked = 0, .cpu=0, .name="tickslock"};
-unsigned int ticks; 	// sleep() tasks sleep on this var. 
-
-// ----------------- arm generic timer  --------------------------- //
+////////////////////////////////////////////////////////////////////////////////
 
 /**
- * 
  *  Arm generic timers. Each core has its own instance. 
  *
 	Here, the physical timer at EL1 is used with the TimerValue views.
@@ -46,57 +47,79 @@ unsigned int ticks; 	// sleep() tasks sleep on this var.
  *  https://developer.arm.com/docs/ddi0487/ca/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
  */
 
-void generic_timer_reset(unsigned long intv) {
-	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(intv));
+static void generic_timer_reset(int intv) {	
+	asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(intv));  // TVAL is 32bit, signed
 }
-/*
-# Below, writes 1 to the control register (CNTP_CTL_EL0) of the EL1 physical timer
-# Explanation: 
-# 		CTL indicates this is a control register
-#		CNTP_XXX_EL0 indicates that this is for the EL1 physical timer
-#		(Why named _EL0? I guess it means that the timer is accessible to both EL1 and EL0)
-*/
+
 void generic_timer_init (void) {
-	// gen_timer_init();
-	unsigned long reg = 1; 
-	asm volatile("msr CNTP_CTL_EL0, %0" : : "r"(reg));
+  	// writes 1 to the control register (CNTP_CTL_EL0) of the EL1 physical timer
+ 	// 	CTL: control register
+	// 	CNTP_XXX_EL0: this is for EL1 physical timer
+	// 	_EL0: timer accessible to both EL1 and EL0
+	asm volatile("msr CNTP_CTL_EL0, %0" : : "r"(1));
+
 	generic_timer_reset(interval);	// kickoff 1st time firing
-	// asm volatile("msr CNTP_TVAL_EL0, %0" : : "r"(interval));	
 }
+
+// on UP, sys_sleep() may be implemented by counting # of schedule ticks. 
+// hence, "arm generic timer" (which drives schedule ticks) is sufficient;
+// no need for "arm system timer". 
+// Drawback: 
+// - inefficient design ... search for (UP sys_sleep()) 
+// - how it works for SMP? (each core has own schedule ticks)
+
+// struct spinlock tickslock = {.locked = 0, .cpu=0, .name="tickslock"};
+unsigned int ticks; 	// sys_sleep() tasks sleep on this var
 
 void handle_generic_timer_irq(void)  {
 	__attribute_maybe_unused__ int woken; 
-	acquire(&tickslock); 
-	ticks++;
-	woken = wakeup(&ticks); // NB: only change state, wont call schedule()
-	release(&tickslock);
 
-	// reschedule at SCHED_TICK_HZ could be too frequent, 
-	// so we throttle
-	// if (ticks % 50 == 0 || woken)  
-	if (ticks % 10 == 0)  
-		timer_tick();
+	// UP sys_sleep() see comment above
+	// acquire(&tickslock); 
+	// ticks++;
+	// woken = wakeup(&ticks); // NB: only change state, wont call schedule()
+	// release(&tickslock);
+
+	static unsigned long c0; 
+	c0 = (((unsigned long) get32va(TIMER_CHI) << 32) | get32va(TIMER_CLO));
+	W("c0 %ld irq_masked %d", c0, is_irq_masked());
+
+	// if schedule at SCHED_TICK_HZ could be too frequent. can throttle like: 
+	// if (ticks % 10 == 0 || woken)
+	
+	// Reset the timer before calling timer_tick(), not after it Otherwise,
+	// enable_irq() inside timer_tick() will trigger a new timer irq IMMEDIATELY
+	// (maybe hw checks for generic timer condition whenever daif is set? the
+	// behavior of qemuv8). As a result, timer_irq handler will be called back
+	// to back, corrupting the kernel stack  ... 
 	generic_timer_reset(interval);
+	timer_tick();	
 }
 
-#if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU)
-/* 
-	These are for Rpi3's "system Timer". Note the caveats:
-	Rpi3: System Timer works fine. Can generate intrerrupts and be used as a counter for timekeeping.
-	QEMU: System Timer can be used for timekeeping no interrupts (v5); + as well interrupts (v8.2)
-		You may want to adjust @interval as needed
-	cf: 
-	https://fxlin.github.io/p1-kernel/exp3/rpi-os/#fyi-other-timers-on-rpi3
-		
-*/
+////////////////////////////////////////////////////////////////////////////////
 
-#define N_TIMERS 20
+/* 
+	Rpi3's "system Timer". 
+	- Support "virtual timers" and timekeeping (current_time(), sys_sleep()). 
+	- Efficient. No periodic interrupts. Instead, set & fire on demand. 
+	- IRQ always routed to core 0.
+
+	cf: test_ktimer() on how to use.
+
+	NB: in earlier qemu (<5), emulation for system timer is incomplete --
+	cannot fire interrupts. 
+	https://fxlin.github.io/p1-kernel/exp3/rpi-os/#fyi-other-timers-on-rpi3		
+
+*/
+#if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU)
+#define N_TIMERS 20 	// # of vtimers
 #define CLOCKHZ	1000000	// rpi3 use 1MHz clock for system counter. 
 
 #define TICKPERSEC (CLOCKHZ)
 #define TICKPERMS (CLOCKHZ / 1000)
 #define TICKPERUS (CLOCKHZ / 1000 / 1000)
 
+// NB: use current_time() below to get converted time
 static inline unsigned long current_counter() {
 	// assume these two are consistent, since the clock is only 1MHz...
 	return ((unsigned long) get32va(TIMER_CHI) << 32) | get32va(TIMER_CLO); 
@@ -108,12 +131,10 @@ static inline unsigned long current_counter() {
 static unsigned int cycles_per_ms = 602409; // measured values. before tuning
 static unsigned int cycles_per_us = 599; 
 
-// #ifdef PLAT_RPI3
-#if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU) 
 // use sys timer to measure: # of cpu cycles per ms 
 static void sys_timer_tune_delay() {
 	unsigned long cur0 = current_counter(), ms, us; 
-	unsigned long ncycles = 100 * 1000 * 1000; 	// run 100M cycles. must delay >1ms
+	unsigned long ncycles = 100 * 1000 * 1000; 	// run 100M cycles. delay should >1ms
 	delay(ncycles); 	
 	us = (current_counter() - cur0) / TICKPERUS; 
 	ms = us / 1000; 
@@ -122,7 +143,6 @@ static void sys_timer_tune_delay() {
 	cycles_per_ms = ncycles / ms; 
 	I("cycles_per_us %u cycles_per_ms %u", cycles_per_us, cycles_per_ms);
 }
-#endif
 
 void ms_delay(unsigned ms) {
 	BUG_ON(!cycles_per_ms);
@@ -143,11 +163,7 @@ void current_time(unsigned *sec, unsigned *msec) {
 	*msec = (unsigned) (cur / TICKPERMS);	
 }
 
-#endif 
-
-#if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU) 
 ////////////// virtual kernel timers 
-
 struct spinlock timerlock;
 
 struct vtimer {
@@ -212,20 +228,22 @@ static int adjust_sys_timer(void)
 
 // return: timer id (>=0, <N_TIMERS) allocated. -1 on error
 // the clock counter has 64bit, so we assume it won't wrap around
-// in the current impl, "handler" is called in irq context
-int ktimer_start(unsigned delayms, TKernelTimerHandler *handler, 
+// in the current impl. 
+// "handler": callback, to be called in irq context
+// NB: caller must hold & then release timerlock
+static int ktimer_start_nolock(unsigned delayms, TKernelTimerHandler *handler, 
 		void *para, void *context) {
 	unsigned t; 
 	unsigned long cur; 
 
-	acquire(&timerlock); 
+	// acquire(&timerlock); 
 
 	for (t = 0; t < N_TIMERS; t++) {
 		if (timers[t].handler == 0) 
 			break; 
 	}
 	if (t == N_TIMERS) {
-		release(&timerlock); 
+		// release(&timerlock); 
 		E("ktimer_start failed. # max timer reached"); 
 		return -1; 
 	}
@@ -240,9 +258,47 @@ int ktimer_start(unsigned delayms, TKernelTimerHandler *handler,
 
 	adjust_sys_timer(); 
 
-	release(&timerlock); 
-
+	// release(&timerlock); 
 	return t; 
+}
+
+int ktimer_start(unsigned delayms, TKernelTimerHandler *handler, 
+		void *para, void *context) {
+	int ret;
+	acquire(&timerlock); 
+	ret = ktimer_start_nolock(delayms, handler, para, context); 
+	release(&timerlock); 
+	return ret;
+}
+
+// see ktimer_sleep() below. 
+// Note that this func is called by irq handler, with timerlock held
+static void wakehandler(TKernelTimerHandle hTimer, void *param, void *context) {
+	wakeup(timers+hTimer); 
+}
+
+// blocking the calling task for "ms" milliseconds
+// return: 0 on success, -1 on err
+int sys_sleep(int ms) {
+	int t; 
+	unsigned long c0; 
+
+	acquire(&timerlock); 
+	c0 = current_counter();
+	t = ktimer_start_nolock(ms, wakehandler, 0/*para*/, 0/*context*/); 
+	if (t<0) {release(&timerlock); BUG(); return -1;}
+	// we still hold timerlock, so timer irq hanler won't race w/ us
+	
+	while (current_counter() - c0 < ms * TICKPERMS) {
+		// this task may wake up prematurely, b/c getting kill()ed
+		if (killed(myproc())) {
+            release(&timerlock);
+            return -1;
+        }	
+		sleep(timers+t, &timerlock);  
+	}
+	release(&timerlock); 
+	return 0; 
 }
 
 // return 0 on okay, -1 if no such timer/handler, 
@@ -280,6 +336,7 @@ int ktimer_cancel(int t) {
 	return 0;  
 }
 
+// called by irq.c 
 void sys_timer_irq(void) 
 {
 	V("called");	
@@ -304,6 +361,8 @@ void sys_timer_irq(void)
 	adjust_sys_timer(); 
 	release(&timerlock);
 }
+#endif 
+
 
 #if 0
 // the version below: attmept to collect fired timers to a list, and call 
@@ -351,6 +410,4 @@ void sys_timer_irq(void)
 		(*h)(fired_ids[t], fired_timers[t].param, fired_timers[t].context);
 	} 
 }
-#endif
-
 #endif

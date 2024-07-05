@@ -33,7 +33,7 @@ const char *entry_error_messages[] = {
     [DATA_ABORT_ERROR] "Unhandled EL0 data abort (after kernel's trying)"
 };
 
-// Enables Core 0 Timers interrupt control for the generic timer 
+// Enables per-core interrupt control
 void enable_interrupt_controller(int coreid)
 {
 #if defined(PLAT_RPI3) || defined(PLAT_RPI3QEMU)
@@ -43,11 +43,12 @@ void enable_interrupt_controller(int coreid)
     // (search for "Core timers interrupts"). Note the manual is NOT for the BCM2837 SoC used by Rpi3    
     put32va(TIMER_INT_CTRL_0 + 4*coreid, TIMER_INT_CTRL_0_VALUE);
 
-    put32va(ENABLE_IRQS_1, 
-                ENABLE_IRQS_1_USB |\
-                ENABLE_IRQS_1_AUX | \
-                ENABLE_IRQS_1_DMA(12) |\
-                SYSTEM_TIMER_IRQ_1); 
+    if (coreid==0)
+        put32va(ENABLE_IRQS_1, 
+                    ENABLE_IRQS_1_USB |\
+                    ENABLE_IRQS_1_AUX | \
+                    ENABLE_IRQS_1_DMA(12) |\
+                    SYSTEM_TIMER_IRQ_1); 
 
 #elif defined(PLAT_VIRT)
     arm_gic_dist_init(0 /* core */, VA_START + QEMU_GIC_DIST_BASE, 0 /*irq start*/);
@@ -78,6 +79,7 @@ void *vchiq_irq_param = 0;
 TInterruptHandler *dma_irq = 0;    // to be filled by pwm sound driver
 void *dma_irq_param = 0; 
 
+// call from entry.S, el{0|1}_irq
 // cf: Circle CMultiCoreSupport::LocalInterruptHandler
 void handle_irq(void) {
     // Interrupt controller can help us with this job: it has `INT_SOURCE_0` 

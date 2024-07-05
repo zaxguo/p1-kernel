@@ -2,11 +2,13 @@
 #include "utils.h"
 #include "debug.h"
 
+extern int sys_sleep(int ms); 
+
 static void handler(TKernelTimerHandle hTimer, void *param, void *context) {
 	unsigned sec, msec; 
 	current_time(&sec, &msec);
-	I("%u.%03u: fired. htimer %ld, param %lx, contex %lx", sec, msec,
-		hTimer, (unsigned long)param, (unsigned long)context); 
+	I("%u.%03u: fired. on cpu %d. htimer %ld, param %lx, contex %lx", sec, msec,
+		cpuid(), hTimer, (unsigned long)param, (unsigned long)context); 
 }
 
 // to be called in a kernel process
@@ -42,6 +44,13 @@ void test_ktimer() {
 	BUG_ON(c < 0);
 
 	I("there shouldn't be more callback"); 
+}
+
+// to be called in a kernel process
+void test_sys_sleep() {
+    printf("test_sys_sleep. to sleep 1sec"); 
+    sys_sleep(1000);
+    printf("done"); 
 }
 
 void test_malloc() {
@@ -363,13 +372,12 @@ out:
 }
 
 //////////////////////////////////////////////
-extern int sys_sleep(int n);  // sys.c 
 
 #include "sched.h"
 static void kernel_task(int arg) {
     while (1) {
         printf("cpu %d task %d arg %d\n", cpuid(), myproc()->pid, arg);
-        // sys_sleep(10); 
+        // sys_sleep(500); 
     }
 }
     
@@ -381,7 +389,7 @@ void test_kernel_tasks() {
     BUG_ON(res<0);
     while (1) {
         printf("cpu %d task %d \n", cpuid(), myproc()->pid);
-        // sys_sleep(10); 
+        // sys_sleep(500); 
     }
 }
 
@@ -433,7 +441,7 @@ void test_spinlock() {
         for (int i = 0; i<NCPU; i++)
             printf("%d ", cpus[i].last_util); 
         printf("\n");
-        sys_sleep(100); 
+        sys_sleep(500); 
     }
 }
 
@@ -466,7 +474,7 @@ void test_sem() {
         BUG_ON(res<0);
     }
     W("test_sem: sleep..."); 
-    sys_sleep(500); 
+    sys_sleep(500);   
     W("test_sem: woke"); 
     for (int i = 0; i < 1; i++)
         sys_semv(sem);

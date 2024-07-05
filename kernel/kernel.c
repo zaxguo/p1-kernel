@@ -33,7 +33,7 @@ void kernel_process() {
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process; // user.c
 
-	// test_ktimer(); while (1); 
+	test_ktimer(); while (1); 
 	// test_malloc(); while (1); 
 	// test_mbox(); while (1); 
 	// test_usb_kb(); while (1); 
@@ -43,7 +43,7 @@ void kernel_process() {
 	// test_sd(); while (1); 	// works for both rpi3 hw & qemu
 	// test_spinlock(); while (1);
 	// test_kernel_tasks(); while (1);
-	test_sem(); while (1);
+	// test_sem(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
