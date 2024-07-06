@@ -35,8 +35,8 @@ int chdir(const char*);
 int dup(int);
 int getpid(void);
 char* sbrk(int);
-int sleep(int);
-int uptime(void);      // return # of schedule ticks since boot
+int sleep(int ms);
+int uptime(void);      // return ms since boot
 int lseek(int, int, int whence); // return -1 on failure. otherwise offset
 // https://man7.org/linux/man-pages/man2/clone.2.html#NOTES
 // return -1 on failure, otherwise pid (or 0)

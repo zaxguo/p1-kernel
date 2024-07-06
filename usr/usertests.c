@@ -503,7 +503,7 @@ openiputtest(char *s)
     }
     exit(0);
   }
-  sleep(1);
+  sleep(100);
   if(unlink("oidir") != 0){
     printf("%s: unlink failed\n", s);
     exit(1);
@@ -804,7 +804,7 @@ killstatus(char *s)
       exit(0);
     } else printf("fork ok with pid %d\n", pid1);
 
-    sleep(1);
+    sleep(100);
     kill(pid1);
     wait(&xst);
     if(xst != -1) {
@@ -1024,10 +1024,10 @@ forkforkfork(char *s)
 
   // parent 
   printf("parent going to sleep...\n");
-  sleep(20); // two seconds
+  sleep(2000); // two seconds
   close(open("stopforking", O_CREATE|O_RDWR)); // parent creates the file, forcing forking to stop
   wait(0);
-  sleep(10); // one second
+  sleep(1000); // one second
   printf("parent: bye!\n");
 }
 
@@ -2313,7 +2313,7 @@ sbrkfail(char *s)
       sbrk(BIG - (uint64)sbrk(0));
       write(fds[1], "x", 1);
       // sit around until killed (will kill below)
-      for(;;) sleep(1000);
+      for(;;) sleep(100*1000);
     }
     if(pids[i] != -1)
       read(fds[0], &scratch, 1);
@@ -2707,7 +2707,7 @@ void simplesleep(char *s)
   
     for (int i = 0; i < 5; i++) {
       printf("pid:%d going to sleep...\n", pid); 
-      sleep(10); // 1sec
+      sleep(1000);
     }
     printf("child: bye!");
   } else {
@@ -2814,7 +2814,7 @@ void pipe3(char *s) {
   int fds[2], xstatus; 
   int i, n, cc, total;
   enum { N=5, SZ=5 };
-  int tick=1; // for writers to sleep. 
+  int tick=100; // for writers to sleep. 
 
   if(pipe(fds) != 0){
     printf("%s: pipe() failed\n", s);

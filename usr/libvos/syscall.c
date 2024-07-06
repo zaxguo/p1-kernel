@@ -174,10 +174,8 @@ int uptime(void) {
   return syscall_uptime();
 }
 
-#define SCHED_TICK_HZ	60  // check kernel/timer.c, must be consistent
 unsigned int uptime_ms(void) {
-  int x = syscall_uptime();
-  return (1000 / SCHED_TICK_HZ * x); 
+  return syscall_uptime();
 }
 
 // int dup(int oldfd) {
@@ -197,8 +195,8 @@ unsigned int uptime_ms(void) {
 
 // needed for SDL/doom
 // return 0 on success
-unsigned int msleep(unsigned int msec) {
-  syscall_sleep(1 + SCHED_TICK_HZ * msec / 1000); 
+unsigned int msleep(unsigned int ms) {
+  syscall_sleep(ms); 
   return 0; 
 }
 

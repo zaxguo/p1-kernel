@@ -161,8 +161,6 @@ void nes_flush_buf(PixelBuf *buf) {
     }
 }
 
-// assume sleep(1) sleeps for 1/60 sec, i.e. schedule ticks are 60Hz within the kernel
-#define TICKS_PER_TIMEREV  1   
 #define LINESIZE 128    // linebuf for reading 
 
 /* Initialization:
@@ -184,7 +182,7 @@ void nes_hal_init() {
         ev.type = EV_TIMER; 
         printf("timer task running\n");
         while (1) {            
-            sleep(TICKS_PER_TIMEREV);
+            sleep(1000/60); // wake up at 60Hz
             if(write(fds[1], &ev, sizeof ev) != sizeof ev){
                 printf("write timerev failed"); 
                 exit(1);

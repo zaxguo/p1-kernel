@@ -34,7 +34,7 @@ void kernel_process() {
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process; // user.c
 
-	test_ktimer(); while (1);
+	// test_ktimer(); while (1);
 	// test_sys_sleep(); while (1); 
 	// test_malloc(); while (1); 
 	// test_mbox(); while (1); 
