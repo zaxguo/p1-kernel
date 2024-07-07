@@ -1,10 +1,11 @@
-# a "lean" user program. no dependency on libc (newlib) 
+# a "lean" user program. minimum dependency: 
+# ulib; no dependency on libc 
 
 include $(abspath ../../config.mk)
 
 CFLAGS  := -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 CFLAGS  += -nostartfiles -ffreestanding -mgeneral-regs-only
-CFLAGS  += -O2  # Os to fit xv6 fs limit.
+CFLAGS  += -O2  # Os to shrink binary size, e..g to fit xv6 fs limit
 
 LDFLAGS := 
 

@@ -1,4 +1,6 @@
-// keyboard
+#define K2_DEBUG_INFO
+
+// USB keyboard
 //  modeled after console.c
 
 #include <stdarg.h>

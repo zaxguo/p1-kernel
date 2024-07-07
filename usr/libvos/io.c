@@ -1,8 +1,8 @@
 // minimal user io lib 
 // a thin layer over /dev/XXX and /procfs/XXX
 
-// originally in user/uio.c, only depends on ulib.c 
-// copy it here to rebase on libc 
+// originally in user/uio.c, which only depends on ulib.c 
+// copy it here to rebase it on libc 
 
 // libc (newlib)
 #include "fcntl.h"

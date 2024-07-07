@@ -1,4 +1,17 @@
 /*
+(by FL)
+Principle: minimum OS requirement. NO dependency on:
+    -- thread (VM_CLONE, spinlock, semaphore, etc)
+    -- non-blocking IO (O_NONBLOCK) 
+
+Event dispatch is implemented as multiple tasks (processes) communicating with
+pipelines. 
+
+Known issues: minor flickring & glitches at the canvas top (TBD)
+
+---- Below: comment from NJU OS project ---- 
+https://github.com/NJU-ProjectN/LiteNES/blob/master/src/hal.c
+
 This file presents all abstractions needed to port LiteNES.
   (The current working implementation uses allegro library.)
 
@@ -22,7 +35,6 @@ To port this project, replace the following functions by your own:
             wait_for_frame();
             do_something();
         }
-    xzl: could use sleep()
 
 6) int nes_key_state(int b) 
     Query button b's state (1 to be pressed, otherwise 0).
@@ -42,28 +54,29 @@ To port this project, replace the following functions by your own:
 #include "common.h"
 #include "../user.h"
 
-#define FB_FLIP  1   // double fb buffering
+#define FB_FLIP  1   // use double framebuffer (fb) buffering?
 
-static int cur_id = 0; // id of fb being rendered to, 0 or 1 (if FB_FLIP on)
+static int cur_id = 0; // id of fb being rendered to, 0 or 1 (if FB_FLIP==1)
 
-static char *vtx = 0;       // byte-to-byte mirror of hw fb (inc pitch)
-static int vtx_sz = 0;      // in bytes
+static char *vtx = 0;  // byte-to-byte mirror of hw fb (inc row padding - pitch)
+static int vtx_sz = 0; // in bytes
 
-static int dispinfo[MAX_DISP_ARGS]={0};    // display config
-static int fb = 0;              // /dev/fb /proc/fbctl
+static int dispinfo[MAX_DISP_ARGS]={0}; // display config, loaded from procfs
+static int fb = 0;              // /dev/fb
 static int fds[2];              //pipes for exchanging events
 
+// input events
 struct event {
     int type; 
-#define EV_INVALID      -1    
-#define EV_KEYUP        0    
-#define EV_KEYDOWN      1
-#define EV_TIMER        2
+#define EV_INVALID      INVALID     // consistent with read_kb_event (user.h)
+#define EV_KEYDOWN      KEYDOWN     // ditto
+#define EV_KEYUP        KEYUP       // ditto
+#define EV_TIMER        (KEYUP+10)
     int scancode;   // for EV_KEY
 }; 
 
-// kb state 
-char key_states[NUM_SCANCODES] = {0}; // all EV_KEYUP
+// keyboard: key state 
+char key_states[NUM_SCANCODES] = {EV_KEYUP}; // init: all EV_KEYUP
 
 /* Wait until next timer event is fired. */
 void wait_for_frame()
@@ -72,8 +85,6 @@ void wait_for_frame()
 
     if (fds[0]<=0) {printf("fatal:pipe invalid\n"); exit(1);};
 
-    // printf("%s called", __func__);
-
     while (1) { 
         if (read(fds[0], &ev, sizeof ev) != sizeof ev) {
             printf("read ev failed"); exit(1); 
@@ -81,24 +92,22 @@ void wait_for_frame()
         switch (ev.type)
         {
         case EV_TIMER:
-            // printf("timer ev\n");        // lots of prints
             return;     
         case EV_KEYDOWN: 
         case EV_KEYUP:
             assert(ev.scancode<NUM_SCANCODES); 
             key_states[ev.scancode]=ev.type;   
-            // printf("key %x %s\n", ev.scancode, ev.type == EV_KEYDOWN ? "down":"up");
+            // printf("key code %d %s\n", ev.scancode, ev.type == EV_KEYDOWN ? "down":"up");
             break;      // continue to wait for timer ev   
         default:
             printf("unknown ev"); exit(1); 
             break;
         }
     }
-    // xzl: TODO: support graceful exit. can be a project idea
-    // for a special key press (e.g. 'q'), returns from this func and goes 
-    // back to fce_run which further exits the program
-    // but before that, need to tell the timer task & event task to quit too; 
-    // has to wait() them to quit.     
+    /* Project idea: support graceful exit. For a special key press (e.g. 'q'),
+    returns from this func and goes back to fce_run which further exits the
+    program but before that, need to notify the timer task & event task to quit
+    too; the main task shall wait() them to quit.    */
 }
 
 // id: fb 0 or 1
@@ -117,10 +126,9 @@ static inline PIXEL getpixel(int id, char *buf, int x, int y, int pit) {
 #define fcecolor_to_pixel(color) \
 (((char)color.r<<16)|((char)color.g<<8)|((char)color.b))
 
-/* Set background color. RGB value of c is defined in fce.h */
+/* Set background color to vtx. RGB value of c is defined in fce.h */
 void nes_set_bg_color(int c)
 {
-    // printf("%s called", __func__);
     int pitch = dispinfo[PITCH];
     PIXEL p = fcecolor_to_pixel(palette[c]);
     for (int y = 0; y < SCREEN_HEIGHT; y++) 
@@ -128,17 +136,15 @@ void nes_set_bg_color(int c)
             setpixel(cur_id,vtx,x,y,pitch,p); 
 }
 
-// Flush the pixel buffer. Materialize nes's drawing (unordered pixels) to fb
-//          this lays out pixels in memory (hw format
-//    ver1: draw to an app fb, which is to be write to /dev/fb in one shot
-//    ver2: draw to a "back" fb (which will be made visible later)
-// 
-// fb basics
-// https://github.com/fxlin/p1-kernel/blob/master/docs/exp3/fb.md
+/* Flush the pixel buffer. Materialize nes's drawing (unordered pixels) to fb.
+         this lays out pixels in memory (in hw format)
+   ver1: draw to an app fb, which is to be write to /dev/fb in one shot
+   ver2: draw to a "back" fb (which will be made visible later)
+
+    fb basics
+    https://github.com/fxlin/p1-kernel/blob/master/docs/exp3/fb.md */
 void nes_flush_buf(PixelBuf *buf) {
     int pitch = dispinfo[PITCH]; //in bytes
-
-    // printf("%s called", __func__);
 
     for (int i = 0; i < buf->size; i ++) {
         Pixel *p = &buf->buf[i];
@@ -146,13 +152,15 @@ void nes_flush_buf(PixelBuf *buf) {
         pal color = palette[p->c];
         PIXEL c = fcecolor_to_pixel(color);
 
-        // Pixel could have x<0 (looks like fce was shifting drawn pixels
-        //  by applying offsets to them). these pixels shall be invisible. 
+        // Pixel could have coorindates x<0 (looks like fce shifts drawn
+        //  pixels by applying offsets to them). These pixels shall be
+        //  invisible on fb. 
         assert(x<SCREEN_WIDTH && y>=0 && y<SCREEN_HEIGHT);
         if (x>=0) {
             setpixel(cur_id,vtx,x,y,pitch,c); //1x scaling
-            // below: original code scales fce's raw pixels by 2x for larger display;
-            //   since the rpi gpu will scale fb to display anyway, we don't need this
+            // Below: original code scales fce's raw pixels by 2x for larger display;
+            //   since Rpi3 GPU will scale fb to display anyway, we don't need this
+            // Keep it here for reference. 
             // setpixel(vtx, x*2,      y*2,    pitch, c); 
             // setpixel(vtx, x*2+1,    y*2,    pitch, c); 
             // setpixel(vtx, x*2,      y*2+1,  pitch, c); 
@@ -161,28 +169,27 @@ void nes_flush_buf(PixelBuf *buf) {
     }
 }
 
-#define LINESIZE 128    // linebuf for reading 
+#define LINESIZE 128    // size of linebuf for reading /procfs
+#define FPS_HZ  60 
 
-/* Initialization:
-   (1) start a 1/FPS Hz timer. 
-   (2) create tasks that produce timer/kb events that dispatch over pipes 
-    to the main task  */
+/* Initialization: (1) start a 1/FPS Hz timer. (2) create tasks that produce
+    timer/kb events & dispatch them to the main task over pipes */
 void nes_hal_init() {
     int n; 
-    char buf[LINESIZE], *s; 
     struct event ev; 
 
-    if (pipe(fds) != 0) {
+    if (pipe(fds) != 0) { // create pipe for passing events
         printf("%s: pipe() failed\n", __func__);
         exit(1);
     }
 
-    if (fork() == 0) { // timer task, wakeup every 1 tick and writes to pipe
+    // timer task, wakeup every frame and writes to pipe
+    if (fork() == 0) { 
         close(fds[0]);
         ev.type = EV_TIMER; 
         printf("timer task running\n");
         while (1) {            
-            sleep(1000/60); // wake up at 60Hz
+            sleep(1000/FPS_HZ);
             if(write(fds[1], &ev, sizeof ev) != sizeof ev){
                 printf("write timerev failed"); 
                 exit(1);
@@ -191,12 +198,15 @@ void nes_hal_init() {
         exit(0); // shall never reach here
     }
 
-    if (fork() == 0)  { // keyboard task, read kb events and writes to pipe
+    // keyboard task, read kb events and writes to pipe
+    if (fork() == 0)  { 
         close(fds[0]);
         int events = open("/dev/events", O_RDONLY); assert(events>0); 
-
+        int evtype; unsigned int scancode; 
         printf("input task running\n");
-        while (1) {             // xzl: TODO replace with read_kb_event()
+
+        while (1) {
+        #if 0 
             // read a line from /dev/events and parse it into key events
             // line format: [kd|ku] 0x12
             n = read(events, buf, LINESIZE); assert(n>0); 
@@ -211,25 +221,25 @@ void nes_hal_init() {
                 s++;
             if (s[0] == '0' && s[1] == 'x')
                 ev.scancode = atoi16(s);
-            if (ev.scancode==0 || ev.scancode >= NUM_SCANCODES || ev.type==EV_INVALID) {
-                printf("failed to parse %s", buf);
-            } else {
+        #endif            
+            n = read_kb_event(events, &evtype, &scancode);
+            if (n||scancode==0||scancode>=NUM_SCANCODES||evtype==EV_INVALID) {
+                printf("read_kb_event failed\n"); 
+            } else { // pass the kb event to main task 
+                // printf("evtype %d scancode %d\n", evtype, (int)scancode); 
+                ev.type = evtype; ev.scancode = (int)scancode;
                 if(write(fds[1], &ev, sizeof ev) != sizeof ev) {
-                    printf("write keyev failed"); 
-                    exit(1);
+                    printf("write keyev failed\n"); exit(1);
                 }
-            }            
+            }
         }
         exit(0); // shall never reach here
     }
     close(fds[1]); 
 
-    //// config fb 
-    fb = open("/dev/fb/", O_RDWR);
-    // fbctl = open("/proc/fbctl", O_RDWR); 
-    // int dp = open("/proc/dispinfo", O_RDONLY); 
-    assert(fb>0); 
+    fb = open("/dev/fb/", O_RDWR); assert(fb>0); 
     
+    // Configure fb hardware via procfs
     // ask for a vframebuf that scales the native fce canvas by 2x
     n = config_fbctl(SCREEN_WIDTH, SCREEN_HEIGHT,    // desired viewport ("phys")
 #ifdef FB_FLIP
@@ -240,18 +250,20 @@ void nes_hal_init() {
     assert(n==0); 
 
     read_dispinfo(dispinfo, &n); assert(n>0); 
-    // close(dp); 
-    printf("FB_FLIP=%d SCREEN_WIDTH=%d SCREEN_HEIGHT=%d\n ", FB_FLIP, SCREEN_WIDTH, SCREEN_HEIGHT); 
-    printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d depth %d isrgb %d\n", 
-    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], dispinfo[PITCH], dispinfo[DEPTH], dispinfo[ISRGB]); 
+    printf("FB_FLIP=%d SCREEN_WIDTH=%d SCREEN_HEIGHT=%d\n ", 
+        FB_FLIP, SCREEN_WIDTH, SCREEN_HEIGHT); 
+    printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d"
+        "pitch %d depth %d isrgb %d\n", 
+        dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], 
+        dispinfo[PITCH], dispinfo[DEPTH], dispinfo[ISRGB]); 
 
-    // note that: pitch is in bytes
+    // Calc vtx size and alloc buf. NB: pitch is in bytes
     vtx_sz = dispinfo[PITCH] * dispinfo[VHEIGHT]; 
     vtx = malloc(vtx_sz);
     if (!vtx) {printf("failed to alloc vtx\n"); exit(1);}
     printf("fb alloc ...ok\n"); 
 
-    // TODO: free vtx
+    // TODO: free vtx in graceful exit (if implemented
 }
 
 /* Update screen at FPS rate by drawing function. 
@@ -264,25 +276,24 @@ void nes_flip_display()
 #ifdef FB_FLIP
     int sz = SCREEN_HEIGHT*dispinfo[PITCH]; 
     n = lseek(fb, cur_id*sz, SEEK_SET); assert(n==cur_id*sz); 
-    // if ((n=write(fb, vtx, sz)) != sz) {      // xzl: a bug??
-    if ((n=write(fb, vtx+cur_id*sz, sz)) != sz) {        
+    if ((n=write(fb, vtx+cur_id*sz, sz)) != sz) {   // a bug??
         printf("%s: failed to write to hw fb. fb %d sz %d ret %d\n",
             __func__, fb, sz, n); 
     }    
-    // make the cur fb visible
+    // make the current fb visible on display 
     n = config_fbctl(0,0,0,0/*dc*/, 0/*xoff*/, cur_id*SCREEN_HEIGHT/*yoff*/);
     assert(n==0);     
     cur_id = 1-cur_id; 
-#else    
+#else
     n = lseek(fb, 0, SEEK_SET); assert(n==0); 
     if ((n=write(fb, vtx, vtx_sz)) != vtx_sz) {
         printf("%s: failed to write to hw fb. fb %d vtx_sz %d ret %d\n",
             __func__, fb, vtx_sz, n); 
     }
-#endif    
+#endif
 }
 
-/* Query a button's state.
+/* Query a button's state. b: the button idx. 
    Returns 1 if button #b is pressed. */
 int nes_key_state(int b)
 {

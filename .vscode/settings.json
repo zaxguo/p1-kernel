@@ -98,7 +98,8 @@
         "sdl-general.h": "c",
         "sdl-scancode.h": "c",
         "sdl-event.h": "c",
-        "sdl-keycode.h": "c"
+        "sdl-keycode.h": "c",
+        "mario-rom.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

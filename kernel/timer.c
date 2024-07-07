@@ -203,7 +203,7 @@ static int adjust_sys_timer(void)
 		}
 	}
 
-	// can still happen when qemu is very slow
+	// a known bug (TBD. may occur: when qemu is very slow, or on actual hw
 	// timer expired, but handler not called?? should we handle it?
 	BUG_ON(current_counter() > next); 
 

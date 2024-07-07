@@ -1,4 +1,6 @@
 /*
+---- Below: comment from NJU OS project ---- 
+
 LiteNES originates from Stanislav Yaglo's mynes project:
   https://github.com/yaglo/mynes
 
@@ -12,40 +14,29 @@ How does the emulator work?
   3) call fce_load_rom(rom) for parsing
   4) call fce_init for emulator initialization
   5) call fce_run(), which is a non-exiting loop simulating the NES system
-  6) when SIGINT signal is received, it kills itself
+  6) when SIGINT signal is received, it kills itself (TBD)
 */
 
 #include "fce.h"   
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <signal.h>
-// #include <unistd.h>
 #include "common.h"   
 #include "../user.h"
 
 #define stderr 2
 
-// static char rom[1048576];
-#include "mario-rom.h"    // preload rom buffer with mario
+#include "mario-rom.h"    // built-in rom buffer with Super Mario
 
-#if 0   // TODO
+#if 0   // TODO. Our OS lacks signal
 void do_exit() // normal exit at SIGINT
 {
     kill(getpid(), SIGKILL);
 }
-#endif 
-
-
-// TODO built in mario rom
-// https://github.com/NJU-ProjectN/am-kernels/blob/master/kernels/litenes/src/mario-rom.c
+#endif
 
 int main(int argc, char *argv[])
 {
     int fd; 
 
     if (argc != 2) {
-        // fprintf(stderr, "Usage: mynes romfile.nes\n");
-        // exit(1);
         fprintf(stderr, "Usage: mynes romfile.nes\n");
         fprintf(stderr, "no rom file specified. use built-in rom\n"); 
         goto load; 
@@ -55,12 +46,14 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Open rom file failed.\n");
         exit(1);
     }
+
     int nread = read(fd, rom, sizeof(rom));     
-    if (nread==0) { // rom may be smaller than buf size
+    if (nread==0) { // Ok if rom smaller than buf size
       fprintf(stderr, "Read rom file failed.\n");
       exit(1);
     }
     printf("open rom...ok\n"); 
+
 load: 
     if (fce_load_rom(rom) != 0) {
         fprintf(stderr, "Invalid or unsupported rom.\n");

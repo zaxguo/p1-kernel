@@ -43,9 +43,10 @@ int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs) {
     return 0; 
 }
 
-// 0 on success 
 // read a line from /dev/events and parse it into key events
 // line format: [kd|ku] 0x12
+// "events": fd for /dev/events
+// return: 0 on success 
 int read_kb_event(int events, int *evtype, unsigned int *scancode) {
     int n; 
     char buf[LINESIZE], *s;
