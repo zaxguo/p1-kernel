@@ -125,7 +125,17 @@ pop_off(void)
     enable_irq(); 
 }
 
-///////////////// simple semaphore. as syscall ////////////////////////////
+///////////////// Simple semaphore. as syscall ////////////////////////////
+// Purpose: for user threads (created via clone()) to synchronize. vital for
+// demonstrating SMP in userspace. Interface idea from Xinu OS which implements
+// sem as syscalls The Linux futex() syscall seems too complicated. 
+//
+// Limitation: unsafe. each sem is a kernel-wide object. The userspace handle is
+// the idx of this object. Thus, nothing prevents from unrelated (malicous) task
+// to P()/V() the sem. A better design would be to bind a sem with the virt
+// address space shared by the related tasks. Thus the kernel can check if a
+// task is eligible to access a given sem.  (can be a project idea)
+
 #define NSEM 32
 static struct {
   // coarse grained lock (TBD: besides this, each sem has own spinlock)

@@ -162,4 +162,28 @@
     call_sys_clone:
     mov x8, #SYS_clone
     svc #0
-    ret          
+    ret
+
+.globl call_sys_semcreate
+    call_sys_semcreate:
+    mov x8, #SYS_semcreate
+    svc #0
+    ret
+
+.globl call_sys_semfree
+    call_sys_semfree:
+    mov x8, #SYS_semfree
+    svc #0
+    ret
+
+.globl call_sys_semp
+    call_sys_semp:
+    mov x8, #SYS_semp
+    svc #0
+    ret
+
+.globl call_sys_sempv
+    call_sys_semv:
+    mov x8, #SYS_semv
+    svc #0
+    ret

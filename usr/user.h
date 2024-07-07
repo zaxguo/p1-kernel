@@ -41,6 +41,11 @@ int lseek(int, int, int whence); // return -1 on failure. otherwise offset
 // https://man7.org/linux/man-pages/man2/clone.2.html#NOTES
 // return -1 on failure, otherwise pid (or 0)
 int clone(int (*fn)(void *), void *stack, int flags, void *arg); 
+// semaphores. see kernel sys_semcreate() for design comments
+int semcreate(int count); 
+int semfree(int id); 
+int semp(int id); // P()
+int semv(int id); // V()
 
 // ulib.c
 int stat(const char*, struct stat*);

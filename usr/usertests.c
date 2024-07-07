@@ -2012,7 +2012,10 @@ forktest(char *s)
 }
 
 ///////////////  threading related //////////////////////////////
-char stacks[4*128]; 
+#define THREAD_STACK_SIZE 512
+char stacks[4*THREAD_STACK_SIZE]; 
+// Be careful with THREAD_STACK_SIZE --> If too small, stacks may corrupt;
+// threads will throw erratic bugs like memory faults at strange addresses
 
 // test clone() and that threads indeed share memory 
 // each thread uses cas to incre a shared counter 
@@ -2031,7 +2034,7 @@ void clonetest(char *s) {
 
   // create N threads, each with own stack 
   for(n=0; n<N; n++){
-    pid = clone(thread_func, stacks+n*124, CLONE_VM, 0);
+    pid = clone(thread_func, stacks+n*(THREAD_STACK_SIZE-4), CLONE_VM, 0);
     if(pid < 0)
       break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
   }
@@ -2082,7 +2085,7 @@ void spinlocktest(char *s) {
 
   // create N threads, each with own stack 
   for(n=0; n<N; n++){
-    pid = clone(thread_func1, stacks+n*124, CLONE_VM, 0);
+    pid = clone(thread_func1, stacks+n*(THREAD_STACK_SIZE-4), CLONE_VM, 0);
     if(pid < 0)
       break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
   }
@@ -2105,6 +2108,59 @@ void spinlocktest(char *s) {
     exit(1);
   }
   printf("done. counter = %d\n", the_counter); 
+}
+
+///////////////////////////////////////////////////////
+// semaphore test 
+static int sem; 
+
+int thread_func2(void *arg) {
+  int ret, id = getpid(); 
+  printf("child pid %d: start\n", id);
+  ret = semp(sem); if (ret<0) return -1; printf("child %d: P ok\n", id);
+  ret = semv(sem); if (ret<0) return -1; printf("child %d: V ok\n", id);
+  return 1; 
+}
+
+void semtest(char *s) {
+  enum{ N = 4 };
+  int n, pid;
+
+  sem = semcreate(0); if (sem<0) exit(1);
+
+  // create N threads, each with own stack 
+  for(n=0; n<N; n++){
+    pid = clone(thread_func2, stacks+n*(THREAD_STACK_SIZE-4), CLONE_VM, 0);
+    if(pid < 0) exit(1); 
+  }
+
+  if (n == 0) {
+    printf("%s: no fork at all!\n", s);
+    exit(1);
+  }
+  printf("test_sem: sleep...\n"); 
+  sleep(1000 /*ms*/);   
+  printf("test_sem: woke\n"); 
+  // expect: initial P() by child tasks shall block 
+
+  semv(sem);
+  // expect: after this, each child will P() then V(); all make progress & finish
+  
+  // reap the threads
+  for(; n > 0; n--){
+    if(wait(0) < 0){
+      printf("%s: wait stopped early\n", s);
+      exit(1);
+    }
+  }
+
+  if(wait(0) != -1){
+    printf("%s: wait got too many\n", s);
+    exit(1);
+  }
+  printf("wait() for all children done\n"); 
+  n = semfree(sem); if(n<0) exit(1); 
+  printf("done\n"); 
 }
 
 void
@@ -2944,6 +3000,7 @@ struct test {
   {pipe3, "pipe3"},  // [x]  
   {clonetest, "clone"},   // [x]
   {spinlocktest, "spinlock"},   // [x]
+  {semtest, "sem"}, //[ ]
   { 0, 0},
 };
 

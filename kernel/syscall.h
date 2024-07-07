@@ -22,12 +22,13 @@
 #define SYS_unlink 18
 #define SYS_link   19
 #define SYS_mkdir  20
-#define SYS_close  21
-#define SYS_lseek  22       // below not in xv6
+#define SYS_close  21       
+// below not in xv6
+#define SYS_lseek  22       
 #define SYS_clone  23       
 #define SYS_semcreate  24
 #define SYS_semfree  25
 #define SYS_semp  26
 #define SYS_semv  27
 
-#define __NR_syscalls	 27
+#define __NR_syscalls	 28  // == highest syscall_no + 1

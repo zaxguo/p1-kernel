@@ -456,9 +456,9 @@ extern int sys_semv(int sem);
 
 static void kernel_task2(int id) {
     int ret; 
-    printf("task %d: start\n", id);
-    ret = sys_semp(sem); BUG_ON(ret <0); printf("task %d: P ok\n", id);
-    ret = sys_semv(sem); BUG_ON(ret <0); printf("task %d: V ok\n", id);
+    printf("child %d: start\n", id);
+    ret = sys_semp(sem); BUG_ON(ret <0); printf("child %d: P ok\n", id);
+    ret = sys_semv(sem); BUG_ON(ret <0); printf("child %d: V ok\n", id);
 
     sys_exit(0);
 }
@@ -467,17 +467,20 @@ void test_sem() {
     W("test_sem"); 
     int res, wt; 
 
-    sem = sys_semcreate(0); BUG_ON(sem<0); 
+    sem = sys_semcreate(0); BUG_ON(sem<0);  
     
     for (int i = 0; i < NCPU; i++) {
         res = copy_process(PF_KTHREAD, (unsigned long)&kernel_task2, i/*arg*/, "semtest");
         BUG_ON(res<0);
-    }
+    }    
     W("test_sem: sleep..."); 
-    sys_sleep(500);   
+    sys_sleep(2000);   
     W("test_sem: woke"); 
-    for (int i = 0; i < 1; i++)
+    // expect: initial P() by child tasks shall block 
+
+    for (int i = 0; i < 1; i++) 
         sys_semv(sem);
+    // expect: each child task will P() then V(); all tasks make progress & finish
 
     for (int i = 0; i < NCPU; i++) {
         wt = wait(0); BUG_ON(wt<0);
