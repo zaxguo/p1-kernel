@@ -9,7 +9,7 @@
 #define REDIR 2
 #define PIPE  3
 #define LIST  4
-#define BACK  5
+#define BACK  5   // exec cmd in bkgnd 
 
 #define MAXARGS 10
 
@@ -123,7 +123,7 @@ runcmd(struct cmd *cmd)
     wait(0);
     break;
 
-  case BACK:
+  case BACK:  // xzl: exec cmd in backgnd
     bcmd = (struct backcmd*)cmd;
     if(fork1() == 0)
       runcmd(bcmd->cmd);
