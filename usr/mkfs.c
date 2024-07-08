@@ -349,6 +349,7 @@ iappend(uint inum, void *xp, int n)
 void
 die(const char *s)
 {
+  printf("mkfs failed. Reason:\n"); 
   perror(s);
   exit(1);
 }

@@ -19,12 +19,15 @@ UPROGS = \
 	build/rm	\
 	build/wc
 
-# apps have rich UI
+# apps have rich UI or func
 UPROGS += build/slider
 UPROGS += build/buzz
 UPROGS += build/nes
-UPROGS += build/nplayer		# depends on libc & etc
-	
+# below: depends on libc & etc
+UPROGS += build/nplayer
+# below: cpp, depends on libc
+UPROGS += build/blockchain
+
 COPS = -MMD -Wall -Werror -nostdlib -g -fno-omit-frame-pointer
 COPS += -nostartfiles -ffreestanding -mgeneral-regs-only
 COPS += -O0
@@ -58,9 +61,14 @@ mkfs: mkfs.c
 
 ##################
 # apps that have their own source dirs
-build/nplayer:		# TODO complete lib dependency
+build/nplayer: build-lib/libvos.a		# TODO complete lib dependency
 	cd nplayer && $(MAKE)
 	cp nplayer/nplayer build/
+
+# TODO complete lib dependency
+build/blockchain:
+	cd blockchain && $(MAKE)
+	cp blockchain/blockchain build/
 
 build/nes: ulib.o printf.o usys_s.o umalloc.o uio.o tinyprintf.o
 	cd LiteNES && $(MAKE)
@@ -69,6 +77,17 @@ build/nes: ulib.o printf.o usys_s.o umalloc.o uio.o tinyprintf.o
 # to prevent makefile from its implicit rule which is shorter & preferred
 # https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html
 % : %.c
+
+##################
+# user libs 
+build-lib/libvos.a:
+	cd libvos && $(MAKE) install
+
+build-lib/libvorbis.a:
+	cd libvorbis && $(MAKE) install 
+
+build-lib/libminisdl.a:
+	cd libminisdl && $(MAKE) install 
 
 ######################
 #  "lean" user apps, simple rule for building
@@ -80,4 +99,4 @@ build/%: %.o ulib.a
 	$(VB) $(ARMGNU)-objdump -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
 clean: 
-	rm -f *.o $(UPROGS) mkfs *.d *.sym *.asm sd.bin
+	rm -f *.o $(UPROGS) build-lib/*.a build-lib/*.o mkfs *.d *.sym *.asm sd.bin

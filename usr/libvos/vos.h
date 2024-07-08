@@ -1,7 +1,10 @@
-// non-standard OS interfaces, e.g. not part of libc
+// For non-standard OS interfaces, e.g. not part of libc
+// referenced by user apps (c and cpp)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /////////////// uio.c
-
 // USB keyboard 
 enum{INVALID=0,KEYDOWN,KEYUP}; // evtype below
 int read_kb_event(int events, int *evtype, unsigned *scancode);
@@ -47,3 +50,7 @@ extern unsigned int msleep(unsigned int msec);
 // https://man7.org/linux/man-pages/man2/clone.2.html#NOTES
 // return -1 on failure, otherwise pid (or 0)
 int clone(int (*fn)(void *), void *stack, int flags, void *arg); 
+
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus

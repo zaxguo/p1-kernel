@@ -468,6 +468,7 @@ it woudl be very useful.
 however, the engineering effort seems high... GDB is pat of binuntils and relies on 
 things like BFD, textinfo, readline.... 
 
+user-level gdb debugging 
 can we debug user app using qemu+gdb? maybe feasible? 
     if so would help a lot 
 
@@ -1293,3 +1294,28 @@ https://www.cs.mu.edu/~pmcgee6/doxygen/group__semaphores.html
 cleanup  timer.c and commments 
 
 sys_sleep, sys_uptime ---> no longer base on sche ticks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+clean up userspace nes code 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+how to demo the power of multicore SMP??
+maybe the blockchain app?
+https://github.com/NJU-ProjectN/am-kernels/tree/master/kernels/blockchain/src
+(add some kind of visualization, maybe??
+GOOD -- TBD (it's in cpp, also a good chance to test our cpp workflow 
+
+or somekind of animation that is parallelizable??
+
+the donut asciiart animation.... (also in NJU am kernel
+https://www.a1k0n.net/2011/07/20/donut-math.html
+https://github.com/NJU-ProjectN/am-kernels/tree/master/kernels/demo/src/donut
+(need graphic console -- to print char to x,y, 
+serial port wont work) 
+(also asciiversion too lightweight. need to take the canvas version -- higher 
+    density and do more complex illumination)
+with raytracing (to undestand better
+https://medium.com/@idimus/how-to-draw-donut-using-c-and-raytracing-c07778f45952
+
+
+a more serious bitcoiner miner??
+https://github.com/pooler/cpuminer

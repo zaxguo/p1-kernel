@@ -6,9 +6,9 @@ int exit(int) __attribute__((noreturn));
 extern void _init(void); 
 extern void _fini(void);
 
-void _main() {
+void _main(int argc, const char **argv) {
     _init(); // crti.c
-    main();
+    main(argc, argv);
     _fini(); // crti.c
     exit(0); // goes to libc
 }
