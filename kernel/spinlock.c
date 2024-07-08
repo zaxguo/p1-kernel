@@ -1,7 +1,7 @@
 // Mutual exclusion spin locks.
 // derived from xv6
 
-// xzl: sincw ewe do UP, the spinlock really boils down to interrupt off/on
+// if we do UP, the spinlock really boils down to interrupt off/on
 // I left most spinning code here just in case. 
 // besides, the push_off/pop_off code also coudl be useful. 
 
