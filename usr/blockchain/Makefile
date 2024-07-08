@@ -13,7 +13,8 @@ sha256_x.o
 
 CXXFLAGS = -fno-rtti -fno-exceptions -std=c++17
 CXXFLAGS += -fno-use-cxa-atexit
-CXXFLAGS += -O2 -g
+# CXXFLAGS += -O2 -g
+CXXFLAGS += -O0 -g
 CXXFLAGS += -mcpu=cortex-a53+fp+simd
 
 # lib inc 
@@ -31,10 +32,12 @@ LIBS += -lm
 # needed for soft fp routines. e.g. __trunctfdf2 
 LIBS += -lgcc
 
+# below: stripping dbg info shrinks executable ~500KB -> ~100KB
 blockchain: $(OBJS)
 	$(CPP) $(CPPLDFLAGS) -o $@ $(CRT0CPP) $(CRTI) $^ $(CRTN) $(LIBS)
 	$(ARMGNU)-objdump -dS $@ > $@.asm
-	$(ARMGNU)-strip $@     # otherwise too big (why so much dbg info)?
+	cp $@ $@.orig
+	$(ARMGNU)-strip $@
 	cp $@ $(USER_PATH)/build
 
 clean:

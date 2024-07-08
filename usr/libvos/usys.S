@@ -188,3 +188,29 @@ clone:
     blr x1
     mov x8,#SYS_exit
     svc #0    
+
+
+// semaphores 
+.globl sys_semcreate
+    sys_semcreate:
+    mov x8, #SYS_semcreate
+    svc #0
+    ret
+
+.globl sys_semfree
+    sys_semfree:
+    mov x8, #SYS_semfree
+    svc #0
+    ret
+
+.globl sys_semp
+    sys_semp:
+    mov x8, #SYS_semp
+    svc #0
+    ret
+
+.globl sys_semv
+    sys_semv:
+    mov x8, #SYS_semv
+    svc #0
+    ret

@@ -2012,15 +2012,20 @@ forktest(char *s)
 }
 
 ///////////////  threading related //////////////////////////////
-#define THREAD_STACK_SIZE 512
-char stacks[4*THREAD_STACK_SIZE]; 
 // Be careful with THREAD_STACK_SIZE --> If too small, stacks may corrupt;
 // threads will throw erratic bugs like memory faults at strange addresses
+#define THREAD_STACK_SIZE 512
 
-// test clone() and that threads indeed share memory 
-// each thread uses cas to incre a shared counter 
-// for __atomic built-ins, Google for "6.55 Built-in Functions for Memory Model Aware Atomic Operations"
-// by xzl 
+char stacks[4*THREAD_STACK_SIZE]; 
+
+/* Below is ok -- specify an abitrary VA in the middle of user VM. kernel will
+alloc stack on demand. Only problem: do_mem_abort() in the kernel has to be less
+sensitive about repeated pgfaults (TBD */
+// char * stacks = (char *)(64 * 1024 *1024); 
+
+/* test clone() and that threads indeed share memory each thread uses cas to
+incre a shared counter for __atomic built-ins, Google for "6.55 Built-in
+Functions for Memory Model Aware Atomic Operations" by xzl */
 int counter = 100; 
 int thread_func(void *arg) {
   int val = __atomic_add_fetch(&counter, 1, __ATOMIC_SEQ_CST);
@@ -2034,7 +2039,7 @@ void clonetest(char *s) {
 
   // create N threads, each with own stack 
   for(n=0; n<N; n++){
-    pid = clone(thread_func, stacks+n*(THREAD_STACK_SIZE-4), CLONE_VM, 0);
+    pid = clone(thread_func, stacks+(n+1)*THREAD_STACK_SIZE, CLONE_VM, 0);
     if(pid < 0)
       break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
   }
@@ -2085,7 +2090,7 @@ void spinlocktest(char *s) {
 
   // create N threads, each with own stack 
   for(n=0; n<N; n++){
-    pid = clone(thread_func1, stacks+n*(THREAD_STACK_SIZE-4), CLONE_VM, 0);
+    pid = clone(thread_func1, stacks+(n+1)*THREAD_STACK_SIZE, CLONE_VM, 0);
     if(pid < 0)
       break;  // this tests if kernel handles fork() failure right (e.g. free sources? locks?)
   }
@@ -2130,7 +2135,7 @@ void semtest(char *s) {
 
   // create N threads, each with own stack 
   for(n=0; n<N; n++){
-    pid = clone(thread_func2, stacks+n*(THREAD_STACK_SIZE-4), CLONE_VM, 0);
+    pid = clone(thread_func2, stacks+(n+1)*THREAD_STACK_SIZE, CLONE_VM, 0);
     if(pid < 0) exit(1); 
   }
 

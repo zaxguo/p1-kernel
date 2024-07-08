@@ -1,7 +1,7 @@
 /*
 (by FL)
 Principle: minimum OS requirement. NO dependency on:
-    -- thread (VM_CLONE, spinlock, semaphore, etc)
+    -- thread (CLONE_VM, spinlock, semaphore, etc)
     -- non-blocking IO (O_NONBLOCK) 
 
 Event dispatch is implemented as multiple tasks (processes) communicating with

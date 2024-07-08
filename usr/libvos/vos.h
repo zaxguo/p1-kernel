@@ -1,6 +1,9 @@
 // For non-standard OS interfaces, e.g. not part of libc
 // referenced by user apps (c and cpp)
 
+#ifndef _VOS_H
+#define _VOS_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,6 +49,13 @@ enum {
 extern unsigned int uptime_ms(void);  
 extern unsigned int msleep(unsigned int msec); 
 
+// semaphores. see kernel sys_semcreate() for design comments
+// direct call syscalls, as they have no libc wrappers
+int sys_semcreate(int count); 
+int sys_semfree(int id); 
+int sys_semp(int id); // P()
+int sys_semv(int id); // V()
+
 // not in libc (newlib)
 // https://man7.org/linux/man-pages/man2/clone.2.html#NOTES
 // return -1 on failure, otherwise pid (or 0)
@@ -54,3 +64,5 @@ int clone(int (*fn)(void *), void *stack, int flags, void *arg);
 #ifdef __cplusplus
 } // extern "C"
 #endif // __cplusplus
+
+#endif // _VOS_H

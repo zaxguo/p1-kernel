@@ -17,6 +17,7 @@ void Blockchain::AddBlock(uint32_t nIndexIn, const char *sDataIn) {
     assert(_nrBlock < MAXBLOCK);
     Block *b = &_vChain[_nrBlock];
     b->block_init(nIndexIn, sDataIn, _vChain[_nrBlock - 1].GetHash());
-    b->MineBlock(_diffStr); 
+    // b->MineBlock(_diffStr); 
+    b->MineBlockSMP(_diffStr); 
     _nrBlock++;
 }
