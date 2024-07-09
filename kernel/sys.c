@@ -96,7 +96,9 @@ unsigned long sys_sbrk(int incr) {
 		W("sys_sbrk failed: requested brk too small. into code/data region"); 
 		goto bad; 
 	}
-	if (incr > 0 && sz + incr > regs->sp - PAGE_SIZE) {
+	/* NB: for multithreading case, sp can be anywhere, e.g. a global array. 
+	 so we react iff old sz is below sp and new sz approches or exceeds sp */
+	if (incr > 0 && sz < regs->sp && sz + incr > regs->sp - PAGE_SIZE) {
 		W("sys_sbrk failed: requested brk %lx too large. too close to sp %lx", 
 			sz+incr, regs->sp); 
 		goto bad; 

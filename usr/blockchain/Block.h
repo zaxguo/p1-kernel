@@ -13,7 +13,7 @@ public:
 	void MineBlockSMP(const char* diffStr);
 	static void _CalculateHash_r(Block*, char*, char*, int); 
 	static int miner(void *param); 
-	static int miner0(void *param); 
+	static int miner_dummy(void *param); 
 
 private:
 	uint32_t _nIndex;

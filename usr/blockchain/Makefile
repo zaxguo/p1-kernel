@@ -13,8 +13,8 @@ sha256_x.o
 
 CXXFLAGS = -fno-rtti -fno-exceptions -std=c++17
 CXXFLAGS += -fno-use-cxa-atexit
-# CXXFLAGS += -O2 -g
-CXXFLAGS += -O0 -g
+CXXFLAGS += -O2 -g
+# CXXFLAGS += -O0 -g
 CXXFLAGS += -mcpu=cortex-a53+fp+simd
 
 # lib inc 
@@ -36,9 +36,9 @@ LIBS += -lgcc
 blockchain: $(OBJS)
 	$(CPP) $(CPPLDFLAGS) -o $@ $(CRT0CPP) $(CRTI) $^ $(CRTN) $(LIBS)
 	$(ARMGNU)-objdump -dS $@ > $@.asm
-	cp $@ $@.orig
-	$(ARMGNU)-strip $@
-	cp $@ $(USER_PATH)/build
+# cp $@ $@.orig
+# $(ARMGNU)-strip $@
+# cp $@ $(USER_PATH)/build
 
 clean:
 	rm -f $(OBJS) blockchain

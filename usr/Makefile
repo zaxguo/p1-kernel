@@ -25,6 +25,7 @@ UPROGS += build/buzz
 UPROGS += build/nes
 # below: depends on libc & etc
 UPROGS += build/nplayer
+UPROGS += build/sysmon
 # below: cpp, depends on libc
 UPROGS += build/blockchain
 
@@ -61,18 +62,27 @@ mkfs: mkfs.c
 
 ##################
 # apps that have their own source dirs
-build/nplayer: build-lib/libvos.a		# TODO complete lib dependency
+# TODO complete lib dependency
+build/nplayer: build-lib/libvos.a build-lib/libminisdl.a build-lib/libvorbis.a
 	cd nplayer && $(MAKE)
 	cp nplayer/nplayer build/
+	$(ARMGNU)-strip build/nplayer
 
+build/sysmon: build-lib/libvos.a build-lib/libminisdl.a
+	cd sysmon && $(MAKE)
+	cp sysmon/sysmon build/
+	$(ARMGNU)-strip build/sysmon
+	
 # TODO complete lib dependency
 build/blockchain:
 	cd blockchain && $(MAKE)
 	cp blockchain/blockchain build/
+	$(ARMGNU)-strip build/blockchain
 
 build/nes: ulib.o printf.o usys_s.o umalloc.o uio.o tinyprintf.o
 	cd LiteNES && $(MAKE)
 	cp LiteNES/nes build/
+	$(ARMGNU)-strip build/nes
 
 # to prevent makefile from its implicit rule which is shorter & preferred
 # https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html

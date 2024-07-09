@@ -20,6 +20,9 @@ enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
 int config_fbctl(int w, int d, int vw, int vh, int offx, int offy);
 int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs);
 
+#define MAX_NCPU 4
+int read_cpuinfo(int util[MAX_NCPU], int *ncpus); 
+
 // /proc/sbctl
 struct sbctl_info {
     int id;

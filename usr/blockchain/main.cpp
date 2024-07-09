@@ -8,9 +8,12 @@
 class Test {
 public:
   Test()  { printf("%s,%d: Hello, Project-N!\n", __func__, __LINE__); }
-// Test()  {}
+  // Test()  { printf(""); }
+// Test()  {} // wont work -- compiled away??
+
   ~Test() { printf("%s,%d: Goodbye, Project-N!\n", __func__, __LINE__); }
-// ~Test() { }
+  // ~Test()  { printf(""); }
+// ~Test() { } // wont work -- compiled away??
 };
 Test test;
 
@@ -35,7 +38,7 @@ void printf_r(const char *fmt,...) {
 }
 
 int main(int argc, char **args) {
-    int difficulty = 4;
+    int difficulty = 5;
     enum {NBLOCKS=3};
     unsigned t00, t0; 
     char input_str[128]; // randomness added to hash search

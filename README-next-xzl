@@ -1319,3 +1319,23 @@ https://medium.com/@idimus/how-to-draw-donut-using-c-and-raytracing-c07778f45952
 
 a more serious bitcoiner miner??
 https://github.com/pooler/cpuminer
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+more smp issues from bring up "blockchain" app 
+
+thread stack ... too small ( and difficult to determine its size) 
+    eg 1K often not enough, even for simple code (why? cpp??
+
+cpp inint code still confusing -- need a "dummy" class to work properly. TBD    
+    has something to do w fini, init 
+
+cpp argc, argv not working properly, b/c in crt0cpp regs are clobbered by init. 
+(so are argc/v). FIXED
+
+threwad stack location --- make it clear: it can be in abitrary virtual addr and
+relies on demand paging for allocation 
+
+printf() not reentrant ... a wrapper coiuldn't print correct values (va_list problem??
+in cpp??) TBD....   right now use macro def to include semp, semv 
+
+malloc not reentrant! 

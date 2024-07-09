@@ -281,16 +281,20 @@ void SDL_FreeSurface(SDL_Surface *s) {
 // https://wiki.libsdl.org/SDL2/SDL_FillRect
 // rect==NULL to fill the entire surface
 // Returns 0 on success or a negative error code on failure
-int SDL_FillRect(SDL_Surface *suf, SDL_Rect *rect, uint32_t color) {
-    if (rect) {printf("TBD"); return -1;}
-
-    for (int y = 0; y < suf->h; y++)
-        for (int x = 0; x < suf->w; x++)
-            setpixel((char *)suf->pixels, x, y, suf->pitch, color);            
+int SDL_FillRect(SDL_Surface *suf, SDL_Rect *r, uint32_t color) {
+    if (r) {
+        for (int y = r->y; y < r->y + r->h; y++)
+                for (int x = r->x; x < r->x + r->w; x++)
+                    setpixel((char *)suf->pixels, x, y, suf->pitch, color);            
+    } else { // whole surface
+        for (int y = 0; y < suf->h; y++)
+            for (int x = 0; x < suf->w; x++)
+                setpixel((char *)suf->pixels, x, y, suf->pitch, color);
+    }
     return 0; 
 }
 
-// legacy: Makes sure the given area is updated on the given screen.
+// legacy API
 // Makes sure the given area is updated on the given screen. 
 // The rectangle must be confined within the screen boundaries (no clipping is done).
 // If 'x', 'y', 'w' and 'h' are all 0, SDL_UpdateRect will update the entire screen.

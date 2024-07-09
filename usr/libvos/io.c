@@ -55,6 +55,32 @@ int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs) {
     return 0; 
 }
 
+// same as above 
+int read_cpuinfo(int util[MAX_NCPU], int *ncpus) {
+    char buf[LINESIZE], *s;
+    int n; 
+    int dp; 
+
+    if ((dp = open("/proc/cpuinfo", O_RDONLY)) <=0) return -1; 
+
+    n=read(dp, buf, LINESIZE); if (n<=0) return -2;
+
+    // parse the 1st line to a list of int args... (ignore other lines
+    for (s = buf, *ncpus=0; s < buf + n; s++) {
+        if (*s == '\n' || *s == '\0')
+            break;
+        if ('0' <= *s && *s <= '9') {  // start of a num
+            util[*ncpus] = atoi(s); // printf("got arg %d\n", dispinfo[nargs]);
+            while ('0' <= *s && *s <= '9' && s < buf + n)
+                s++;
+            if (++*ncpus == MAX_NCPU)
+                break;
+        }
+    }
+    close(dp);  
+    return 0; 
+}
+
 // 0 on success 
 // read a line from /dev/events and parse it into key events
 // line format: [kd|ku] 0x12
