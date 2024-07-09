@@ -60,7 +60,7 @@ SDL_Surface *screen = NULL;
 
 static SDL_Rect bars[MAX_NCPU]; 
 
-static void init_bars(void) {
+void init_bars(void) {
   for (int i = 0; i < MAX_NCPU; i++) {
     bars[i].x = BAR_ORIGIN_X; 
     bars[i].y = BAR_ORIGIN_Y + BAR_HEIGHT*i + BAR_SPACING*i; 
@@ -78,7 +78,7 @@ unsigned util_to_color(int util) {
   return rgba_to_pixel(r, g, b, 0); 
 }
 
-static void visualize(int util[MAX_NCPU], int ncpus) {
+void visualize(int util[MAX_NCPU], int ncpus) {
   int i;
   // int color = 0;
 
@@ -91,15 +91,37 @@ static void visualize(int util[MAX_NCPU], int ncpus) {
   SDL_UpdateRect(screen, 0, 0, 0, 0);
 }
 
+// visualize on terminal 
+#define BAR_MAX_LEN_CHAR 10 
+void visual_console(int util[MAX_NCPU], int ncpus) {
+  int i,j,len;
+  // clear current line
+  // https://stackoverflow.com/questions/1508490/erase-the-current-printed-console-line
+  // printf("\33[2K\r");  // not working well??
+  printf("\033[2J");  // reset the temrinal 
+  for (i=0; i<ncpus; i++) {
+    len = util[i]*BAR_MAX_LEN_CHAR/100;
+    printf("cpu%d[",i); 
+    for (j=0;j<len;j++) printf("*");
+    for (j=0;j<BAR_MAX_LEN_CHAR-len;j++) printf(" ");
+    printf("]   ");     
+  }  
+  printf("\n");
+}
+
+int is_console=0; 
 
 int main(int argc, char *argv[]) {
   int util[MAX_NCPU], ncpu; 
 
-  screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE);
-  SDL_FillRect(screen, NULL, 0);
-  SDL_UpdateRect(screen, 0, 0, 0, 0);
+  if (argc>1 && strcmp(argv[1], "-c")==0) is_console=1;
 
-  init_bars(); 
+  if (!is_console) {
+    screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE);
+    SDL_FillRect(screen, NULL, 0);
+    SDL_UpdateRect(screen, 0, 0, 0, 0);
+    init_bars(); 
+  }
 
   while (1) {
     SDL_Event ev;
@@ -114,11 +136,15 @@ int main(int argc, char *argv[]) {
     read_cpuinfo(util, &ncpu); 
     // for (int i=0; i<ncpu; i++) printf("%d ", util[i]);  // debugging
     // printf("\n"); 
-    visualize(util, ncpu);
+    if (is_console)
+      visual_console(util, ncpu);
+    else 
+      visualize(util, ncpu);
   }
 
 cleanup:
-  SDL_Quit();
+  if (!is_console)
+    SDL_Quit();
 
   return 0;
 }
