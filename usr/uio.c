@@ -74,7 +74,7 @@ int read_kb_event(int events, int *evtype, unsigned int *scancode) {
     *evtype = INVALID; *scancode = 0; //invalid
 
     n = read(events, buf, LINESIZE); if (n<=0) return -1; 
-    printf("%s: %s\n", __func__, buf);
+    // printf("%s: %s\n", __func__, buf);
     s=buf;         
     if (buf[0]=='k' && buf[1]=='d') {
       *evtype = KEYDOWN; 

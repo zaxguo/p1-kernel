@@ -251,6 +251,7 @@ main(void)
 
   const char *p=init_cmds; 
   while((p=getcmd0(buf, sizeof(buf), p))) {
+    printf("sh: exec init cmd: %s", buf);
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n

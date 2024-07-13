@@ -243,10 +243,34 @@ void test_sf() {
 /**********************
     the surface flinger
 **********************/
+
+/* Draw a boundary around the top most (focused) surface. 
+  with the real estate of the surface. 
+  Caller MUST hold mboxlock & sflock
+*/
+#define B_THICKNESS     5
+#define B_COLOR  0x00ff0000    // red
+
+static int draw_boundary(int x, int y, int w, int h) {
+    unsigned char *t0, *b0;
+    unsigned int *t, *b; 
+    BUG_ON(h<=B_THICKNESS || w<=B_THICKNESS);
+    I("%s: %d %d %d %d", __func__, x,y,w,h);
+
+    for (int j=0; j<B_THICKNESS; j++) {
+        t0 = the_fb.fb + (y+j)*the_fb.pitch + x*PIXELSIZE; // top boundary
+        b0 = the_fb.fb + (y+h+1+j-B_THICKNESS)*the_fb.pitch + x*PIXELSIZE; // bottom        
+        t = (unsigned int *)t0; b = (unsigned int *)b0;
+        for (int i=0; i<w; i++)
+            t[i] = b[i] = B_COLOR;
+    } // TODO: also draw left/right boundaries
+    return 0; 
+}
+
 // composite on demand (lazy) 
 // caller MUST hold sflock
 // return # of layers redrawn
-int sf_composite(void) {
+static int sf_composite(void) {
     unsigned char *p0, *p1, cnt=0;
     slist_t *node = 0; 
     struct sf_struct *sf;     
@@ -267,6 +291,8 @@ int sf_composite(void) {
             p0 += the_fb.pitch; p1 += sf->w*PIXELSIZE;
         }
         sf->dirty=0; cnt++; 
+        if (!node->next) // this is the top surface. draw its bounary
+            draw_boundary(sf->x,sf->y,sf->w,sf->h);
     }
     if (cnt) // what will happen if we don't flush?
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
