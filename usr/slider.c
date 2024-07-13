@@ -99,19 +99,18 @@ void* BMP_Load(const char *filename, int *width, int *height) {
 // #define W 960
 // #define H 720
 int W=960, H=720;
-int X=0, Y=0;  // for fb0 only, offset
+int X=0, Y=0, W0=320, H0=240;      // /dev/fb0 only
 
 const int N = 10; // max slide num 
 // slides path pattern (starts from 1, per pptx export naming convention)
 const char *path = "/Slide%d.BMP"; // load from rootfs
 // const char *path = "/d/Slide%d.BMP";  // load from fatfs
 
-static int cur = 1;   // cur slide num 
-
+int cur = 1;   // cur slide num 
 int config_isfb=0; // 1: using /dev/fb; 0: using /dev/fb0 (surface)
 
 int dispinfo[MAX_DISP_ARGS]={0};
-static int fb = 0;    // file desc for /dev/fb
+int fb = 0;    // file desc for /dev/fb
 
 // direct, fb
 void set_bkgnd(unsigned int clr, int pitch /*in bytes*/, int h) {
@@ -140,19 +139,21 @@ void set_bkgnd0(unsigned int clr, int w, int h) {
       printf("failed to write fb0\n"); 
     free(p);
 
-    config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test 
+    // config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test: force compose
 }
 
 void render() {
   char fname[256];
   int w, h; 
+  int t0=uptime();
   sprintf(fname, (char *)path, cur);
   char *pixels = BMP_Load(fname, &w, &h); 
   if (!pixels) {printf("load from %s failed\n", fname); return;}
 
 #if 0
-  // test our understanding of hw color. rewrite pixbuf with a single color (argb)
+  // Test our understanding of hw color. rewrite pixbuf with a single color (argb)
   // esp: is r and b swapped??
+  // (Keee it here for reference)
   {
     char a=0xaa, r=0xff, g=0x00, b=0x00;
     unsigned int *p = (unsigned int *)pixels; 
@@ -171,14 +172,13 @@ void render() {
     fb_w = min(W,w), fb_h = min(H,h);
   }
 
-  printf("%s:size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
+  printf("%s:img size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
 
   assert(fb); 
-
   int n, y; 
   if (config_isfb) {  // write to /dev/fb by row 
     int pitch = dispinfo[PITCH];     
-    // (XXX add a fast path for only 1 write is needed
+    // (TBD add a fast path when only 1 write is needed
     for(y=0;y<fb_h;y++) {
       n = lseek(fb, y*pitch, SEEK_SET); assert(n>=0); 
       if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < fb_w*PIXELSIZE) {
@@ -187,7 +187,7 @@ void render() {
       }    
     }
   } else {  // write to /dev/fb0 by row     
-    // (XXX add a fast path for only 1 write is needed
+    // (TBD add a fast path when only 1 write is needed
     n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
     for(y=0;y<fb_h;y++) {
       // no need to lseek, as /dev/fb0 has no row padding
@@ -196,19 +196,18 @@ void render() {
         break; 
       }
     }
-    config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test 
+    // config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test: force compose
   }
   free(pixels); 
 
-  printf("show %s\n", fname);   
+  printf("show %s (%d ms)\n", fname, uptime()-t0);
 }
 
-
-void prev(int rep) {
+void prev(int rep) {  
   if (rep == 0) rep = 1;
   cur -= rep;
-  if (cur <= 0) cur = 1;
-  render();
+  if (cur <= 0) cur = 1;  
+  render();  
 }
 
 void next(int rep) {
@@ -222,19 +221,16 @@ int main(int argc, char **argv) {
   int n;
   int rep = 0, g = 0; // rep: num of slides to skip
 
-  int evtype;
-  unsigned scancode; 
-
   if (argc==5) {    
       int x,y,w,h;
       x=atoi(argv[1]);y=atoi(argv[2]);w=atoi(argv[3]);h=atoi(argv[4]);
       if (x>=0) X=x; 
       if (y>=0) Y=y; 
-      if (w>=0) W=w; 
-      if (h>=0) H=h; 
-      config_isfb = 0; printf("Indirect rendering\n");
+      if (w>=0) W=w; else W=W0;
+      if (h>=0) H=h; else H=H0;
+      config_isfb = 0; printf("Indirect rendering. Surface %d %d\n", W,H);
   }
-  else if (strcmp(argv[1], "fb") == 0)
+  else
     {config_isfb = 1; printf("Direct rendering\n");}
 
   printf(usage); 
@@ -250,7 +246,6 @@ int main(int argc, char **argv) {
       dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], 
       dispinfo[PITCH], dispinfo[DEPTH]); 
   } else {
-    W=320; H=240;
     n = config_fbctl0(FB0_CMD_INIT, X, Y, W, H, ZORDER_TOP); assert(n==0); 
   }
 
@@ -262,10 +257,12 @@ int main(int argc, char **argv) {
 
   render();
   
-  /* main loop. handle keydown event, switch among bmps */
+  /* main loop. handle keydown event, switch among slides */
+  int evtype;
+  unsigned scancode; 
   while (1) {
-    evtype = INVALID; scancode = 0; //invalid
-    n = read_kb_event(events, &evtype, &scancode); assert(n==0); 
+    evtype = INVALID; scancode = 0;
+    n = read_kb_event(events, &evtype, &scancode); assert(n==0); //blocking
     if (!(scancode && evtype)) {
       printf("warning: ev %d scancode 0x%x\n", evtype, scancode); 
     }
@@ -302,12 +299,13 @@ int main(int argc, char **argv) {
 
 cleanup: 
   if (events) close(events); 
-  if (fb) {
+  if (config_isfb) {
     set_bkgnd(0x00000000 /*black*/, dispinfo[PITCH], dispinfo[VWIDTH]);
-    close(fb); 
+    if (fb) close(fb); 
   } else {
     n = config_fbctl0(FB0_CMD_FINI, 0, 0, 0, 0, 0); assert(n==0); 
-    close(fb);
+    // release surface, which triggers the SF to compose
+    if (fb) close(fb); 
   }
   printf("slider quits\n"); 
   return 0;
