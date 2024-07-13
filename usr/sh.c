@@ -9,9 +9,9 @@
 // const char *init_cmds = "cat logo.txt\n"
 //                    "cat logo.txt\n";
 // const char *init_cmds = "nes\n";
-// const char *init_cmds = "slider 0 0 -1 -1&\n"
-//                        "slider 50 50 -1 -1&\n";
-const char *init_cmds = "slider 50 50 -1 -1&\n";
+const char *init_cmds = "slider 0 0 -1 -1&\n"
+                       "slider 50 50 -1 -1&\n";
+// const char *init_cmds = "slider 50 50 -1 -1&\n";
 
 // Parsed command representation
 #define EXEC  1

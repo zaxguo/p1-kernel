@@ -1,5 +1,6 @@
 // #define K2_DEBUG_WARN
-#define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_VERBOSE
+#define K2_DEBUG_INFO
 
 /* In-kernel surface flinger (SF). 
    each task configures desired surface size/loc via /proc/sfctl, 

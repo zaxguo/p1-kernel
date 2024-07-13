@@ -225,7 +225,7 @@ int main(int argc, char **argv) {
   int evtype;
   unsigned scancode; 
 
-  if (argc==4) {    
+  if (argc==5) {    
       int x,y,w,h;
       x=atoi(argv[1]);y=atoi(argv[2]);w=atoi(argv[3]);h=atoi(argv[4]);
       if (x>=0) X=x; 
