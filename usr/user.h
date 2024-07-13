@@ -143,6 +143,12 @@ int read_kb_event(int events, int *evtype, unsigned *scancode); // uio.c
 #define KEY_9 0x26 // Keyboard 9 and (
 #define KEY_0 0x27 // Keyboard 0 and )
 
+#define KEY_HOME 0x4a // Keyboard Home
+#define KEY_PAGEUP 0x4b // Keyboard Page Up
+#define KEY_DELETE 0x4c // Keyboard Delete Forward
+#define KEY_END 0x4d // Keyboard End
+#define KEY_PAGEDOWN 0x4e // Keyboard Page Down
+
 #define KEY_RIGHT 0x4f // Keyboard Right Arrow
 #define KEY_LEFT 0x50 // Keyboard Left Arrow
 #define KEY_DOWN 0x51 // Keyboard Down Arrow

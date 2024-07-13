@@ -101,7 +101,9 @@
         "sdl-keycode.h": "c",
         "mario-rom.h": "c",
         "vos.h": "c",
-        "sdl-video.h": "c"
+        "sdl-video.h": "c",
+        "numeric": "c",
+        "semaphore": "c"
     },
     "files.exclude": {
         "docs/**": true,

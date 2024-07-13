@@ -27,8 +27,8 @@
 
 const char * usage = \
   "Keys:\n"
-  "* j/down - page down\n"
-  "* k/up - page up\n"
+  "* j/PgDn - page down\n"
+  "* k/PgUp - page up\n"
   "* gg - first page\n"
   "* q - quit\n"
   "* Number then j/k - jmp fwd/back by X slides\n";
@@ -285,9 +285,9 @@ int main(int argc, char **argv) {
         case KEY_8: rep = rep * 10 + 8; break;
         case KEY_9: rep = rep * 10 + 9; break;
         case KEY_J:
-        case KEY_DOWN: next(rep); rep = 0; g = 0; break;
+        case KEY_PAGEDOWN: next(rep); rep = 0; g = 0; break;
         case KEY_K:
-        case KEY_UP: prev(rep); rep = 0; g = 0; break;
+        case KEY_PAGEUP: prev(rep); rep = 0; g = 0; break;
         case KEY_G:
           g ++;
           if (g > 1) {

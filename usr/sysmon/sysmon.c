@@ -91,7 +91,7 @@ void visualize(int util[MAX_NCPU], int ncpus) {
   SDL_UpdateRect(screen, 0, 0, 0, 0);
 }
 
-// visualize on terminal 
+// visualize on the serial terminal 
 #define BAR_MAX_LEN_CHAR 10 
 void visual_console(int util[MAX_NCPU], int ncpus) {
   int i,j,len;

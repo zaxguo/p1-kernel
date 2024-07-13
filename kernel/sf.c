@@ -35,16 +35,27 @@ struct sf_struct {
 static struct spinlock sflock = {.locked=0, .cpu=0, .name="sflock"};
 // ordered by z. tail: 0 (top most)
 static slist_t sflist = SLIST_OBJECT_INIT(sflist);  
+static int bk_dirty = 1; // is background dirty? protected by sflock
 
 extern int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
 extern int sys_getpid(void);  // sys.c
+
+#define VW 1024
+#define VH 768
+
+// boundary 
+#define B_THICKNESS     5
+#define B_COLOR  0x00ff0000    // red
+// bkgnd
+#define BK_COLOR  0x00222222    // gray
+
 
 // return 0 on success
 static int reset_fb() {
     // hw fb setup
     int args[PROCFS_MAX_ARGS] = {
-        1024, 768, /*w,h*/
-        1024, 768, /*vw,vh*/
+        VW, VH, /*w,h*/
+        VW, VH, /*vw,vh*/
         0,0 /*offsetx, offsety*/
     }; 
     return procfs_parse_fbctl(args);  // reuse the func
@@ -72,6 +83,7 @@ static void dirty_all_sf(void) {
         sf = slist_entry(node, struct sf_struct/*struct name*/, list /*field name*/); BUG_ON(!sf);
         sf->dirty=1; 
     }
+    bk_dirty=1; 
 }
 
 // return 0 on success; <0 on err
@@ -194,9 +206,51 @@ static int sf_alt_tab(void) {
     slist_append(&sflist, &bot->list); 
     
     dirty_all_sf(); wakeup(&sflist); 
+    ret=0; 
 out: 
     release(&sflock);
-    ret=0; 
+    return ret; 
+}
+
+// mov the top surface. 
+// dir=0/1/2/3 R/L/Dn/Up  corresponding to their scancode order
+// call must NOT hold sflock
+#define STEPSIZE 5 // # of pixels to move, per key event
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+static int sf_move(int dir) {
+    int ret=0; 
+    struct sf_struct *top = 0;
+    
+    I("%s", __func__); 
+
+    acquire(&sflock);
+    if (slist_len(&sflist)==0) {ret=-1; goto out;}
+
+    top = slist_tail_entry(&sflist, struct sf_struct, list); 
+    switch(dir) {
+        case 0: // R
+            // TBD: allow part of the surface to move out of the window 
+            top->x = min(VW - top->w, (int)(top->x) + STEPSIZE); 
+            break; 
+        case 1: // L
+            top->x = max(0, (int)(top->x) - STEPSIZE); 
+            break;
+        case 2: // Dn
+            top->y = min(VH - top->h, (int)(top->y) + STEPSIZE); 
+            break; 
+        case 3: // Up
+            top->y = max(0, (int)(top->y) - STEPSIZE); 
+            break;
+        default: 
+            ret = -1; 
+            break; 
+    }
+    if (ret!=-1) {
+        dirty_all_sf(); wakeup(&sflist); 
+    }
+out: 
+    release(&sflock);
     return ret; 
 }
 
@@ -248,21 +302,19 @@ void test_sf() {
   with the real estate of the surface. 
   Caller MUST hold mboxlock & sflock
 */
-#define B_THICKNESS     5
-#define B_COLOR  0x00ff0000    // red
 
-static int draw_boundary(int x, int y, int w, int h) {
+static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
     unsigned char *t0, *b0;
     unsigned int *t, *b; 
     BUG_ON(h<=B_THICKNESS || w<=B_THICKNESS);
-    I("%s: %d %d %d %d", __func__, x,y,w,h);
+    V("%s: %d %d %d %d", __func__, x,y,w,h);
 
     for (int j=0; j<B_THICKNESS; j++) {
         t0 = the_fb.fb + (y+j)*the_fb.pitch + x*PIXELSIZE; // top boundary
         b0 = the_fb.fb + (y+h+1+j-B_THICKNESS)*the_fb.pitch + x*PIXELSIZE; // bottom        
         t = (unsigned int *)t0; b = (unsigned int *)b0;
         for (int i=0; i<w; i++)
-            t[i] = b[i] = B_COLOR;
+            t[i] = b[i] = clr;
     } // TODO: also draw left/right boundaries
     return 0; 
 }
@@ -277,6 +329,16 @@ static int sf_composite(void) {
 
     acquire(&mboxlock);
     if (!the_fb.fb) {release(&mboxlock); return 0;} // maybe we have 0 surfaces, fb closed
+    
+    if (bk_dirty) {
+        // clear backgnd
+        for (int i=0; i<VH;i++) {
+            unsigned int *p0 = (unsigned int *)(the_fb.fb + the_fb.pitch*i); 
+            for (int j=0; j<VW;j++)
+                p0[j]=BK_COLOR;
+        }
+        bk_dirty=0;
+    }
     slist_for_each(node, &sflist) { // descending z order, bottom up
         sf = slist_entry(node, struct sf_struct, list /*field name*/);
         if (!sf->dirty) continue;
@@ -292,7 +354,7 @@ static int sf_composite(void) {
         }
         sf->dirty=0; cnt++; 
         if (!node->next) // this is the top surface. draw its bounary
-            draw_boundary(sf->x,sf->y,sf->w,sf->h);
+            draw_boundary(sf->x,sf->y,sf->w,sf->h, B_COLOR);
     }
     if (cnt) // what will happen if we don't flush?
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
@@ -306,8 +368,9 @@ static void sf_task(int arg) {
     I("%s starts", __func__);
 
     acquire(&sflock); 
-    while (1)  {        
-        int n = sf_composite(); I("%s: composite %d surfaces", __func__, n);
+    while (1)  {
+        __attribute__ ((unused))
+        int n = sf_composite(); V("%s: composite %d surfaces", __func__, n);
         sleep(&sflist, &sflock); 
     }
     release(&sflock); // never reach here?
@@ -418,10 +481,15 @@ static void kb_dispatch_task(int arg) {
         ev = the_kb.buf[the_kb.r++ % INPUT_BUF_SIZE];
         release(&the_kb.lock);
 
-        if ((ev.mod & KEY_MOD_LCTRL) && (ev.type==KEYUP) 
-            && (ev.scancode==KEY_TAB)) { // qemu cannot get alt-tab? seems intercepted by Windows
-            sf_alt_tab(); 
-            continue;
+        // qemu cannot get alt-tab? seems intercepted by Windows
+        if ((ev.mod & KEY_MOD_LCTRL) && (ev.type==KEYUP)) {
+            if (ev.scancode==KEY_TAB) { 
+                sf_alt_tab(); 
+                continue;
+            } else if (ev.scancode>=KEY_RIGHT && ev.scancode<=KEY_UP) {
+                sf_move(ev.scancode-KEY_RIGHT);
+                continue;
+            }
         } // TODO: handle more, e.g. Ctrl+Fn
         
         // dispatch the kb event to the top surface
