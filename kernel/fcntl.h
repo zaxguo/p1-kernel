@@ -24,7 +24,9 @@
 enum {
   CONSOLE = 1, 
   KEYBOARD,
-  FRAMEBUFFER,  // /dev/fb
+  KEYBOARD0,        // events dispatched per task
+  FRAMEBUFFER,      // /dev/fb
+  FRAMEBUFFER0,      // surface flinger 
   DEVNULL,  // /dev/null
   DEVZERO,     // /dev/zero
   DEVSB,    // /dev/sb, sound buffer
@@ -33,7 +35,8 @@ enum {
   PROCFS_CPUINFO,
   PROCFS_MEMINFO, 
   PROCFS_FBCTL, 
-  PROCFS_SBCTL,   
+  PROCFS_FBCTL0,  // control surface flinger 
+  PROCFS_SBCTL,
   NDEV    // max
 };
 
@@ -54,7 +57,9 @@ static struct proc_dev_info pdi[] =            \
 {                                       \
   {.type = TYPE_DEVFS, .major = CONSOLE, .path = "/dev/console"}, \
   {.type = TYPE_DEVFS, .major = KEYBOARD, .path = "/dev/events"},  \
+  {.type = TYPE_DEVFS, .major = KEYBOARD0, .path = "/dev/events0"},  \
   {.type = TYPE_DEVFS, .major = FRAMEBUFFER, .path = "/dev/fb"},\
+  {.type = TYPE_DEVFS, .major = FRAMEBUFFER0, .path = "/dev/fb0"},\
   {.type = TYPE_DEVFS, .major = DEVNULL, .path = "/dev/null"}, \
   {.type = TYPE_DEVFS, .major = DEVZERO, .path = "/dev/zero"}, \
   {.type = TYPE_DEVFS, .major = DEVSB, .path = "/dev/sb"}, \
@@ -62,6 +67,7 @@ static struct proc_dev_info pdi[] =            \
   {.type = TYPE_PROCFS, .major = PROCFS_CPUINFO, .path = "/proc/cpuinfo"},   \
   {.type = TYPE_PROCFS, .major = PROCFS_MEMINFO, .path = "/proc/meminfo"},   \
   {.type = TYPE_PROCFS, .major = PROCFS_FBCTL, .path = "/proc/fbctl"},       \
+  {.type = TYPE_PROCFS, .major = PROCFS_FBCTL0, .path = "/proc/fbctl0"},       \
   {.type = TYPE_PROCFS, .major = PROCFS_SBCTL, .path = "/proc/sbctl"},        \
 };
 
@@ -77,5 +83,20 @@ enum {
   SB_CMD_WR_FMT, 
   SB_CMD_TEST = 9
 }; 
+
+// /proc/fbctl0 command cf kernel/sf.c
+enum {
+  FB0_CMD_FINI = 0, 
+  FB0_CMD_INIT, 
+  FB0_CMD_CONFIG, 
+  FB0_CMD_TEST = 9
+}; 
+
+#define ZORDER_TOP          0
+#define ZORDER_BOTTOM       -1
+#define ZORDER_INC          2   // zorder+=1
+#define ZORDER_DEC          3   // zorder-=1
+#define ZORDER_UNCHANGED    4   // zorder-=1
+
 
 #endif

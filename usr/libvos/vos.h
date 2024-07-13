@@ -20,6 +20,8 @@ enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
 int config_fbctl(int w, int d, int vw, int vh, int offx, int offy);
 int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs);
 
+int config_fbctl0(int cmd, int arg1, int arg2, int arg3, int arg4, int arg5);
+
 #define MAX_NCPU 4
 int read_cpuinfo(int util[MAX_NCPU], int *ncpus); 
 

@@ -1,4 +1,3 @@
-
 #include "plat.h"
 #include "utils.h"
 #include "mmu.h"
@@ -19,7 +18,7 @@ extern char kernel_end; // linker.ld
 
 // allocated from paging area, for malloc()/free()
 //  define 0 to disable malloc()
-#define MALLOC_PAGES  (2*1024*1024 / PAGE_SIZE)  
+#define MALLOC_PAGES  (8*1024*1024 / PAGE_SIZE)  
 #undef MEM_PAGE_ALLOC
 
 /* allocate a page (zero filled). return kernel va. */
@@ -190,7 +189,7 @@ static unsigned char *s_pPageLimit;
 // mutiple lists for diff sizes...
 static TBlockBucket s_BlockBucket[] = {{0x40}, {0x400}, {0x1000}, {0x4000}, 
 							{0x40000}, {0x80000}, {0}};
-#define MAX_ALLOC_SIZE 0x80000		// largest bucket size
+#define MAX_ALLOC_SIZE 0x80000		// largest bucket size. malloc() cannot exceed this size
 
 #ifdef MEM_PAGE_ALLOC
 static TPageBucket s_PageBucket;		// a freelist of pages...
@@ -371,7 +370,7 @@ void pfree (void *pPage) {
 #ifdef MEM_DEBUG
 void dump_mem_info (void) {
 	for (TBlockBucket *pBucket = s_BlockBucket; pBucket->nSize > 0; pBucket++) {
-		I("alloc: malloc(%u): %u blocks (max %u)",
+		I("alloc: malloc(%u): outstanding %u blocks (max %u)",
 			     pBucket->nSize, pBucket->nCount, pBucket->nMaxCount);
 	}
 

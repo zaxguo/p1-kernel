@@ -56,8 +56,8 @@ qemu_small () {
 qemu_full () {
     ${QEMU} -M raspi3b \
     -kernel ${KERNEL} -serial null -serial mon:stdio \
-    -d int -D qemu.log \
     -usb -device usb-kbd \
+    -d int -D qemu.log \
     -drive file=smallfat.bin,if=sd,format=raw
 }
 
@@ -82,7 +82,8 @@ elif [ "$1" = "mon" ]
 then
     qemu_mon
 else    # default ...     
-    qemu_small
+    # qemu_small
+    qemu_full
 fi
 
     

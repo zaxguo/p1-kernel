@@ -17,6 +17,26 @@ int config_fbctl(int w, int d, int vw, int vh, int offx, int offy) {
     return !(n>0); 
 }
 
+// 0 on success
+// not all commands use 5 args. kernel will ignore unused args
+// cf kernel/sf.c procfs_parse_fbctl0()
+int config_fbctl0(int cmd, int arg1, int arg2, int arg3, int arg4, int arg5) {
+    char line[64]; 
+    int len1; 
+
+    int fbctl0 = open("/proc/fbctl0", O_RDWR);
+    if (fbctl0 <= 0) {printf("open fbctl0 err\n"); return -1;}
+    
+    sprintf(line, "%d %d %d %d %d %d\n",cmd,arg1,arg2,arg3,arg4,arg5); 
+    len1 = strlen(line); 
+    if ((len1 = write(fbctl0, line, len1)) < 0) {
+        printf("write to fbctl0 failed with %d. shouldn't happen", len1);
+        exit(1);
+    }
+    close(fbctl0);   // flush
+    return 0; 
+}
+
 // return 0 on success. nargs: # of args parsed
 int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs) {
     char buf[LINESIZE], *s;

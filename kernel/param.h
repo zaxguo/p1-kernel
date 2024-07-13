@@ -2,7 +2,7 @@
 
 // -------------- configuration -------------------------- //
 #define NOFILE          16  // open files per process
-// #define NCPU	        2   // # of cpu cores kernel supported 
+// #define NCPU	        1   // # of cpu cores kernel supported 
 #define NCPU	        4   // # of cpu cores kernel supported 
 #define MAXPATH         128   // maximum file path name
 #define NINODE          50  // maximum number of active i-nodes

@@ -3,7 +3,7 @@
 // USB keyboard
 //  modeled after console.c
 
-#include <stdarg.h>
+// #include <stdarg.h>
 
 #include "param.h"
 #include "spinlock.h"
@@ -13,27 +13,9 @@
 #include "fcntl.h"
 #include "sched.h"
 #include "utils.h"
+#include "kb.h"
 
-// kb event, modeled after SDL keyboard event
-// https://wiki.libsdl.org/SDL2/SDL_KeyboardEvent
-struct kbevent {
-    uint32 type;
-#define KEYDOWN 0
-#define KEYUP 1
-    uint32 timestamp;
-    uint8 mod;
-    uint8 scancode;
-};
-
-struct {
-    struct spinlock lock;
-    // input
-#define INPUT_BUF_SIZE 8
-    // #define SCAN_SLOTS       8
-    struct kbevent buf[INPUT_BUF_SIZE];
-    uint r; // Read index
-    uint w; // Write index
-} kb;
+struct kb_struct the_kb;
 
 #define NUM_SCANCODES   0x64 // all the way to KEY_KPDOT, cf https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  
 #define KEY_RELEASED    0
@@ -42,13 +24,14 @@ struct {
 
 char key_states[NUM_SCANCODES] = {KEY_RELEASED}; // 0: keyup, 1: keydown
 
-// user read()s from kb device file go here.
-// as long as there's one ev, return to user read()        
-//      we may also change the behaviors to return a batch of evs
-// user_dist indicates whether dst is a user
-// or kernel address.
-// "n": user buffer size;  "blocking": blocking read? 
-// user_dst=1 means dst is user va
+/* User read()s from the kb device file (/dev/events).
+    Current design: will return at most one event (even if there are multiple in
+    driver) to user read(); in the future, we may also change the behaviors to
+    return a batch of events
+
+    "user_dst": whether dst is a user or kernel address (1 means dst is user va)
+    "n": user buffer size;  "blocking": blocking read? 
+*/
 int kb_read(int user_dst, uint64 dst, int off, int n, char blocking, void *content) {
     uint target;
     struct kbevent ev;
@@ -58,23 +41,23 @@ int kb_read(int user_dst, uint64 dst, int off, int n, char blocking, void *conte
     V("called user_dst %d", user_dst);
 
     target = n;
-    acquire(&kb.lock);
+    acquire(&the_kb.lock);
     while (n > 0) {     // n:remaining space in userbuf
-        if (!blocking && (kb.r == kb.w)) break;        
+        if (!blocking && (the_kb.r == the_kb.w)) break;
 
         // wait until interrupt handler has put some
         // input into cons.buffer.
-        while (kb.r == kb.w) {
+        while (the_kb.r == the_kb.w) {
             if (killed(myproc())) {
-                release(&kb.lock);
+                release(&the_kb.lock);
                 return -1;
             }
-            sleep(&kb.r, &kb.lock);
+            sleep(&the_kb.r, &the_kb.lock);
         }
 
         if (n < TXTSIZE) break; // no enough space in userbuf
 
-        ev = kb.buf[kb.r++ % INPUT_BUF_SIZE];
+        ev = the_kb.buf[the_kb.r++ % INPUT_BUF_SIZE];
         int len = snprintf(ev_txt, TXTSIZE, "%s 0x%02x\n", 
             ev.type == KEYDOWN ? "kd":"ku", ev.scancode); 
 
@@ -90,7 +73,7 @@ int kb_read(int user_dst, uint64 dst, int off, int n, char blocking, void *conte
 
         break; 
     }
-    release(&kb.lock);
+    release(&the_kb.lock);
 
     return target - n;
 }
@@ -119,19 +102,19 @@ void kb_intr(unsigned char mod, const unsigned char keys[6]) {
     V("mod %u key %02x %02x %02x %02x %02x %02x", 
         mod, keys[0], keys[1], keys[2], keys[3], keys[4], keys[5]);
 
-    acquire(&kb.lock);
+    acquire(&the_kb.lock);
 
     for (int i = 0; i < 6; i++) {
         c = keys[i];
         if (c > NUM_SCANCODES) {E("unknown code?"); continue;}
         if (c == 0) break; // no more scan code
-        if (key_states[c] == KEY_RELEASED) {
-            if (kb.w-kb.r < INPUT_BUF_SIZE) {
+        if (key_states[c] == KEY_RELEASED) { // released before, just pressed
+            if (the_kb.w-the_kb.r < INPUT_BUF_SIZE) {
                 struct kbevent ev = {
                     .type = KEYDOWN,
                     .mod = mod,
                     .scancode = c};
-                kb.buf[kb.w++ % INPUT_BUF_SIZE] = ev;
+                the_kb.buf[the_kb.w++ % INPUT_BUF_SIZE] = ev;
             }
             key_states[c] = KEY_JUST_PRESSED;
         } else if (key_states[c] == KEY_CONT_PRESSED)
@@ -141,12 +124,12 @@ void kb_intr(unsigned char mod, const unsigned char keys[6]) {
     for (c = 2; c < NUM_SCANCODES; c++) {       //0,1 are nocode,ovf
         switch (key_states[c]) {
         case KEY_CONT_PRESSED: // pressed before, but not pressed in current scan
-            if (kb.w-kb.r < INPUT_BUF_SIZE) {
+            if (the_kb.w-the_kb.r < INPUT_BUF_SIZE) {
                 struct kbevent ev = {
                     .type = KEYUP,
                     .mod = mod,
                     .scancode = c};
-                kb.buf[kb.w++ % INPUT_BUF_SIZE] = ev;
+                the_kb.buf[the_kb.w++ % INPUT_BUF_SIZE] = ev;
             }
             key_states[c] = KEY_RELEASED;
             break;
@@ -160,8 +143,8 @@ void kb_intr(unsigned char mod, const unsigned char keys[6]) {
         }
     }
 
-    wakeup(&kb.r);
-    release(&kb.lock);
+    wakeup(&the_kb.r);
+    release(&the_kb.lock);
 }
 
 #include "uspios.h"
@@ -170,14 +153,14 @@ void kb_intr(unsigned char mod, const unsigned char keys[6]) {
 // return 0 on success
 int usbkb_init(void) {
 
-    initlock(&kb.lock, "kb");
+    initlock(&the_kb.lock, "kb");
 
 	if (!USPiInitialize ()) {
 		E("cannot init"); 
         return -1; 
 	}
 	if (!USPiKeyboardAvailable ()) {
-        E("kb not found");
+        E("keyboard not found");
         return -1; 
 	}
     USPiKeyboardRegisterKeyStatusHandlerRaw(kb_intr); 

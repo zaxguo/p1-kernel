@@ -19,7 +19,10 @@
 #include "ff.h"
 #endif
 
-struct devsw devsw[NDEV]; // devices and their direct read/write funcs
+// /dev/ and their direct read/write funcs
+// if left unregistered (NULL), syscall will return -1
+struct devsw devsw[NDEV]; 
+
 struct {
     struct spinlock lock;
     struct file file[NFILE]; // opened files
@@ -208,6 +211,7 @@ int fileread(struct file *f, uint64 addr, int n) {
 //  On error, the value -1 is returned
 // https://man7.org/linux/man-pages/man2/lseek.2.html
 #include "fb.h"
+extern int sf_size(int pid);  //sf.c
 int filelseek(struct file *f, int offset, int whence) {
     int newoff; uint size=0; 
 
@@ -220,10 +224,17 @@ int filelseek(struct file *f, int offset, int whence) {
     }
     if (f->type == FD_PROCFS)  // ambiguous, as there are read/write offs
         return -1; 
-    if (f->type == FD_DEVICE && f->major == FRAMEBUFFER) {
-        acquire(&mboxlock); 
-        size = the_fb.size; 
-        release(&mboxlock); 
+    if (f->type == FD_DEVICE) {
+        if (f->major == FRAMEBUFFER) {
+            acquire(&mboxlock); 
+            size = the_fb.size; 
+            release(&mboxlock); 
+            // fall through below
+        } else if (f->major == FRAMEBUFFER0) {
+            int r = sf_size(myproc()->pid); 
+            if (r<0) return -1; 
+            size = (unsigned int)r; 
+        }
     } 
 #ifdef CONFIG_FAT    
     else if (f->type == FD_INODE_FAT) { 
@@ -323,7 +334,7 @@ int filewrite(struct file *f, uint64 addr, int n) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
             return -1;
         ret = devsw[f->major].write(1/*userdst*/, addr, f->off, n, f->content);
-        if (ret>0 && f->major == FRAMEBUFFER)
+        if (ret>0 && (f->major == FRAMEBUFFER || f->major == FRAMEBUFFER0))
             f->off += ret; 
     } else if (f->type == FD_INODE) {
         // write a few blocks at a time to avoid exceeding
@@ -458,6 +469,9 @@ int procfs_gen_content(int major, char *txtbuf, int sz) {
             "width","height","vwidth","vheigh", "offsetx", "offsety"); 
         release(&mboxlock); 
         break; 
+    case PROCFS_FBCTL0: 
+        len = snprintf(txtbuf, sz, "TBD"); 
+        break; 
     case PROCFS_SBCTL: 
         len = procfs_sbctl_gen(txtbuf, sz); 
         break; 
@@ -525,8 +539,9 @@ static int procfs_write(struct file *f, uint64 src, uint n) {
 //           (not parsing a line across write()s
 // return # of args parsed. 0 on failure
 
-int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
-int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]); // sound.c
+extern int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
+extern int procfs_parse_fbctl0(int args[PROCFS_MAX_ARGS]); // sf.c
+extern int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]); // sound.c
 
 int procfs_parse_usercontent(struct file *f) {
     struct procfs_state *st = (struct procfs_state *) f->content; BUG_ON(!st);
@@ -552,11 +567,16 @@ int procfs_parse_usercontent(struct file *f) {
     //     printf("%d ", args[i]); 
     // printf("\n");
 
+    // TBD need a way to return semantic error?
+    // or caller simply read from procfs to see if it succeeds
     switch (f->major)
     {
     case PROCFS_FBCTL:
         procfs_parse_fbctl(args); 
         break;    
+    case PROCFS_FBCTL0:
+        procfs_parse_fbctl0(args); 
+        break;            
     case PROCFS_SBCTL: 
         procfs_parse_sbctl(args); 
     default:
@@ -567,6 +587,8 @@ int procfs_parse_usercontent(struct file *f) {
 
 extern 
 int devsb_write(int user_src, uint64 src, int off, int n, void *content);  // sound.c
+extern 
+int devfb0_write(int user_src, uint64 src, int off, int n, void *content); // sf.c
 
 static void init_devfs() {
     devsw[DEVNULL].read = devnull_read;
@@ -578,6 +600,6 @@ static void init_devfs() {
     devsw[DEVSB].read = 0; 
     devsw[DEVSB].write = devsb_write; 
 
-    devsw[FRAMEBUFFER].read = 0; // TBD (readback fb?
+    devsw[FRAMEBUFFER].read = 0; // TBD (readback?
     devsw[FRAMEBUFFER].write = devfb_write; 
 }

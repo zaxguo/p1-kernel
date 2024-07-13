@@ -22,6 +22,7 @@ extern void test_sd();
 extern void test_kernel_tasks();
 extern void test_spinlock();
 extern void test_sem();
+extern void test_sf();
 
 // 1st user process
 extern unsigned long user_begin;	// cf the linker script
@@ -46,6 +47,7 @@ void kernel_process() {
 	// test_spinlock(); while (1);
 	// test_kernel_tasks(); while (1);
 	// while (1) {test_sem();} while (1);	
+	// dump_mem_info(); test_sf(); while (1);
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
@@ -140,7 +142,6 @@ void kernel_main() {
 	enable_irq();
 	
 	if (usbkb_init() == 0) I("usb kb init done"); 
-		
 	start_cores();  // start cpu1+
 	generic_timer_init();  // sched ticks alive. preemptive scheduler is on
 
@@ -168,6 +169,8 @@ void init(int arg/*ignored*/) {
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0/*arg*/,
 		 "kern-1"); BUG_ON(res<0); 
         
+	start_sf(); // start surface flinger 
+
 	while (1) {
 		wpid = wait(0 /* does not care about status */); 
 		if (wpid < 0) {

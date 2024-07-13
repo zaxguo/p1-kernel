@@ -143,15 +143,7 @@ getcmd(char *buf, int nbuf)
   return 0;
 }
 
-
-PROC_DEV_TABLE
-
-// const char *procfs_fnames[] = 
-//     {"/proc/dispinfo", "/proc/cpuinfo", "/proc/meminfo", "/proc/fbctl", "/proc/sbctl"};
-// const char *dev_fnames[] = 
-//     {"/dev/events", "/dev/fb", "/dev/null", "/dev/zero", "/dev/sb"};
-// const int majors[] = 
-//     {KEYBOARD, FRAMEBUFFER, DEVNULL, DEVZERO, DEVSB};
+PROC_DEV_TABLE  // fcntl.h
 
 // return 0 if ok
 static int create_dev_procfs(void) {

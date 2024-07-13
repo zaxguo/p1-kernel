@@ -1,27 +1,38 @@
-// display a sequence of slides (as bmps), controlled by usb keyboard
-// inspired by nslider 
-//
-// an example of self contained user app
-//  low dep (no newlib, minisdl, snprintf, sscanf)
-// as such, this file includes small implementation of common functions like atoi
-//  Mar 2024 xzl
-//
-// https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nslider/src/main.cpp
-// how to gen slides: see slides/conver.sh 
+/* 
+  display a sequence of slides (as bmps), controlled by usb keyboard
 
-// USAGE:
-//   j/down - page down
-//   k/up - page up
-//   gg - first page
-//   q - quit
-//   (xzl): number then j/k to jmp fwd/back by X slides
+  - an example of self contained user app
+    low dependency: no newlib, minisdl, snprintf, sscanf; 
+  as such, this file includes small implementation of common functions like atoi
+  - also a basic test case for /dev/fb /dev/fb0 etc
+  - About fb: https://github.com/fxlin/p1-kernel/blob/master/docs/exp3/fb.md
+
+  Mar 2024 FL
+
+  Inspired by nslider 
+  https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nslider/src/main.cpp
+  
+  how to gen slides: see slides/conver.sh 
+
+  USAGE:
+  slider [-sf|-fb]  
+    -fb: render using direct framebuffer (/dev/fb)
+    -sf: render using surface (/dev/fb0)
+
+  j/down - page down
+  k/up - page up
+  gg - first page
+  q - quit
+  Number then j/k - jmp fwd/back by X slides
+
+ */
 
 #include <stdint.h> 
 #include <assert.h>
 
 #include "user.h"
 
-////////// bmp load 
+////////// bmp load ////////// 
 
 struct BitmapHeader {
   uint16_t type;
@@ -39,10 +50,10 @@ struct BitmapHeader {
   uint32_t clrused, clrimportant;
 } __attribute__((packed));
 
-// load bmp file into a pixel buf. 
-// bmp file: each pixel 3 bytes (r/g/b) packed. 
-// return pixel buf: each pixel 4 bytes 0/r/g/b 
-// caller must free the buffer 
+/* load bmp file into a pixel buf. 
+bmp file: each pixel 3 bytes (r/g/b) packed. 
+return pixel buf: each pixel 4 bytes 0/r/g/b 
+caller must free the buffer  */
 void* BMP_Load(const char *filename, int *width, int *height) {
   int nread; 
   int fd = open(filename, O_RDONLY);
@@ -79,26 +90,44 @@ void* BMP_Load(const char *filename, int *width, int *height) {
   return pixels;
 }
 
-//// main loop
+//////////  main loop ////////// 
 
-// will be used as virt fb size
+/* the virt fb size */
 // #define W 400
 // #define H 300
-#define W 960
-#define H 720
+// #define W 960
+// #define H 720
+int W=960, H=720;
+int X=0, Y=0;  // for fb0 only, offset
 
 const int N = 10; // max slide num 
 // slides path pattern (starts from 1, per pptx export naming convention)
-// const char *path = "/Slide%d.BMP";
-const char *path = "/d/Slide%d.BMP";  // load from fatfs
-
-int dispinfo[MAX_DISP_ARGS]={0};
+const char *path = "/Slide%d.BMP"; // load from rootfs
+// const char *path = "/d/Slide%d.BMP";  // load from fatfs
 
 static int cur = 1;   // cur slide num 
-static int fb = 0; 
 
-// fill the whole fb with given clr
-void set_bkgnd(unsigned int clr, int w, int h) {
+int config_isfb=0; // 1: using /dev/fb; 0: using /dev/fb0 (surface)
+
+int dispinfo[MAX_DISP_ARGS]={0};
+static int fb = 0;    // file desc for /dev/fb
+
+// direct, fb
+void set_bkgnd(unsigned int clr, int pitch /*in bytes*/, int h) {
+    unsigned int *p = (unsigned int *) malloc(pitch*h);
+    assert(p); 
+    for (int i = 0; i < (pitch/PIXELSIZE)*h; i++)
+      p[i] = clr; 
+    
+    int n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
+
+    if (write(fb, p, pitch*h) < pitch*h)
+      printf("failed to write fb\n"); 
+    free(p);
+}
+
+// indirect, fb0
+void set_bkgnd0(unsigned int clr, int w, int h) {
     unsigned int *p = (unsigned int *) malloc(w*h*PIXELSIZE);
     assert(p); 
     for (int i = 0; i < w*h; i++)
@@ -107,8 +136,10 @@ void set_bkgnd(unsigned int clr, int w, int h) {
     int n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
 
     if (write(fb, p, w*h*PIXELSIZE) < w*h*PIXELSIZE)
-      printf("failed to write fb\n"); 
+      printf("failed to write fb0\n"); 
     free(p);
+
+    config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test 
 }
 
 void render() {
@@ -119,7 +150,7 @@ void render() {
   if (!pixels) {printf("load from %s failed\n", fname); return;}
 
 #if 0
-  // test understanding of hw color. rewrite pixbuf with a single color (argb)
+  // test our understanding of hw color. rewrite pixbuf with a single color (argb)
   // esp: is r and b swapped??
   {
     char a=0xaa, r=0xff, g=0x00, b=0x00;
@@ -130,27 +161,47 @@ void render() {
   }
 #endif
 
+  int fb_w, fb_h; // actual size for visible area
   // crop img data per the framebuf size  
-  int vwidth= dispinfo[VWIDTH], vheight = dispinfo[VHEIGHT]; 
-  int pitch = dispinfo[PITCH]; 
-  int fb_w = min(vwidth,w), fb_h = min(vheight,h); // actual size for visible area
+  if (config_isfb) {
+    int vwidth= dispinfo[VWIDTH], vheight = dispinfo[VHEIGHT];     
+    fb_w = min(vwidth,w), fb_h = min(vheight,h);
+  } else {
+    fb_w = min(W,w), fb_h = min(H,h);
+  }
 
   printf("%s:size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
 
   assert(fb); 
+
   int n, y; 
-  // write to /dev/fb by row 
-  for(y=0;y<fb_h;y++) {
-    n = lseek(fb, y*pitch, SEEK_SET); assert(n>=0); 
-    if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < fb_w*PIXELSIZE) {
-      printf("failed to write (row %d) to fb\n", y); 
-      break; 
-    }    
+  if (config_isfb) {  // write to /dev/fb by row 
+    int pitch = dispinfo[PITCH];     
+    // (XXX add a fast path for only 1 write is needed
+    for(y=0;y<fb_h;y++) {
+      n = lseek(fb, y*pitch, SEEK_SET); assert(n>=0); 
+      if (write(fb, pixels+y*w*PIXELSIZE, fb_w*PIXELSIZE) < fb_w*PIXELSIZE) {
+        printf("failed to write (row %d) to fb\n", y); 
+        break; 
+      }    
+    }
+  } else {  // write to /dev/fb0 by row     
+    // (XXX add a fast path for only 1 write is needed
+    n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
+    for(y=0;y<fb_h;y++) {
+      // no need to lseek, as /dev/fb0 has no row padding
+      if (write(fb, pixels+y*W*PIXELSIZE, fb_w*PIXELSIZE) < fb_w*PIXELSIZE) {
+        printf("failed to write (row %d) to fb0\n", y); 
+        break; 
+      }
+    }
+    config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test 
   }
   free(pixels); 
+
   printf("show %s\n", fname);   
-  // no need to close fb
 }
+
 
 void prev(int rep) {
   if (rep == 0) rep = 1;
@@ -166,69 +217,53 @@ void next(int rep) {
   render();
 }
 
-int main() {
+int main(int argc, char **argv) {
   int n;
   int rep = 0, g = 0; // rep: num of slides to skip
-  // char buf[LINESIZE], *s=buf; 
+
   int evtype;
   unsigned scancode; 
 
+  if (argc>1) {
+    if (strcmp(argv[1], "fb0") == 0) {
+      if (argc==4) {
+        X=atoi(argv[2]); Y=atoi(argv[3]);
+      }
+      config_isfb = 0; 
+    }
+    else if (strcmp(argv[1], "fb") == 0)
+      config_isfb = 1; 
+  }
+
   int events = open("/dev/events", O_RDONLY); 
-  // int dp = open("/proc/dispinfo", O_RDONLY); 
-  // int fbctl = open("/proc/fbctl", O_RDWR); 
-  fb = open("/dev/fb/", O_RDWR); //printf("fb is %d\n", fb); 
+  fb = open(config_isfb ? "/dev/fb" : "/dev/fb0", O_RDWR); 
   assert(fb>0 && events>0); 
 
-  // config fb 
-  // n = config_fbctl(fbctl, 1360, 768, W, H, 0, 0); assert(n==0); 
-  n = config_fbctl(W, H, W, H, 0, 0); assert(n==0); 
-
-  // after config, read dispinfo again (GPU may specify different dims)
-  // parse /proc/dispinfo into dispinfo[]
-  // n=read(dp, buf, LINESIZE); assert(n>0); 
-  // // parse the 1st line to a list of int args... (ignore other lines
-  // for (s = buf; s < buf+n; s++) {
-  //     if (*s=='\n' || *s=='\0')
-  //         break;         
-  //     if ('0' <= *s && *s <= '9') { // start of a num
-  //         dispinfo[nargs] = atoi(s); // printf("got arg %d\n", dispinfo[nargs]);             
-  //         while ('0' <= *s && *s <= '9' && s<buf+n) 
-  //             s++; 
-  //         if (nargs++ == MAX_ARGS)
-  //             break; 
-  //     } 
-  // }
-  read_dispinfo(dispinfo, &n); assert(n>0);
-  printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d\n", 
-    dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VWIDTH], 
-    dispinfo[PITCH], dispinfo[DEPTH]); 
+  if (config_isfb) {
+    n = config_fbctl(W, H, W, H, 0, 0); assert(n==0); 
+    read_dispinfo(dispinfo, &n); assert(n>0);
+    printf("/proc/dispinfo: width %d height %d vwidth %d vheight %d pitch %d\n", 
+      dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], 
+      dispinfo[PITCH], dispinfo[DEPTH]); 
+  } else {
+    W=320; H=240;
+    n = config_fbctl0(FB0_CMD_INIT, X, Y, W, H, ZORDER_TOP); assert(n==0); 
+  }
 
   // rpi3 hw seems to clear fb with 0x0, while rpi3qemu does not 
-  set_bkgnd(0x00ffffff /*white*/, dispinfo[VWIDTH], dispinfo[VWIDTH]);
+  if (config_isfb)
+    set_bkgnd(0x00ffffff /*white*/, dispinfo[PITCH], dispinfo[VHEIGHT]);
+  else 
+    set_bkgnd0(0x00ffffff /*white*/, W, H);
 
   render();
   
-  // main loop. handle keydown event, switch among bmps
+  /* main loop. handle keydown event, switch among bmps */
   while (1) {
     evtype = INVALID; scancode = 0; //invalid
-
-    // read a line from /dev/events and parse it into key events
-    // line format: [kd|ku] 0x12
-    // n = read(events, buf, LINESIZE); assert(n>0); 
-    // s=buf;         
-    // if (buf[0]=='k' && buf[1]=='d') {
-    //   evtype = KEYDOWN; 
-    // } else if (buf[0]=='k' && buf[1]=='u') {
-    //   evtype = KEYUP; 
-    // } 
-    // s += 2; while (*s==' ') s++; 
-    // if (s[0]=='0' && s[1]=='x')
-    //   scancode = atoi16(s); 
     n = read_kb_event(events, &evtype, &scancode); assert(n==0); 
     if (!(scancode && evtype)) {
-      printf("warning:"); 
-      // printf("%s", buf); 
-      printf("ev %d scancode 0x%x\n", evtype, scancode); 
+      printf("warning: ev %d scancode 0x%x\n", evtype, scancode); 
     }
     
     if (evtype == KEYDOWN) {
@@ -264,8 +299,11 @@ int main() {
 cleanup: 
   if (events) close(events); 
   if (fb) {
-    set_bkgnd(0x00000000 /*black*/, dispinfo[VWIDTH], dispinfo[VWIDTH]);
+    set_bkgnd(0x00000000 /*black*/, dispinfo[PITCH], dispinfo[VWIDTH]);
     close(fb); 
+  } else {
+    n = config_fbctl0(FB0_CMD_FINI, 0, 0, 0, 0, 0); assert(n==0); 
+    close(fb);
   }
   return 0;
 }

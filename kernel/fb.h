@@ -12,4 +12,7 @@ struct fb_struct {
 
 extern struct fb_struct the_fb; //mbox.c
 extern struct spinlock mboxlock; 
+
+#define PIXELSIZE 4 /*ARGB, in hw framebuffer also expected by /dev/fb*/ 
+
 #endif

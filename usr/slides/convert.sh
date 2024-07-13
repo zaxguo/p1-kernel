@@ -26,3 +26,7 @@ convert slides.pdf \
 # mkdir -p $NAVY_HOME/fsimg/share/slides/
 # rm $NAVY_HOME/fsimg/share/slides/*
 # mv *.bmp $NAVY_HOME/fsimg/share/slides/
+
+
+# resize images...
+# convert slides/large/Slide2.BMP -resize 320x240  slides/Slide2.BMP

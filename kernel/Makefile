@@ -130,6 +130,8 @@ C_OBJS += $(BUILD_DIR)/timer_c.o
 C_OBJS += $(BUILD_DIR)/user_c.o
 C_OBJS += $(BUILD_DIR)/mbox_c.o
 C_OBJS += $(BUILD_DIR)/unittests_c.o
+# surface flinger 
+C_OBJS += $(BUILD_DIR)/sf_c.o
 
 ASM_OBJS = $(BUILD_DIR)/boot_s.o
 ASM_OBJS += $(BUILD_DIR)/entry_s.o

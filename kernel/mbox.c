@@ -177,7 +177,7 @@ typedef struct {
 
 extern volatile unsigned char _binary_font_sfn_start; // linker script
 
-// 1024x768, phys WH = virt WH, offset (0,0)
+// default (upon boot): 1024x768, phys WH = virt WH, offset (0,0)
 // said to support up to 1920x1080
 struct fb_struct the_fb = {
     .fb = 0,
@@ -372,7 +372,7 @@ int fb_init(void) {
     return ret; 
 }
 
-// return 0 on success
+// return 0 on success (display will go black)
 int fb_fini(void) {
     int ret = 0; 
 
@@ -381,6 +381,10 @@ int fb_fini(void) {
         ret = -1; 
         goto out; 
     }
+
+#ifdef PLAT_RPI3QEMU    // avoid artifacts: qemu does not clear old fb
+    memset(the_fb.fb, 0, the_fb.size);     
+#endif
 
     mbox[0] = 6*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
@@ -517,7 +521,6 @@ void lfb_proprint(int x, int y, char *s)
 #define IMG_DATA header_data      
 #define IMG_HEIGHT height
 #define IMG_WIDTH width
-#define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
 
 // #include "rev_uva_logo_color3-resized.h"
 // #define IMG_DATA img_data      

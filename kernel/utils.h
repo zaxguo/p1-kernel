@@ -90,8 +90,8 @@ int cpuid(void);  // util.S must be called with irq disabled
 
 // alloc.c 
 unsigned int paging_init();
-void *kalloc(); // kernel va
-void kfree(void *p);    // give kernel va
+void *kalloc(); // Get a page. return: kernel va. NOT MT SAFE
+void kfree(void *p);    // p: kernel va. NOT MT SAFE
 unsigned long get_free_page();      // pa
 void free_page(unsigned long p);    // pa 
 int reserve_phys_region(unsigned long pa_start, unsigned long size); 
@@ -244,6 +244,9 @@ void            consputc(int);
 
 // kb.c
 int usbkb_init(void); 
+
+// sf.c
+int start_sf(void);  // must be called from a task context
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

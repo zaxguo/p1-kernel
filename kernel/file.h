@@ -1,3 +1,6 @@
+#include "sleeplock.h"
+#include "fs.h"
+
 // from xv6-riscv 
 // a vfs layer
 struct file {

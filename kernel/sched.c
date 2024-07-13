@@ -787,8 +787,9 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
             // same pc, same sp
         }
 
-		// user task only: dup fds (kernel tasks won't need them)
-		// 		increment reference counts on open file descriptors.
+		/* dup fds, so that parent/child share same set of fds. increment
+		reference counts on opened file descriptors. (user task only; kernel
+		tasks won't need them) */
 		for (int i = 0; i < NOFILE; i++)
 			if (cur->ofile[i])
 				p->ofile[i] = filedup(cur->ofile[i]);
