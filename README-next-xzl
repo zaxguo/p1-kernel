@@ -1339,3 +1339,17 @@ printf() not reentrant ... a wrapper coiuldn't print correct values (va_list pro
 in cpp??) TBD....   right now use macro def to include semp, semv 
 
 malloc not reentrant! 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+common cause for: qemu ok; real hw bug
+    cache coherence
+    cache flush 
+    SMP scheduling
+    memory initlaization values
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+surface flinger
+
+.. decide to do in kernel. simpler. dont habve to design userlevel IPC
+    >> and **named** pipes (unnamed pipes based on fork() shared fds would also be tedious)
+
+

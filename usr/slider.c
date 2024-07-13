@@ -142,13 +142,14 @@ void set_bkgnd0(unsigned int clr, int w, int h) {
     // config_fbctl0(FB0_CMD_TEST,0,0,0,0,0); // test: force compose
 }
 
-void render() {
+// return 0 on success; <0 on err 
+int render() {
   char fname[256];
   int w, h; 
   int t0=uptime();
   sprintf(fname, (char *)path, cur);
   char *pixels = BMP_Load(fname, &w, &h); 
-  if (!pixels) {printf("load from %s failed\n", fname); return;}
+  if (!pixels) {printf("load from %s failed\n", fname); return -1;}
 
 #if 0
   // Test our understanding of hw color. rewrite pixbuf with a single color (argb)
@@ -201,20 +202,23 @@ void render() {
   free(pixels); 
 
   printf("show %s (%d ms)\n", fname, uptime()-t0);
+  return 0; 
 }
 
-void prev(int rep) {  
+void prev(int rep) {
+  int oldcur=cur; 
   if (rep == 0) rep = 1;
   cur -= rep;
   if (cur <= 0) cur = 1;  
-  render();  
+  if (render()<0) cur=oldcur; // update "cur" only if load & render ok
 }
 
 void next(int rep) {
+  int oldcur=cur; 
   if (rep == 0) rep = 1;
   cur += rep;
   if (cur > N) cur = N;
-  render();
+  if (render()<0) cur=oldcur;
 }
 
 int main(int argc, char **argv) {
@@ -265,6 +269,7 @@ int main(int argc, char **argv) {
     n = read_kb_event(events, &evtype, &scancode); assert(n==0); //blocking
     if (!(scancode && evtype)) {
       printf("warning: ev %d scancode 0x%x\n", evtype, scancode); 
+      assert(0); 
     }
     
     if (evtype == KEYDOWN) {

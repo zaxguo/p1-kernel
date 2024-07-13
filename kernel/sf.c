@@ -82,6 +82,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder) {
     if (!s) {BUG();return -1;}
     s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);BUG();return -2;}
     s->x=x; s->y=y; s->w=w; s->h=h; s->pid=pid; s->dirty=1; 
+    s->kb.r=s->kb.w=0; // spinlock unused
 
     acquire(&sflock);
     if (find_sf(pid)) {
@@ -255,7 +256,7 @@ int sf_composite(void) {
     slist_for_each(node, &sflist) { // descending z order, bottom up
         sf = slist_entry(node, struct sf_struct, list /*field name*/);
         if (!sf->dirty) continue;
-        I("%s draw surface pid %d", __func__, sf->pid); 
+        V("%s draw surface pid %d", __func__, sf->pid); 
         p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 
         for (int j=0;j<sf->h;j++) {  // copy by row             
             // XXX handle transparency: read back the row from fb, compute, and write
@@ -267,6 +268,8 @@ int sf_composite(void) {
         }
         sf->dirty=0; cnt++; 
     }
+    if (cnt) // what will happen if we don't flush?
+        __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
     release(&mboxlock);
 
     return cnt; 

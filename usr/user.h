@@ -97,7 +97,7 @@ typedef unsigned int PIXEL;
 
 // USB keyboard 
 enum{INVALID=0,KEYDOWN,KEYUP}; 
-int read_kb_event(int events, int *evtype, unsigned *scancode);
+int read_kb_event(int events, int *evtype, unsigned *scancode); // uio.c
 
 // scancode defs: 
 // all the way to KEY_KPDOT, cf https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  

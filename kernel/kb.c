@@ -15,7 +15,7 @@
 #include "utils.h"
 #include "kb.h"
 
-struct kb_struct the_kb;
+struct kb_struct the_kb = {.r=0,.w=0};
 
 #define NUM_SCANCODES   0x64 // all the way to KEY_KPDOT, cf https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2  
 #define KEY_RELEASED    0
