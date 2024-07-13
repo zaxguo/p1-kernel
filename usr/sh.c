@@ -4,6 +4,14 @@
 //      and exec 
 #include "user.h"
 
+// ~= ~/.bashrc, executed before interactive term. good for testing user
+// apps. each command terminated with '\n'
+// const char *init_cmds = "cat logo.txt\n"
+//                    "cat logo.txt\n";
+// const char *init_cmds = "nes\n";
+const char *init_cmds = "slider fb0 0 0 &\n"
+                       "slider fb0 50 50 &\n";
+
 // Parsed command representation
 #define EXEC  1
 #define REDIR 2
@@ -133,7 +141,7 @@ runcmd(struct cmd *cmd)
 }
 
 int
-getcmd(char *buf, int nbuf)
+getcmd(char *buf, int nbuf) // get a cmd line from stdin
 {
   write(2, "$ ", 2);
   memset(buf, 0, nbuf);
@@ -141,6 +149,20 @@ getcmd(char *buf, int nbuf)
   if(buf[0] == 0) // EOF
     return -1;
   return 0;
+}
+
+// xzl: get a cmd line from string "cmds"
+// "cmds" contain multiple commands, separate by \n
+// return: new cmds position
+// =0 on end or error
+char * getcmd0(char *buf, int nbuf, const char *cmds) {
+  if (!cmds) return 0; 
+  memset(buf, 0, nbuf);
+  char *end = strchr(cmds, '\n'); 
+  if (!end) return 0; // no more cmd
+  if (end-cmds>nbuf) {printf("nbuf too small");return 0;}
+  memcpy(buf, cmds, end-cmds+1); 
+  return end+1;
 }
 
 PROC_DEV_TABLE  // fcntl.h
@@ -225,7 +247,20 @@ main(void)
   if (create_dev_procfs()==0)
     printf("OK\n"); 
   logo();
-  // run_nes();    // xzl: hack
+
+  const char *p=init_cmds; 
+  while((p=getcmd0(buf, sizeof(buf), p))) {
+    if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
+      // Chdir must be called by the parent, not the child.
+      buf[strlen(buf)-1] = 0;  // chop \n
+      if(chdir(buf+3) < 0)
+        fprintf(2, "cannot cd %s\n", buf+3);
+      continue;
+    }
+    if(fork1() == 0)
+      runcmd(parsecmd(buf));
+    wait(0);
+  } 
 
   // Read and run input commands.       xzl: very simple main loop
   while(getcmd(buf, sizeof(buf)) >= 0){
