@@ -105,26 +105,26 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder) {
 }
 
 // return 0 on success; <0 on err
-static int sf_free(int pid)  {
+int sf_free(int pid)  {
     struct sf_struct *sf = 0;
     int ret;
 
     acquire(&sflock);
     sf = find_sf(pid); 
     if (sf) {
-        slist_remove(&sflist, &sf->list); // XXX ok? or &sf->list?
+        slist_remove(&sflist, &sf->list);
         if (sf->buf) free(sf->buf); 
         free(sf); 
     }    
     if (sf) {
         if (slist_len(&sflist) == 0) 
-            fb_fini();  // no surface let
+            {I("freed");fb_fini();}  // no surface left
         else
             dirty_all_sf(); 
         wakeup(&sflist);
         ret=0; 
     } else 
-        ret=-11; 
+        ret=-1; 
 
     release(&sflock);
     return ret;
@@ -398,7 +398,7 @@ static void kb_dispatch_task(int arg) {
         acquire(&sflock); 
         if (slist_len(&sflist)>0) {
             top = slist_tail_entry(&sflist, struct sf_struct, list); 
-            I("ev: %s mod %04x scan %04x dispatch to: pid %d", 
+            V("ev: %s mod %04x scan %04x dispatch to: pid %d", 
                 ev.type?"KEYUP":"KEYDOWN", ev.mod, ev.scancode, top->pid); 
             // NB we rely on sflock and do NOT use the surface.kb::lock 
             // (simple, also avoid the race between event dispatch vs. 

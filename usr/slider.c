@@ -15,22 +15,23 @@
   how to gen slides: see slides/conver.sh 
 
   USAGE:
-  slider [-sf|-fb]  
-    -fb: render using direct framebuffer (/dev/fb)
-    -sf: render using surface (/dev/fb0)
-
-  j/down - page down
-  k/up - page up
-  gg - first page
-  q - quit
-  Number then j/k - jmp fwd/back by X slides
-
+  ./slider      # direct mode. will use /dev/fb & /dev/events
+  ./slider X Y W H    # indirect mode.  will use /dev/fb0 & /dev/events0
+    -X/Y/W/H surface location; -1 for default values
  */
 
 #include <stdint.h> 
 #include <assert.h>
 
 #include "user.h"
+
+const char * usage = \
+  "Keys:\n"
+  "* j/down - page down\n"
+  "* k/up - page up\n"
+  "* gg - first page\n"
+  "* q - quit\n"
+  "* Number then j/k - jmp fwd/back by X slides\n";
 
 ////////// bmp load ////////// 
 
@@ -224,19 +225,22 @@ int main(int argc, char **argv) {
   int evtype;
   unsigned scancode; 
 
-  if (argc>1) {
-    if (strcmp(argv[1], "fb0") == 0) {
-      if (argc==4) {
-        X=atoi(argv[2]); Y=atoi(argv[3]);
-      }
-      config_isfb = 0; 
-    }
-    else if (strcmp(argv[1], "fb") == 0)
-      config_isfb = 1; 
+  if (argc==4) {    
+      int x,y,w,h;
+      x=atoi(argv[1]);y=atoi(argv[2]);w=atoi(argv[3]);h=atoi(argv[4]);
+      if (x>=0) X=x; 
+      if (y>=0) Y=y; 
+      if (w>=0) W=w; 
+      if (h>=0) H=h; 
+      config_isfb = 0; printf("Indirect rendering\n");
   }
+  else if (strcmp(argv[1], "fb") == 0)
+    {config_isfb = 1; printf("Direct rendering\n");}
 
-  int events = open("/dev/events", O_RDONLY); 
-  fb = open(config_isfb ? "/dev/fb" : "/dev/fb0", O_RDWR); 
+  printf(usage); 
+
+  int events = open(config_isfb ? "/dev/events":"/dev/events0", O_RDONLY); 
+  fb = open(config_isfb ? "/dev/fb":"/dev/fb0", O_RDWR); 
   assert(fb>0 && events>0); 
 
   if (config_isfb) {
@@ -305,5 +309,6 @@ cleanup:
     n = config_fbctl0(FB0_CMD_FINI, 0, 0, 0, 0, 0); assert(n==0); 
     close(fb);
   }
+  printf("slider quits\n"); 
   return 0;
 }

@@ -510,6 +510,10 @@ void exit_process(int status) {
     }
     p->cwd = 0;
 
+    // Free any IO resources ... 
+    extern int sf_free(int pid); // free surface, sf.c
+    sf_free(p->pid); // ok if failed
+
     // This prevents to parent from checking & recycling this zombie until 
     // the cpu moves away from the zombie's stack (see below)
     acquire(&sched_lock); 
