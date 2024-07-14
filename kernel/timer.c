@@ -114,6 +114,7 @@ void handle_generic_timer_irq(void)  {
 #define TICKPERMS (CLOCKHZ / 1000)
 #define TICKPERUS (CLOCKHZ / 1000 / 1000)
 
+// return # of ticks (=us when clock is 1MHz)
 // NB: use current_time() below to get converted time
 static inline unsigned long current_counter() {
 	// assume these two are consistent, since the clock is only 1MHz...
@@ -163,7 +164,7 @@ struct spinlock timerlock;
 
 struct vtimer {
 	TKernelTimerHandler *handler; 
-	unsigned long elapseat; 	
+	unsigned long elapseat; 	// sys timer ticks (=us)
 	void *param; 
 	void *context; 
 }; 
@@ -187,19 +188,21 @@ void sys_timer_init(void)
 // return 0 on success
 static int adjust_sys_timer(void)
 {
-	unsigned long next = (unsigned long)-1; // upcoming firing time
+	unsigned long next = (unsigned long)-1; // upcoming firing time, to be determined
 
 	for (int tt = 0; tt < N_TIMERS; tt++) {
 		if (!timers[tt].handler)
 			continue; 
 		if (timers[tt].elapseat < next) {
-			// timer expired, but handler not called? this could happen on qemu
-			// when cpu is slow. call the handler here
 			if (timers[tt].elapseat < current_counter()) {
+				/* timer expired, but handler not called? this could happen on
+				qemu when cpu is slow. call the handler here */
 				(*timers[tt].handler)(tt, timers[tt].param, timers[tt].context);
 				timers[tt].handler = 0; 
 			} else 
-				next = timers[tt].elapseat;
+				// give "next" a bit slack so current_counter() won't exceed
+				// "next" immediately before we finish this function
+				next = timers[tt].elapseat + 10*1000 /*10ms*/;
 		}
 	}
 

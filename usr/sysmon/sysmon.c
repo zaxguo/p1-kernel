@@ -7,10 +7,6 @@
 // #include <SDL-video.h>
 #include "math.h"
 
-#define FPS 10
-#define W 800
-#define H 600
-
 SDL_Surface *screen = NULL;
 
 // static void drawVerticalLine(int x, int y0, int y1, uint32_t color) {
@@ -41,14 +37,19 @@ SDL_Surface *screen = NULL;
 //   SDL_UpdateRect(screen, 0, 0, 0, 0);
 // }
 
+#define FPS 10
+#define W 200
+#define H 80
 
 // each cpu: a horizontal bar
 // below in pixels
-#define BAR_ORIGIN_X  10 // top-left of bar 0
-#define BAR_ORIGIN_Y  10 
-#define BAR_HEIGHT 20
-#define BAR_MAX_LEN 200
-#define BAR_SPACING 10 
+#define BAR_SPACING (W/20) 
+#define BAR_ORIGIN_X  BAR_SPACING // top-left of bar 0, wrt to the current window
+#define BAR_ORIGIN_Y  BAR_SPACING 
+#define BAR_MAX_LEN (W-2*BAR_SPACING)
+#define BAR_HEIGHT ((H-2*BAR_SPACING)/(MAX_NCPU)-BAR_SPACING)
+
+static_assert(BAR_MAX_LEN>0 && BAR_HEIGHT>0);
 
 // video.c 
 #define rgba_to_pixel(r, g, b, a) \
@@ -80,7 +81,21 @@ unsigned util_to_color(int util) {
 
 void visualize(int util[MAX_NCPU], int ncpus) {
   int i;
+  static int last_util[MAX_NCPU];
   // int color = 0;
+
+  // printf("last %d %d %d %d\n", last_util[0],last_util[1],last_util[2],last_util[3]);
+  // printf("cur %d %d %d %d\n", util[0],util[1],util[2],util[3]);
+
+  if (memcmp(last_util, util, sizeof(last_util)) == 0)  // why not working??
+  // if(last_util[0]==util[0] && last_util[1]==util[1] && last_util[2]==util[2] && last_util[3]==util[3])
+    return; 
+  
+  printf("%s %lu diff %d\n", __func__, sizeof(last_util), 
+    memcmp(last_util, util, sizeof(last_util)));
+  memcpy(last_util, util, sizeof(last_util)); 
+
+  printf("%s redraw\n", __func__);
 
   for (i=0; i<ncpus; i++) {
     bars[i].w = BAR_MAX_LEN;
@@ -109,15 +124,38 @@ void visual_console(int util[MAX_NCPU], int ncpus) {
   printf("\n");
 }
 
-int is_console=0; 
+/* Usage: 
+  ./sysmon [con|fb|fb0]
+  con: visualize on serial console
+  fb:  visualize on hw fb (/dev/fb)
+  fb0:  visualize on surface (/dev/fb0)
+*/
+#define MOD_CON 1
+#define MOD_FB 2
+#define MOD_FB0 3
+
+int mode=MOD_CON;
 
 int main(int argc, char *argv[]) {
   int util[MAX_NCPU], ncpu; 
 
-  if (argc>1 && strcmp(argv[1], "-c")==0) is_console=1;
+  if (argc>1) { 
+    if (strcmp(argv[1], "con")==0) 
+      mode=MOD_CON;
+    else if (strcmp(argv[1], "fb")==0) 
+      mode=MOD_FB; 
+    else if (strcmp(argv[1], "fb0")==0) 
+      mode=MOD_FB0; 
+  }
 
-  if (!is_console) {
-    screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE);
+  if (mode!=MOD_CON) {
+    if (mode==MOD_FB)
+      screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE);
+    else 
+      // screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE|SDL_TRANSPARENCY);
+      screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE);
+
+    assert(screen); 
     SDL_FillRect(screen, NULL, 0);
     SDL_UpdateRect(screen, 0, 0, 0, 0);
     init_bars(); 
@@ -136,14 +174,14 @@ int main(int argc, char *argv[]) {
     read_cpuinfo(util, &ncpu); 
     // for (int i=0; i<ncpu; i++) printf("%d ", util[i]);  // debugging
     // printf("\n"); 
-    if (is_console)
+    if (mode==MOD_CON)
       visual_console(util, ncpu);
     else 
       visualize(util, ncpu);
   }
 
 cleanup:
-  if (!is_console)
+  if (mode!=MOD_CON)
     SDL_Quit();
 
   return 0;

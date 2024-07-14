@@ -5,7 +5,8 @@
 #define SDL_PHYSPAL 0x2
 #define SDL_LOGPAL 0x4
 #define SDL_SWSURFACE  0x8
-#define SDL_PREALLOC  0x10
+// #define SDL_PREALLOC  0x10
+#define SDL_TRANSPARENCY  0x10  // xzl, to overcome the interface limit
 #define SDL_FULLSCREEN 0x20
 #define SDL_RESIZABLE  0x40
 
@@ -305,8 +306,10 @@ SDL_Surface* SDL_CreateRGBSurface(uint32_t flags, int width, int height, int dep
     uint32_t Rmask, uint32_t Gmask, uint32_t Bmask, uint32_t Amask);
 
 // legacy API to create surface
+// flags: 
+//  SDL_HWSURFACE - use /dev/fb
+//  SDL_SWSURFACE - use /dev/fb0 (with x,y=0,0; this function cannot change that)
 SDL_Surface* SDL_SetVideoMode(int width, int height, int bpp, uint32_t flags);
-
 
 void SDL_FreeSurface(SDL_Surface *s);
 void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);

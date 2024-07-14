@@ -52,13 +52,16 @@ extern int sys_getpid(void);  // sys.c
 
 // return 0 on success
 static int reset_fb() {
+    I("%s +++++ ", __func__);
     // hw fb setup
     int args[PROCFS_MAX_ARGS] = {
         VW, VH, /*w,h*/
         VW, VH, /*vw,vh*/
         0,0 /*offsetx, offsety*/
     }; 
-    return procfs_parse_fbctl(args);  // reuse the func
+    int ret = procfs_parse_fbctl(args);  // reuse the func
+    I("%s +++++ done ", __func__);
+    return ret; 
 }
 
 // find sf given pid, return 0 if no found
@@ -86,14 +89,15 @@ static void dirty_all_sf(void) {
     bk_dirty=1; 
 }
 
+// zorder: ZORDER_BOTTOM, ZORDER_TOP, etc 
+// trans: transparency, 0 (fully transparent)-100(fullyopaque)
 // return 0 on success; <0 on err
-static int sf_create(int pid, int x, int y, int w, int h, int zorder) {
+static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans) {
     struct sf_struct *s = malloc(sizeof(struct sf_struct));     
-    W("called"); 
 
     if (!s) {BUG();return -1;}
     s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);BUG();return -2;}
-    s->x=x; s->y=y; s->w=w; s->h=h; s->pid=pid; s->dirty=1; 
+    s->x=x; s->y=y; s->w=w; s->h=h; s->pid=pid; s->dirty=1; s->transparency=trans;
     s->kb.r=s->kb.w=0; // spinlock unused
 
     acquire(&sflock);
@@ -104,11 +108,12 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder) {
 
     // put new surface on the list of surfaces
     if (zorder == ZORDER_BOTTOM) { // list head
-        slist_insert(&sflist, &s->list);
-        dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all     
+        slist_insert(&sflist, &s->list);         
     } else if (zorder == ZORDER_TOP) // list tail
         slist_append(&sflist, &s->list);  // no dirty needed
     else BUG(); 
+
+    dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all    
 
     if (slist_len(&sflist) == 1) // reset fb, if this is the 1st surface
         reset_fb();     
@@ -198,7 +203,7 @@ static int sf_alt_tab(void) {
     struct sf_struct *bot = 0;
     int ret; 
     
-    I("%s", __func__); 
+    V("%s", __func__); 
     acquire(&sflock);
     if (slist_len(&sflist) <= 1) {ret=0; goto out;}
     bot = slist_first_entry(&sflist, struct sf_struct, list); 
@@ -222,7 +227,7 @@ static int sf_move(int dir) {
     int ret=0; 
     struct sf_struct *top = 0;
     
-    I("%s", __func__); 
+    V("%s", __func__); 
 
     acquire(&sflock);
     if (slist_len(&sflist)==0) {ret=-1; goto out;}
@@ -272,10 +277,10 @@ void test_sf() {
     
     sf_dump();  // (null)
 
-    ret=sf_create(1 /*pid*/, 0,0, 320,240, ZORDER_TOP); BUG_ON(ret!=0);
-    ret=sf_create(2 /*pid*/, 0,0, 320,240, ZORDER_TOP); BUG_ON(ret!=0);
-    ret=sf_create(3 /*pid*/, 0,0, 320,240, ZORDER_TOP); BUG_ON(ret!=0);
-    ret=sf_create(3 /*pid*/, 0,0, 320,240, ZORDER_TOP); BUG_ON(ret==0); // shall fail
+    ret=sf_create(1 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret!=0);
+    ret=sf_create(2 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret!=0);
+    ret=sf_create(3 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret!=0);
+    ret=sf_create(3 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret==0); // shall fail
 
     sf_dump(); // 1..2..3
 
@@ -322,16 +327,20 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
 // composite on demand (lazy) 
 // caller MUST hold sflock
 // return # of layers redrawn
+extern int sys_uptime(); 
 static int sf_composite(void) {
     unsigned char *p0, *p1, cnt=0;
     slist_t *node = 0; 
-    struct sf_struct *sf;     
+    struct sf_struct *sf;
+    int t0;
 
     acquire(&mboxlock);
     if (!the_fb.fb) {release(&mboxlock); return 0;} // maybe we have 0 surfaces, fb closed
     
+    I("%s starts >>>>>>> ", __func__);  t0 = sys_uptime(); 
     if (bk_dirty) {
         // clear backgnd
+        I("%s: drak bkgnd", __func__); 
         for (int i=0; i<VH;i++) {
             unsigned int *p0 = (unsigned int *)(the_fb.fb + the_fb.pitch*i); 
             for (int j=0; j<VW;j++)
@@ -342,11 +351,27 @@ static int sf_composite(void) {
     slist_for_each(node, &sflist) { // descending z order, bottom up
         sf = slist_entry(node, struct sf_struct, list /*field name*/);
         if (!sf->dirty) continue;
-        V("%s draw surface pid %d", __func__, sf->pid); 
+        I("%s draw surface pid %d", __func__, sf->pid); 
+        int t0=0,t1=100;
+        if (sf->transparency!=100) {
+            t1=sf->transparency; t0=100-t1; 
+        }
         p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 
-        for (int j=0;j<sf->h;j++) {  // copy by row             
-            // XXX handle transparency: read back the row from fb, compute, and write
-            if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->w*PIXELSIZE)%8==0)
+        for (int j=0;j<sf->h;j++) {  // copy by row
+            // handle transparency: read back the fb row, mix, and write back
+            __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
+            if (sf->transparency!=100) {
+                for (int k=0;k<sf->w;k++) {
+                    unsigned int *px0 = (unsigned int*)p0; 
+                    unsigned int *px1 = (unsigned int*)p1; 
+                    //  mix per pixel, per channel
+                    unsigned char r0=(px0[k]>>16)&0xff,g0=(px0[k]>>8)&0xff,b0=px0[k]&0xff;
+                    unsigned char r1=(px1[k]>>16)&0xff,g1=(px1[k]>>8)&0xff,b1=px1[k]&0xff;
+                    px0[k]= (min((r0*t0+r1*t1)/100, 0xff)<<16) 
+                            | (min((g0*t0+g1*t1)/100, 0xff)<<8) 
+                            | (min((b0*t0+b1*t1)/100, 0xff));  
+                }
+            } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->w*PIXELSIZE)%8==0)
                 memcpy_aligned(p0, p1, sf->w*PIXELSIZE); // fast path
             else
                 memcpy(p0, p1, sf->w*PIXELSIZE); 
@@ -356,10 +381,11 @@ static int sf_composite(void) {
         if (!node->next) // this is the top surface. draw its bounary
             draw_boundary(sf->x,sf->y,sf->w,sf->h, B_COLOR);
     }
-    if (cnt) // what will happen if we don't flush?
+    if (cnt) // what if no flush?
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
     release(&mboxlock);
 
+    I("%s done. %d ms", __func__, sys_uptime()-t0);
     return cnt; 
 }
 
@@ -395,9 +421,9 @@ int procfs_parse_fbctl0(int args[PROCFS_MAX_ARGS]) {
     int cmd = args[0], ret = 0, pid = sys_getpid(); 
     switch(cmd) 
     {
-    case FB0_CMD_INIT: // format: cmd x y w h zorder
-        W("called"); 
-        ret = sf_create(pid, args[1], args[2], args[3], args[4], args[5]);
+    case FB0_CMD_INIT: // format: cmd x y w h zorder transparency(100=opaque)
+        W("FB0_CMD_INIT called"); 
+        ret = sf_create(pid, args[1], args[2], args[3], args[4], args[5], args[6]);
         break; 
     case FB0_CMD_FINI: // format: cmd
         ret = sf_free(pid); 

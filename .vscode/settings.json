@@ -103,7 +103,8 @@
         "vos.h": "c",
         "sdl-video.h": "c",
         "numeric": "c",
-        "semaphore": "c"
+        "semaphore": "c",
+        "unistd.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

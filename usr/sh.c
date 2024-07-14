@@ -8,10 +8,23 @@
 // apps. each command terminated with '\n'
 // const char *init_cmds = "cat logo.txt\n"
 //                    "cat logo.txt\n";
-// const char *init_cmds = "nes\n";
-const char *init_cmds = "slider 0 0 -1 -1&\n"
-                       "slider 50 50 -1 -1&\n";
+// const char *init_cmds = "nes &\n";
+
+// ok
+// const char *init_cmds = "slider 0 0 -1 -1&\n"
+//                        "slider 50 50 -1 -1 75&\n";
+
 // const char *init_cmds = "slider 50 50 -1 -1&\n";
+
+// failed
+// const char *init_cmds = "sysmon fb0 &\n"
+//                         "slider 50 50 -1 -1&\n";
+
+// sometimes ok
+// const char *init_cmds = "slider 300 300 -1 -1&\n"
+//                         "sysmon fb0 &\n";
+
+const char *init_cmds = "sysmon fb0 &\n";
 
 // Parsed command representation
 #define EXEC  1

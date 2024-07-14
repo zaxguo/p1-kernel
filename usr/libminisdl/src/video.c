@@ -7,8 +7,8 @@
 #include "SDL.h"
 #include "assert.h"
 #include "sdl-video.h"
-// newlib
-#include "fcntl.h"      // not kernel/fcntl.h
+// Below: newlib/libc/include/
+#include "fcntl.h"  // not kernel/fcntl.h
 #include "stdio.h"
 #include "unistd.h"
 #include "stdlib.h"
@@ -230,7 +230,7 @@ void SDL_SetWindowTitle(SDL_Window *window,
 
 
 // https://wiki.libsdl.org/SDL2/SDL_CreateRGBSurface
-// XXX ignored: flags, R/G/B/A mask, 
+// XXX ignored: R/G/B/A mask, 
 // depth: the depth of the surface in bits (only support 32 XXX)
 // return 0 on failure
 SDL_Surface* SDL_CreateRGBSurface(uint32_t flags, int w, int h, int depth,
@@ -238,30 +238,43 @@ SDL_Surface* SDL_CreateRGBSurface(uint32_t flags, int w, int h, int depth,
     
     int n, fb; 
     int dispinfo[MAX_DISP_ARGS]; 
+    char isfb = (flags & SDL_HWSURFACE)?1:0; // hw surface or not 
 
     if (depth!=32) return 0;
     
-    if ((fb = open("/dev/fb/", O_RDWR)) <= 0)
+    if ((fb = open(isfb?"/dev/fb/":"/dev/fb0/", O_RDWR)) <= 0)
         return 0;
 
-    // ask for a vframebuf that scales the window (viewport) by 2x
-    if (config_fbctl(w, h,     // desired viewport ("phys")
-                     w, h * 2, // two fbs, each contig, each can be written to /dev/fb in a write()
-                     0, 0) != 0) {
-        return 0;
+    if (isfb) {
+        // ask for a vframebuf that scales the window (viewport) by 2x
+        if (config_fbctl(w, h,     // desired viewport ("phys")
+                        w, h * 2, // two fbs, each contig, each can be written to /dev/fb in a write()
+                        0, 0) != 0) {
+            return 0;
+        }
+    } else {
+        // only support x=y=0, limited by this func's interface
+        int trans=100;
+        if (flags & SDL_TRANSPARENCY) trans=80;
+        if (config_fbctl0(FB0_CMD_INIT,0,0,w,h,ZORDER_TOP,trans) != 0) return 0;
     }
 
     SDL_Surface * suf = calloc(1, sizeof(SDL_Surface)); assert(suf); 
     
-    read_dispinfo(dispinfo, &n); assert(n > 0);
-    suf->w = dispinfo[VWIDTH]; assert(w<=dispinfo[VWIDTH]);
-    suf->h = h;  assert(2*h <= dispinfo[VHEIGHT]); 
-    suf->pitch = dispinfo[PITCH];   // app must respect this
-    // if (suf->w * sizeof(PIXEL) != suf->pitch) {printf("TBD"); return 0;}
+    if (isfb) {
+        read_dispinfo(dispinfo, &n); assert(n > 0);
+        suf->w = dispinfo[VWIDTH]; assert(w<=dispinfo[VWIDTH]);
+        suf->h = h;  assert(2*h <= dispinfo[VHEIGHT]); 
+        suf->pitch = dispinfo[PITCH];   // app must respect this
+        // if (suf->w * sizeof(PIXEL) != suf->pitch) {printf("TBD"); return 0;}
+    } else {
+        suf->w=w; suf->h=h; suf->pitch=suf->w*PIXELSIZE;
+    }
 
     suf->pixels = calloc(suf->h, suf->pitch); assert(suf->pixels); 
     suf->fb = fb; 
     suf->cur_id = 0; 
+    suf->flags = flags; 
 
     return suf; 
 }
@@ -297,23 +310,32 @@ int SDL_FillRect(SDL_Surface *suf, SDL_Rect *r, uint32_t color) {
 // legacy API
 // Makes sure the given area is updated on the given screen. 
 // The rectangle must be confined within the screen boundaries (no clipping is done).
-// If 'x', 'y', 'w' and 'h' are all 0, SDL_UpdateRect will update the entire screen.
+// If 'x', 'y', 'w' and 'h' are all 0, SDL_UpdateRect will update the entire surface
 // https://www.libsdl.org/release/SDL-1.2.15/docs/html/sdlupdaterect.html
 void SDL_UpdateRect(SDL_Surface *suf, int x, int y, int w, int h) {
     int n; 
     assert(x==0 && y==0 && w==0 && h==0); // only support full scr now
     int sz = suf->h * suf->pitch; 
-
-    n = lseek(suf->fb, suf->cur_id * sz, SEEK_SET);
-    assert(n == suf->cur_id * sz); 
-    if ((n = write(suf->fb, suf->pixels, sz)) != sz) {
-        printf("%s: failed to write to hw fb. fb %d sz %d ret %d\n",
-               __func__, suf->fb, sz, n);
+    char isfb = (suf->flags & SDL_HWSURFACE)?1:0; // hw surface or not 
+    
+    if (isfb) { // /dev/fb
+        n = lseek(suf->fb, suf->cur_id * sz, SEEK_SET);
+        assert(n == suf->cur_id * sz); 
+        if ((n = write(suf->fb, suf->pixels, sz)) != sz) {
+            printf("%s: failed to write to hw fb. fb %d sz %d ret %d\n",
+                __func__, suf->fb, sz, n);
+        }
+        // make the cur fb visible
+        n = config_fbctl(0, 0, 0, 0 /*dc*/, 0 /*xoff*/, suf->cur_id * suf->h /*yoff*/);
+        assert(n == 0);
+        suf->cur_id = 1 - suf->cur_id;
+    } else {    // /dev/fb0
+        n = lseek(suf->fb, 0, SEEK_SET); assert(n==0); 
+        if ((n = write(suf->fb, suf->pixels, sz)) != sz) {
+            printf("%s: failed to write to hw fb. fb %d sz %d ret %d\n",
+                __func__, suf->fb, sz, n);
+        }
     }
-    // make the cur fb visible
-    n = config_fbctl(0, 0, 0, 0 /*dc*/, 0 /*xoff*/, suf->cur_id * suf->h /*yoff*/);
-    assert(n == 0);
-    suf->cur_id = 1 - suf->cur_id;
 }
 
 // https://wiki.libsdl.org/SDL2/SDL_LockSurface

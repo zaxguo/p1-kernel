@@ -88,7 +88,7 @@ void tfp_sprintf(char* s,char *fmt, ...);   // xzl: TODO const chat *fmt...
 enum{WIDTH=0,HEIGHT,VWIDTH,VHEIGHT,SWIDTH,SHEIGHT,
     PITCH,DEPTH,ISRGB,MAX_DISP_ARGS}; 
 int config_fbctl(int w, int d, int vw, int vh, int offx, int offy);
-int config_fbctl0(int cmd, int arg1, int arg2, int arg3, int arg4, int arg5);
+int config_fbctl0(int cmd, int x, int y, int w, int h, int zorder, int trans);
 int read_dispinfo(int dispinfo[MAX_DISP_ARGS], int *nargs);
 
 // /dev/fb

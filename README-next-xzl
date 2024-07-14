@@ -1353,3 +1353,6 @@ surface flinger
     >> and **named** pipes (unnamed pipes based on fork() shared fds would also be tedious)
 
 
+~~~~~~~~~~~~~~~
+TODO: assertion failed: !(current_counter() > next) at timer.c:208
+TODO: sh.c will miss command sometimes

@@ -12,7 +12,7 @@
   Inspired by nslider 
   https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nslider/src/main.cpp
   
-  how to gen slides: see slides/conver.sh 
+  How to gen slides: see slides/conver.sh 
 
   USAGE:
   ./slider      # direct mode. will use /dev/fb & /dev/events
@@ -52,9 +52,12 @@ struct BitmapHeader {
 } __attribute__((packed));
 
 /* load bmp file into a pixel buf. 
-bmp file: each pixel 3 bytes (r/g/b) packed. 
-return pixel buf: each pixel 4 bytes 0/r/g/b 
-caller must free the buffer  */
+  bmp file: each pixel 3 bytes (r/g/b) packed. 
+  width, height: out, the dimension of the loaded bmp
+  return pixel buf: each pixel 4 bytes 0/r/g/b 
+  caller must free the buffer  
+  TBD: scale the bmp based on actual fb size 
+*/
 void* BMP_Load(const char *filename, int *width, int *height) {
   int nread; 
   int fd = open(filename, O_RDONLY);
@@ -173,7 +176,7 @@ int render() {
     fb_w = min(W,w), fb_h = min(H,h);
   }
 
-  printf("%s:img size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
+  // printf("%s:img size: w %d h %d; canvas w %d h %d\n", fname, w, h, fb_w, fb_h); 
 
   assert(fb); 
   int n, y; 
@@ -189,7 +192,7 @@ int render() {
     }
   } else {  // write to /dev/fb0 by row     
     // (TBD add a fast path when only 1 write is needed
-    n = lseek(fb, 0, SEEK_SET); assert(n>=0); 
+    n = lseek(fb, 0, SEEK_SET); assert(n==0); 
     for(y=0;y<fb_h;y++) {
       // no need to lseek, as /dev/fb0 has no row padding
       if (write(fb, pixels+y*W*PIXELSIZE, fb_w*PIXELSIZE) < fb_w*PIXELSIZE) {
@@ -224,14 +227,16 @@ void next(int rep) {
 int main(int argc, char **argv) {
   int n;
   int rep = 0, g = 0; // rep: num of slides to skip
+  int trans=100; //opaque
 
-  if (argc==5) {    
+  if (argc>=5) {    
       int x,y,w,h;
       x=atoi(argv[1]);y=atoi(argv[2]);w=atoi(argv[3]);h=atoi(argv[4]);
       if (x>=0) X=x; 
       if (y>=0) Y=y; 
       if (w>=0) W=w; else W=W0;
       if (h>=0) H=h; else H=H0;
+      if (argc==6) trans=atoi(argv[5]);
       config_isfb = 0; printf("Indirect rendering. Surface %d %d\n", W,H);
   }
   else
@@ -250,7 +255,7 @@ int main(int argc, char **argv) {
       dispinfo[WIDTH], dispinfo[HEIGHT], dispinfo[VWIDTH], dispinfo[VHEIGHT], 
       dispinfo[PITCH], dispinfo[DEPTH]); 
   } else {
-    n = config_fbctl0(FB0_CMD_INIT, X, Y, W, H, ZORDER_TOP); assert(n==0); 
+    n = config_fbctl0(FB0_CMD_INIT, X, Y, W, H, ZORDER_TOP,trans); assert(n==0); 
   }
 
   // rpi3 hw seems to clear fb with 0x0, while rpi3qemu does not 
@@ -308,7 +313,7 @@ cleanup:
     set_bkgnd(0x00000000 /*black*/, dispinfo[PITCH], dispinfo[VWIDTH]);
     if (fb) close(fb); 
   } else {
-    n = config_fbctl0(FB0_CMD_FINI, 0, 0, 0, 0, 0); assert(n==0); 
+    n = config_fbctl0(FB0_CMD_FINI, 0,0,0,0,0,0); assert(n==0); 
     // release surface, which triggers the SF to compose
     if (fb) close(fb); 
   }
