@@ -201,7 +201,7 @@ static int adjust_sys_timer(void)
 				timers[tt].handler = 0; 
 			} else 
 				// give "next" a bit slack so current_counter() won't exceed
-				// "next" immediately before we finish this function
+				// "next" before we retuen from this function
 				next = timers[tt].elapseat + 10*1000 /*10ms*/;
 		}
 	}

@@ -43,9 +43,6 @@ extern int sys_getpid(void);  // sys.c
 #define VW 1024
 #define VH 768
 
-// boundary 
-#define B_THICKNESS     5
-#define B_COLOR  0x00ff0000    // red
 // bkgnd
 #define BK_COLOR  0x00222222    // gray
 
@@ -123,6 +120,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
     return 0; 
 }
 
+// needed by exit_process() (sched.c)
 // return 0 on success; <0 on err
 int sf_free(int pid)  {
     struct sf_struct *sf = 0;
@@ -168,7 +166,7 @@ out:
 
 // change pos/loc/zorder of an existing surface
 // return 0 on success, <0 on error 
-int sf_config(int pid, int x, int y, int w, int h, int zorder) {
+static int sf_config(int pid, int x, int y, int w, int h, int zorder) {
     struct sf_struct *sf = 0;
 
     acquire(&sflock);
@@ -217,12 +215,10 @@ out:
     return ret; 
 }
 
-// mov the top surface. 
+// change the top surface location
 // dir=0/1/2/3 R/L/Dn/Up  corresponding to their scancode order
 // call must NOT hold sflock
 #define STEPSIZE 5 // # of pixels to move, per key event
-#define max(a, b) ((a) > (b) ? (a) : (b))
-#define min(a, b) ((a) < (b) ? (a) : (b))
 static int sf_move(int dir) {
     int ret=0; 
     struct sf_struct *top = 0;
@@ -236,24 +232,22 @@ static int sf_move(int dir) {
     switch(dir) {
         case 0: // R
             // TBD: allow part of the surface to move out of the window 
-            top->x = min(VW - top->w, (int)(top->x) + STEPSIZE); 
+            top->x = MIN(VW - top->w, (int)(top->x) + STEPSIZE); 
             break; 
         case 1: // L
-            top->x = max(0, (int)(top->x) - STEPSIZE); 
+            top->x = MAX(0, (int)(top->x) - STEPSIZE); 
             break;
         case 2: // Dn
-            top->y = min(VH - top->h, (int)(top->y) + STEPSIZE); 
+            top->y = MIN(VH - top->h, (int)(top->y) + STEPSIZE); 
             break; 
         case 3: // Up
-            top->y = max(0, (int)(top->y) - STEPSIZE); 
+            top->y = MAX(0, (int)(top->y) - STEPSIZE); 
             break;
         default: 
             ret = -1; 
             break; 
     }
-    if (ret!=-1) {
-        dirty_all_sf(); wakeup(&sflist); 
-    }
+    if (ret!=-1) {dirty_all_sf(); wakeup(&sflist);}
 out: 
     release(&sflock);
     return ret; 
@@ -272,26 +266,26 @@ static void sf_dump(void) { // debugging
     release(&sflock);
 }
 
-void test_sf() {
+void test_sf() {    // unittest. basic sf data structures & ops
     int ret; 
     
-    sf_dump();  // (null)
+    sf_dump();  // expect: (null)
 
     ret=sf_create(1 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret!=0);
     ret=sf_create(2 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret!=0);
     ret=sf_create(3 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret!=0);
     ret=sf_create(3 /*pid*/, 0,0, 320,240, ZORDER_TOP,100); BUG_ON(ret==0); // shall fail
 
-    sf_dump(); // 1..2..3
+    sf_dump(); // expect: 1..2..3
 
     ret=sf_config(2,100,100,320,240,ZORDER_BOTTOM); BUG_ON(ret!=0);
     ret=sf_config(10,0,0,640,480,ZORDER_BOTTOM); BUG_ON(ret==0);
-    sf_dump(); // 2..1..3
+    sf_dump(); // expect: 2..1..3
 
     ret=sf_free(2); BUG_ON(ret!=0);
     ret=sf_free(2); BUG_ON(ret==0);
 
-    sf_dump(); // 1..3
+    sf_dump(); // expect: 1..3
 
     ret=sf_free(1); BUG_ON(ret!=0);
     ret=sf_free(3); BUG_ON(ret!=0);
@@ -304,23 +298,37 @@ void test_sf() {
 **********************/
 
 /* Draw a boundary around the top most (focused) surface. 
-  with the real estate of the surface. 
-  Caller MUST hold mboxlock & sflock
+  Within the real estate of the surface. 
+  Caller MUST hold mboxlock
 */
-
+#define B_THICKNESS     3      // in pixels
+#define B_COLOR  0x00ff0000    // red
 static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
     unsigned char *t0, *b0;
-    unsigned int *t, *b; 
+    unsigned int *t, *b;
     BUG_ON(h<=B_THICKNESS || w<=B_THICKNESS);
     V("%s: %d %d %d %d", __func__, x,y,w,h);
 
+    // top & bottom boundaries
     for (int j=0; j<B_THICKNESS; j++) {
-        t0 = the_fb.fb + (y+j)*the_fb.pitch + x*PIXELSIZE; // top boundary
-        b0 = the_fb.fb + (y+h+1+j-B_THICKNESS)*the_fb.pitch + x*PIXELSIZE; // bottom        
+        t0 = the_fb.fb + (y+j)*the_fb.pitch + x*PIXELSIZE; // top
+        b0 = the_fb.fb + (y+h+1+j-B_THICKNESS)*the_fb.pitch + x*PIXELSIZE; // bottom
         t = (unsigned int *)t0; b = (unsigned int *)b0;
         for (int i=0; i<w; i++)
             t[i] = b[i] = clr;
-    } // TODO: also draw left/right boundaries
+    }
+
+    // left and right boundaries
+    // for (int yy=y+B_THICKNESS; yy<y+h-B_THICKNESS; yy++) { //yy:row num in fb
+    for (int yy=y; yy<y+h; yy++) { //yy:row num in fb
+        // per row
+        t0 = the_fb.fb + yy*the_fb.pitch + x*PIXELSIZE; // left
+        b0 = the_fb.fb + yy*the_fb.pitch + (x+w+1-B_THICKNESS)*PIXELSIZE; // right
+        t = (unsigned int *)t0; b = (unsigned int *)b0;
+        for (int i=0; i<B_THICKNESS;i++)
+            t[i] = b[i] = clr;
+    }
+
     return 0; 
 }
 
@@ -335,12 +343,11 @@ static int sf_composite(void) {
     int t0;
 
     acquire(&mboxlock);
-    if (!the_fb.fb) {release(&mboxlock); return 0;} // maybe we have 0 surfaces, fb closed
+    if (!the_fb.fb) {release(&mboxlock); return 0;} // we may have 0 surface, fb closed
     
     I("%s starts >>>>>>> ", __func__);  t0 = sys_uptime(); 
-    if (bk_dirty) {
-        // clear backgnd
-        I("%s: drak bkgnd", __func__); 
+    if (bk_dirty) { // draw backgnd
+        I("%s: draw bkgnd", __func__); 
         for (int i=0; i<VH;i++) {
             unsigned int *p0 = (unsigned int *)(the_fb.fb + the_fb.pitch*i); 
             for (int j=0; j<VW;j++)
@@ -348,40 +355,39 @@ static int sf_composite(void) {
         }
         bk_dirty=0;
     }
-    slist_for_each(node, &sflist) { // descending z order, bottom up
-        sf = slist_entry(node, struct sf_struct, list /*field name*/);
+    slist_for_each(node, &sflist) { // iterate all sfs: descending z order (bottom up)
+        sf = slist_entry(node, struct sf_struct, list);
         if (!sf->dirty) continue;
-        I("%s draw surface pid %d", __func__, sf->pid); 
-        int t0=0,t1=100;
-        if (sf->transparency!=100) {
-            t1=sf->transparency; t0=100-t1; 
-        }
+        I("%s draw: pid %d x %d y %d w %d h %d trans %d", __func__, sf->pid,
+            sf->x, sf->y, sf->w, sf->h, sf->transparency); 
+        // p0: hw fb; p1: the current surface
         p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 
         for (int j=0;j<sf->h;j++) {  // copy by row
-            // handle transparency: read back the fb row, mix, and write back
-            __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
-            if (sf->transparency!=100) {
+            if (sf->transparency!=100) { // sf transparent
+                // read back the fb row, mix, and write back                
+                __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
+                int t1=sf->transparency; t0=100-t1;
                 for (int k=0;k<sf->w;k++) {
                     unsigned int *px0 = (unsigned int*)p0; 
                     unsigned int *px1 = (unsigned int*)p1; 
                     //  mix per pixel, per channel
                     unsigned char r0=(px0[k]>>16)&0xff,g0=(px0[k]>>8)&0xff,b0=px0[k]&0xff;
                     unsigned char r1=(px1[k]>>16)&0xff,g1=(px1[k]>>8)&0xff,b1=px1[k]&0xff;
-                    px0[k]= (min((r0*t0+r1*t1)/100, 0xff)<<16) 
-                            | (min((g0*t0+g1*t1)/100, 0xff)<<8) 
-                            | (min((b0*t0+b1*t1)/100, 0xff));  
+                    px0[k]= (MIN((r0*t0+r1*t1)/100, 0xff)<<16) 
+                            | (MIN((g0*t0+g1*t1)/100, 0xff)<<8) 
+                            | (MIN((b0*t0+b1*t1)/100, 0xff));  
                 }
             } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->w*PIXELSIZE)%8==0)
-                memcpy_aligned(p0, p1, sf->w*PIXELSIZE); // fast path
+                memcpy_aligned(p0, p1, sf->w*PIXELSIZE); // sf opaque, fast path
             else
-                memcpy(p0, p1, sf->w*PIXELSIZE); 
+                memcpy(p0, p1, sf->w*PIXELSIZE); // sf opaque, slow path
             p0 += the_fb.pitch; p1 += sf->w*PIXELSIZE;
         }
         sf->dirty=0; cnt++; 
         if (!node->next) // this is the top surface. draw its bounary
             draw_boundary(sf->x,sf->y,sf->w,sf->h, B_COLOR);
     }
-    if (cnt) // what if no flush?
+    if (cnt) // what if no flush? (TBD optimization: partial flush)
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
     release(&mboxlock);
 
@@ -400,14 +406,6 @@ static void sf_task(int arg) {
         sleep(&sflist, &sflock); 
     }
     release(&sflock); // never reach here?
-
-    // periodic wakeup -- a bad idea; waste of cycles 
-    // while (1)  {        
-    //     acquire(&sflock); 
-    //     int n = sf_composite(); I("%s: composite %d surfaces", __func__, n);
-    //     release(&sflock);
-    //     sys_sleep(1000/SF_HZ);
-    // }
 }
     
 /**********************
@@ -449,7 +447,7 @@ int devfb0_write(int user_src, uint64 src, int off, int n, void *content) {
     slist_t *node = 0;
     struct sf_struct *sf=0;  // surface found
 
-    acquire(&sflock); 
+    acquire(&sflock);
     slist_for_each(node, &sflist) {
         struct sf_struct *sff = slist_entry(node, 
             struct sf_struct/*struct name*/, list /*field name*/); BUG_ON(!sff);
@@ -461,9 +459,9 @@ int devfb0_write(int user_src, uint64 src, int off, int n, void *content) {
     if (!sf) {BUG(); ret=-1; goto out;} // pid not found 
     BUG_ON(!sf->buf); 
     
-    len = MIN(sf->w*sf->h*PIXELSIZE - off, n); 
+    len = MIN(sf->w * sf->h * PIXELSIZE - off, n); 
     if (either_copyin(sf->buf + off, 1, src, len) == -1)
-        goto out; 
+        goto out;
     ret = len;
     /* Current design: wakes up flinger for evrey write(). This could be
     expensive, e.g. if a task write to /dev/fb0 in small batches. However, tasks
@@ -592,7 +590,6 @@ int kb0_read(int user_dst, uint64 dst, int off, int n, char blocking, void *cont
     return target - n;
 }
 
-
 #include "sched.h"
 #include "file.h"
 
@@ -605,8 +602,8 @@ int start_sf(void) {
     devsw[FRAMEBUFFER0].write = devfb0_write;
 
     int res = copy_process(PF_KTHREAD, (unsigned long)&sf_task, 0/*arg*/,
-		 "sftask"); BUG_ON(res<0); 
+		 "[sf]"); BUG_ON(res<0); 
     res = copy_process(PF_KTHREAD, (unsigned long)&kb_dispatch_task, 0/*arg*/,
-        "kbtask"); BUG_ON(res<0); 
+        "[kb]"); BUG_ON(res<0); 
     return 0; 
 }

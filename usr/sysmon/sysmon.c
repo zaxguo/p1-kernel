@@ -82,17 +82,11 @@ unsigned util_to_color(int util) {
 void visualize(int util[MAX_NCPU], int ncpus) {
   int i;
   static int last_util[MAX_NCPU];
-  // int color = 0;
-
-  // printf("last %d %d %d %d\n", last_util[0],last_util[1],last_util[2],last_util[3]);
-  // printf("cur %d %d %d %d\n", util[0],util[1],util[2],util[3]);
 
   if (memcmp(last_util, util, sizeof(last_util)) == 0)  // why not working??
   // if(last_util[0]==util[0] && last_util[1]==util[1] && last_util[2]==util[2] && last_util[3]==util[3])
     return; 
   
-  printf("%s %lu diff %d\n", __func__, sizeof(last_util), 
-    memcmp(last_util, util, sizeof(last_util)));
   memcpy(last_util, util, sizeof(last_util)); 
 
   printf("%s redraw\n", __func__);

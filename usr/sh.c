@@ -16,15 +16,25 @@
 
 // const char *init_cmds = "slider 50 50 -1 -1&\n";
 
-// failed
+// failed (overlapped surfaces) 
 // const char *init_cmds = "sysmon fb0 &\n"
 //                         "slider 50 50 -1 -1&\n";
+
+// ok if sleep() in sh
+// const char *init_cmds = "sysmon fb0 &\n"
+//                         "slider 300 300 -1 -1&\n";
+
+const char *init_cmds = "sysmon fb0 &\n"
+                        "slider 50 50 -1 -1&\n"
+                        "slider 100 100 -1 -1&\n"
+                        "slider 300 300 -1 -1&\n";
 
 // sometimes ok
 // const char *init_cmds = "slider 300 300 -1 -1&\n"
 //                         "sysmon fb0 &\n";
 
-const char *init_cmds = "sysmon fb0 &\n";
+// ok 
+// const char *init_cmds = "sysmon fb0 &\n";
 
 // Parsed command representation
 #define EXEC  1
@@ -262,6 +272,7 @@ main(void)
     printf("OK\n"); 
   logo();
 
+  // Run a list of hardcoded commands from "init_cmds"
   const char *p=init_cmds; 
   while((p=getcmd0(buf, sizeof(buf), p))) {
     printf("sh: exec init cmd: %s", buf);
@@ -275,9 +286,10 @@ main(void)
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(0);
+    sleep(500); // otherwise sf may malfunction.... maybe due to SMP races inside kernel.. (e.g alloc)
   } 
 
-  // Read and run input commands.       xzl: very simple main loop
+  // Read and run input commands from stdin (inf loop)
   while(getcmd(buf, sizeof(buf)) >= 0){
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.

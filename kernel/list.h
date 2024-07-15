@@ -328,6 +328,3 @@ inline int slist_isempty(slist_t *l)
  * 2017-11-15     JasonJia     Modify slist_foreach to slist_for_each_entry.
  *                             Make code cleanup.
  */
-
-
-

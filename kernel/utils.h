@@ -311,6 +311,7 @@ int sd_dev_to_part(int dev);
 unsigned long sd_get_sect_size();
 
 
+/*      useful macros       */
 // linux
 #define likely(exp)     __builtin_expect (!!(exp), 1)
 #define unlikely(exp)   __builtin_expect (!!(exp), 0)
@@ -333,6 +334,9 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
                             ? ((void) 0)           \
                             : warn_failed (#expr, __FILE__, __LINE__))
 
+#define MAX(a,b) ((a) > (b) ? a : b)
+#define MIN(a,b) ((a) < (b) ? a : b)
+
 // debug.h
 #include "debug.h"
 
@@ -340,7 +344,5 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
 void __asm_invalidate_dcache_range(void* start_addr, void* end_addr);
 void __asm_flush_dcache_range(void* start_addr, void* end_addr);
 
-#define MAX(a,b) ((a) > (b) ? a : b)
-#define MIN(a,b) ((a) < (b) ? a : b)
 
 #endif  /*_UTILS_H */
