@@ -18,7 +18,7 @@ extern char kernel_end; // linker.ld
 
 // allocated from paging area, for malloc()/free()
 //  define 0 to disable malloc()
-#define MALLOC_PAGES  (8*1024*1024 / PAGE_SIZE)  
+#define MALLOC_PAGES  (16*1024*1024 / PAGE_SIZE)  
 #undef MEM_PAGE_ALLOC
 
 /* allocate a page (zero filled). return kernel va. */

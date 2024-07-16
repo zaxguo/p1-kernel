@@ -46,7 +46,6 @@ extern int sys_getpid(void);  // sys.c
 // bkgnd
 #define BK_COLOR  0x00222222    // gray
 
-
 // return 0 on success
 static int reset_fb() {
     I("%s +++++ ", __func__);
@@ -116,7 +115,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
         reset_fb();     
     wakeup(&sflist); // notify flinger
     release(&sflock);
-    W("cr ok"); 
+    W("cr ok. pid %d", pid); 
     return 0; 
 }
 
@@ -326,7 +325,7 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
         b0 = the_fb.fb + yy*the_fb.pitch + (x+w+1-B_THICKNESS)*PIXELSIZE; // right
         t = (unsigned int *)t0; b = (unsigned int *)b0;
         for (int i=0; i<B_THICKNESS;i++)
-            t[i] = b[i] = clr;
+            t[i] = b[i] = clr; // 0x000000ff
     }
 
     return 0; 
@@ -358,7 +357,7 @@ static int sf_composite(void) {
     slist_for_each(node, &sflist) { // iterate all sfs: descending z order (bottom up)
         sf = slist_entry(node, struct sf_struct, list);
         if (!sf->dirty) continue;
-        I("%s draw: pid %d x %d y %d w %d h %d trans %d", __func__, sf->pid,
+        I("%s draw: pid %d; x %d y %d w %d h %d trans %d", __func__, sf->pid,
             sf->x, sf->y, sf->w, sf->h, sf->transparency); 
         // p0: hw fb; p1: the current surface
         p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 

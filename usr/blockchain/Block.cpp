@@ -35,8 +35,8 @@ void Block::MineBlock(const char *diffStr) {
 
 ////// SMP version 
 
-// #define NWORKERS 4
-#define NWORKERS 2
+#define NWORKERS 4
+// #define NWORKERS 2
 // #define NWORKERS 1
 
 /* passed from the main task to worker tasks ("miners") */

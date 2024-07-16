@@ -73,9 +73,9 @@ void init_bars(void) {
 
 unsigned util_to_color(int util) {
   int r, g, b; 
-  r = (util/100) * 255; 
+  r = util*255 / 100; 
   g = 0; 
-  b = 255 - (util/100) * 255; 
+  b = 255 - r; 
   return rgba_to_pixel(r, g, b, 0); 
 }
 
@@ -146,14 +146,22 @@ int main(int argc, char *argv[]) {
     if (mode==MOD_FB)
       screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE);
     else 
-      // screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE|SDL_TRANSPARENCY);
-      screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE);
+      screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE|SDL_TRANSPARENCY);
+      // screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE);
 
     assert(screen); 
     SDL_FillRect(screen, NULL, 0);
     SDL_UpdateRect(screen, 0, 0, 0, 0);
     init_bars(); 
   }
+
+  // // test color bars -- OK. to del
+  // util[0]=0;
+  // while (1) {
+  //   util[0]=(util[0]+5)%100;
+  //   visualize(util, 4);
+  //   msleep(1000);
+  // }
 
   while (1) {
     SDL_Event ev;

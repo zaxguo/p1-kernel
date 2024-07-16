@@ -1,4 +1,5 @@
-#define K2_DEBUG_WARN
+// #define K2_DEBUG_WARN
+#define K2_DEBUG_INFO
 
 /*
  * Copyright (C) 2018 bzt (bztsrc@github)

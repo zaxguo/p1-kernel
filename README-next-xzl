@@ -1354,5 +1354,11 @@ surface flinger
 
 
 ~~~~~~~~~~~~~~~
-TODO: assertion failed: !(current_counter() > next) at timer.c:208
+[x]: assertion failed: !(current_counter() > next) at timer.c:208
 TODO: sh.c will miss command sometimes
+
+turns out malloc has issues... (even for cpu=1)... 
+will return bad mem ptr when mem is not enough (???) 
+    or just b/c some race condition?? 
+
+overall malloc code... 

@@ -24,6 +24,7 @@
 // const char *init_cmds = "sysmon fb0 &\n"
 //                         "slider 300 300 -1 -1&\n";
 
+// ok if enough kernel malloc mem 
 const char *init_cmds = "sysmon fb0 &\n"
                         "slider 50 50 -1 -1&\n"
                         "slider 100 100 -1 -1&\n"
@@ -35,6 +36,8 @@ const char *init_cmds = "sysmon fb0 &\n"
 
 // ok 
 // const char *init_cmds = "sysmon fb0 &\n";
+
+// const char *init_cmds=0; // no init cmd
 
 // Parsed command representation
 #define EXEC  1
