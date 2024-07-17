@@ -1362,3 +1362,11 @@ will return bad mem ptr when mem is not enough (???)
     or just b/c some race condition?? 
 
 overall malloc code... 
+
+fixed a silly bug in reserve_pages()... count the page indx wrong....
+     framebuffer region and malloc region are both reserved, and overlapped. 
+     which caused memory corruption in surface flinger. 
+and this double reservation was missed due to reserve_page() bug
+
+now fixed reserve_pages()... also update kernel layout, so that fb region and 
+malloc regions are disjoint....
