@@ -2,8 +2,8 @@
 
 // -------------- configuration -------------------------- //
 #define NOFILE          16  // open files per process
-// #define NCPU	        1   // # of cpu cores kernel supported 
-#define NCPU	        4   // # of cpu cores kernel supported 
+#define NCPU	        1   // # of cpu cores kernel supported 
+// #define NCPU	        4   // # of cpu cores kernel supported 
 #define MAXPATH         128   // maximum file path name
 #define NINODE          50  // maximum number of active i-nodes
 // #define NDEV            10  // maximum major device number
@@ -34,6 +34,10 @@
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define FSSIZE       15000 // 2000  // size of file system in blocks
 // (32 * 1024)  ok, but results in a very large ramdisk...
+
+// the malloc()/free() region which is carved out from the paging area
+// #define MALLOC_PAGES  (16*1024*1024 / PAGE_SIZE)  
+#define MALLOC_PAGES  (8*1024*1024 / PAGE_SIZE)  
 
 // Large user vm. but usertests slow b/c freecount()
 #define USER_VA_END         (128 * 1024 * 1024) // == user stack top, 128MB user va

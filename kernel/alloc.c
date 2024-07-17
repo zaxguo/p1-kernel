@@ -3,29 +3,52 @@
 #include "mmu.h"
 #include "spinlock.h"
 
-// kernel memory allocator
 
-/* 
-	Minimalist page allocation 
+/* Phys memory layout:	cf paging_init() below. 
 
-	all alloc/free funcs below are locked
+	Upon init, Rpi3 GPU will allocate framebuffer at certain addr. We need to
+	know that addr in order to decide paging memory usable to the kernel.
+	However, we won't know that addr until we initialize the GPU (cf mbox.c).
+	Based on my observation, GPU always allocates the framebuffer at fixed
+	locations (below) near the end of phys mem. 
+
+	Based on the assumption, we exclude GUESS_FB_BASE_PA--HIGH_MEMORY from the
+	paging memory. (Hope we don't waste too much phys mem)
+
+	If later the GPU init code (mbox.c) finds these assumption is wrong, 
+	mem reservation will fail and kernel will panic. 
 */
-static unsigned char mem_map [ MAX_PAGING_PAGES ] = {0,};
+#ifdef PLAT_RPI3
+#define GUESS_FB_BASE_PA 0x3e8fa000
+#elif defined PLAT_RPI3QEMU
+#define GUESS_FB_BASE_PA 0x3c100000
+#endif
+#define HIGH_MEMORY0 GUESS_FB_BASE_PA // the actual "highmem"
+// #define HIGH_MEMORY0 HIGH_MEMORY
+
+
+/* below: flags covering from LOW_MEMORY to HIGH_MEMORY, including: 
+(1) region for page allocator 
+(2) the possible framebuffer region (to be reserved).
+(3) the malloc region (to be reserved).
+one byte for a page. 1=allocated */
+static unsigned char mem_map [ MAX_PAGING_PAGES ] = {0,}; 
+
+/*  Minimalist page allocation 
+	all alloc/free funcs below are locked (SMP safe) */
 struct spinlock alloc_lock = {.locked=0, .cpu=0, .name="alloc_lock"}; 
+
 static unsigned long LOW_MEMORY = 0; 	// pa
 static unsigned long PAGING_PAGES = 0; 
 extern char kernel_end; // linker.ld
 
-// allocated from paging area, for malloc()/free()
 //  define 0 to disable malloc()
-#define MALLOC_PAGES  (16*1024*1024 / PAGE_SIZE)  
 #undef MEM_PAGE_ALLOC
 
 /* allocate a page (zero filled). return kernel va. */
 void *kalloc() {
 	unsigned long page = get_free_page();
-	if (page == 0)
-		return 0;
+	if (page == 0) return 0;
 	return PA2VA(page);
 }
 
@@ -37,7 +60,7 @@ void kfree(void *p) {
 /* allocate a page (zero filled). return pa of the page. 0 if failed */
 unsigned long get_free_page() {
 	acquire(&alloc_lock);
-	for (int i = 0; i < PAGING_PAGES; i++){
+	for (int i = 0; i < PAGING_PAGES-MALLOC_PAGES; i++){
 		if (mem_map[i] == 0){
 			mem_map[i] = 1;
 			release(&alloc_lock);
@@ -53,95 +76,122 @@ unsigned long get_free_page() {
 /* free a page. @p is pa of the page. */
 void free_page(unsigned long p){
 	acquire(&alloc_lock);
-	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
+	mem_map[(p - LOW_MEMORY)>>PAGE_SHIFT] = 0;
 	release(&alloc_lock);
 }
 
-static void alloc_init (unsigned char *ulBase, unsigned long ulSize); 
-
-// reserve a phys region. all pages must be unused previously. 
-// caller must hold alloc_lock
-// is_reserve==1 for reserve, 0 for free
-// return 0 if succeeds
+/* reserve a phys region. all pages must be unused previously. 
+	caller MUST hold alloc_lock
+	is_reserve: 1 for reserve, 0 for free
+	return 0 if OK  */
 static int _reserve_phys_region(unsigned long pa_start, 
 	unsigned long size, int is_reserve) {
-	if ((pa_start & ~PAGE_MASK) != 0 || (size & ~PAGE_MASK) != 0)
+	if ((pa_start & ~PAGE_MASK) != 0 || (size & ~PAGE_MASK) != 0) // must align
 		{W("pa_start %lx size %lx", pa_start, size);BUG(); return -1;}
-	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++){
+
+	for (unsigned i = ((pa_start-LOW_MEMORY)>>PAGE_SHIFT); 
+			i<((pa_start-LOW_MEMORY+size)>>PAGE_SHIFT); i++){
 		if (mem_map[i] == is_reserve)	
-			{return -2;}      // page already taken?   
+			{return -2;}      // page already reserved / freed? 
 	}	
-	for (unsigned i = (pa_start>>PAGE_SHIFT); i<(size>>PAGE_SHIFT); i++)
+	for (unsigned i = ((pa_start-LOW_MEMORY)>>PAGE_SHIFT); 
+		i<((pa_start-LOW_MEMORY+size)>>PAGE_SHIFT); i++){
 		mem_map[i] = is_reserve; 
+	}
+
+	W("%s: %s. pa_start %lx -- %lx size %lx",
+		 __func__, is_reserve?"reserved":"freed", 
+		 pa_start, pa_start+size, size);
 	return 0; 
 }
 
+/* same as above. but caller MUST NOT hold alloc_lock */
 int reserve_phys_region(unsigned long pa_start, unsigned long size) {
 	int ret; 
 	acquire(&alloc_lock); 
-	ret = _reserve_phys_region(pa_start, size, 1/*is_reserve*/);
+	ret = _reserve_phys_region(pa_start, size, 1/*reserve*/);
 	release(&alloc_lock); 
 	return ret; 
 }
 
+/* same as above. but caller MUST NOT hold alloc_lock */
 int free_phys_region(unsigned long pa_start, unsigned long size) {
 	int ret; 
 	acquire(&alloc_lock); 
-	ret = _reserve_phys_region(pa_start, size, 0/*is_reserve*/);
+	ret = _reserve_phys_region(pa_start, size, 0/*free*/);
 	release(&alloc_lock); 
 	return ret; 
 }
 
-// return: # of paging pages
+/* init kernel's memory mgmt 
+	return: # of paging pages */
+static void alloc_init (unsigned char *ulBase, unsigned long ulSize); 
+
 unsigned int paging_init() {
 	LOW_MEMORY = VA2PA(PGROUNDUP((unsigned long)&kernel_end));	
-	PAGING_PAGES = (HIGH_MEMORY - LOW_MEMORY) / PAGE_SIZE; 
+	PAGING_PAGES = (HIGH_MEMORY0 - LOW_MEMORY) / PAGE_SIZE; // comment above
 	
     BUG_ON(2 * MALLOC_PAGES >= PAGING_PAGES); // too many malloc pages 
 
 	I("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
 	I("	kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
-	I("	paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY);
+	I("	paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY0);
 	I("     %lu%s %ld pages", 
-		int_val((HIGH_MEMORY - LOW_MEMORY)),
-		int_postfix((HIGH_MEMORY - LOW_MEMORY)),
+		int_val((HIGH_MEMORY0 - LOW_MEMORY)),
+		int_postfix((HIGH_MEMORY0 - LOW_MEMORY)),
 		PAGING_PAGES);
 
-    // reserve a virtually contig region for malloc(). 
+    /* reserve a virtually contig region for malloc()  */
     if (MALLOC_PAGES) {
         acquire(&alloc_lock); 
-        // for (int i = 0; i < MALLOC_PAGES; i++) {
-        //     BUG_ON(mem_map[i]);      // page already taken?
-        //     mem_map[i] = 1;             
-        // }
-		// int ret = _reserve_phys_region(LOW_MEMORY, MALLOC_PAGES * PAGE_SIZE); 
-		// BUG_ON(ret); 
-        // alloc_init(PA2VA(LOW_MEMORY), MALLOC_PAGES * PAGE_SIZE); 
-		int ret = _reserve_phys_region(HIGH_MEMORY-MALLOC_PAGES*PAGE_SIZE, 
-			MALLOC_PAGES*PAGE_SIZE, 1); 
-		BUG_ON(ret); 
-        alloc_init(PA2VA(HIGH_MEMORY-MALLOC_PAGES*PAGE_SIZE), 
+		int ret = _reserve_phys_region(HIGH_MEMORY0-MALLOC_PAGES*PAGE_SIZE, 
+			MALLOC_PAGES*PAGE_SIZE, 1); BUG_ON(ret); 
+        alloc_init(PA2VA(HIGH_MEMORY0-MALLOC_PAGES*PAGE_SIZE), 
 			MALLOC_PAGES*PAGE_SIZE); 		
         release(&alloc_lock);
     } 
     I("     malloc area: %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),
                                  int_postfix(MALLOC_PAGES * PAGE_SIZE)); 
-
+	I(" unused (left for framebuffer): %08x -- %08x", 
+		HIGH_MEMORY0, HIGH_MEMORY);
 	return PAGING_PAGES; 
 }
 
-//////////// kernel malloc/free. right now only for usbc. may spinoff in the future 
-// USPi - An USB driver for Raspberry Pi written in C
-// alloc.c   cf LICENSE
+/* 
+	Simple malloc/free support. Main idea: 
 
-#define MEM_DEBUG	1	// xzl: malloc statics (per blocksize)
-// below also has a page allocator, if we replace our simple page alloc in the future
-// #define MEM_PAGE_ALLOC 1   // disabled as of now
+	the allocator is given a contig virtual region (its pool) at boot time. it
+	has a set of N fixed block sizes to allocate; corresponding to these sizes,
+	it maintains N freelists (called buckets), which are initally empty. 
+
+	after boot: as malloc() is invoked, the allocator takes a block of memory
+	from the start of its memory pool; as free() is invoked, the allocator
+	returns the block to one of the freelist. Therefore, for future malloc(),
+	the allocator will try to look at the freelists first, and only chop off
+	from the pool if no blocks are available on the freelists. 
+
+	malloc() fails if: the requested size is too large, larger than any of the
+	fixed block size; or no blocks are on the freelists && the pool runs out
+
+	NB: it's a simple design: it does NOT split or merge blocks. there will be
+	mem waste due to internal fragmentation. 
+
+	Used by the usb driver & surface flinger (sf.c)
+	Originally from: USPi - An USB driver for Raspberry Pi written in C
+	alloc.c   cf LICENSE 
+*/
+
+#define MEM_DEBUG	1	// keep malloc statics (per blocksize)
+
+/* the code below implements a page allocator, which is compiled away now.
+ if we replace our simple page alloc in the future, we may turn it back on */
+// #define MEM_PAGE_ALLOC 1   // disable page allocator code below
 
 #define BLOCK_ALIGN	16
 #define ALIGN_MASK	(BLOCK_ALIGN-1)
 
-// prefix the actual data (not embedded)
+/* the data structure that prefixes the allocated data (i.e. `block'). 
+	that is, TBlockHeader is not part of the allocated data */
 typedef struct TBlockHeader
 {
 	unsigned int	nMagic		__attribute__ ((packed));		//4
@@ -152,12 +202,13 @@ typedef struct TBlockHeader
 	unsigned char	Data[0];	// actual data follows, shall align to BLOCK_ALIGN
 } TBlockHeader;			
 
-// a freelist of blks, of same size.
+/* "bucket" -- a freelist of blocks. these blocks all of the same size.
+the allocator have many freelists like this  */
 typedef struct TBlockBucket {
-	unsigned int	nSize;
+	unsigned int	nSize; // size of all the blocks on this list 
 #ifdef MEM_DEBUG
-	unsigned int	nCount;		// already allocated (off the freelist)
-	unsigned int	nMaxCount;
+	unsigned int	nCount;	// # of blocks already allocated (i.e. off the freelist)
+	unsigned int	nMaxCount; // # of blocks ever allocated
 #endif
 	TBlockHeader	*pFreeList;
 } TBlockBucket;
@@ -178,25 +229,28 @@ typedef struct TPageBucket {
 } TPageBucket;
 #endif
 
-static unsigned char *s_pNextBlock = 0;		// base of the global chunk. BLOCK_ALIGN aligned
-static unsigned char *s_pBlockLimit = 0;	// end of it
+/* THE global memory pool, initialized during boot (cf alloc_init()). 
+  s_pNextBlock is where the next block is chopped off from the pool */
+static unsigned char *s_pNextBlock = 0;	 // base. BLOCK_ALIGN aligned
+static unsigned char *s_pBlockLimit = 0; // end of it
 
 #ifdef MEM_PAGE_ALLOC
 static unsigned char *s_pNextPage;
 static unsigned char *s_pPageLimit;
 #endif
 
-// mutiple lists for diff sizes...
+// mutiple freelists, each holding free blocks of a specific size
 static TBlockBucket s_BlockBucket[] = {{0x40}, {0x400}, {0x1000}, {0x4000}, 
 							{0x40000}, {0x80000}, {0}};
-#define MAX_ALLOC_SIZE 0x80000		// largest bucket size. malloc() cannot exceed this size
+#define MAX_ALLOC_SIZE 0x80000	// the largest bucket. malloc() cannot exceed this size
 
 #ifdef MEM_PAGE_ALLOC
 static TPageBucket s_PageBucket;		// a freelist of pages...
 #endif
 
-// the region to be managed by malloc. must be kernel va. 
-//          must be page aligned?
+/* init data structures for kernel malloc()
+	ulBase, ulSize: virt region to be managed by malloc. (kernel va)
+    must be page aligned? */
 static void alloc_init (unsigned char *ulBase, unsigned long ulSize) {
 #if 0       // xzl: not needed
 	if (ulBase < MEM_HEAP_START) {
@@ -220,7 +274,7 @@ static void alloc_init (unsigned char *ulBase, unsigned long ulSize) {
 #endif
 }
 
-// return total mem (both under malloc and page alloc)
+/* return total mem (both under malloc and page alloc) */
 unsigned long mem_get_size (void) {
 #ifdef MEM_PAGE_ALLOC
 	return (unsigned long) (s_pBlockLimit - s_pNextBlock) + (s_pPageLimit - s_pNextPage);
@@ -234,13 +288,13 @@ void *malloc (unsigned ulSize) {
 	if (ulSize > MAX_ALLOC_SIZE) 
 		return 0; 
 		
-    // unsigned long origsize = ulSize; //xzl        
 	acquire(&alloc_lock);
 
-	TBlockBucket *pBucket; // round up to smallest block size
+	// find the freelist with the smallest block size that can serve malloc()
+	TBlockBucket *pBucket; 
 	for (pBucket = s_BlockBucket; pBucket->nSize > 0; pBucket++) {
 		if (ulSize <= pBucket->nSize) {
-			ulSize = pBucket->nSize;
+			ulSize = pBucket->nSize; // round up the alloc size
 			break;
 		}
 	}
@@ -251,16 +305,14 @@ void *malloc (unsigned ulSize) {
 		assert (pBlockHeader->nMagic == BLOCK_MAGIC);
 		pBucket->pFreeList = pBlockHeader->pNext;
 	} else { 
-		// either no freelist w/ large enough sizes (pBucket->nSize 0) (already 
-        //  excluded by checking alloc size above), or 
-		// the freelist has no free block. chop one off from global pool (s_pNextBlock)
-		// 		size is the actual alloc size (+block header)
-        BUG_ON(pBucket->nSize == 0);
+		/* the apropriate freelist has no free block. chop one off from global pool (s_pNextBlock).
+			actual size == the requested alloc size + block header + padding */
+        BUG_ON(!pBucket->nSize);// ulSize exceeds blk size of last freelist. Cannot happen as we checked alloc size at the start of this func*/
 		pBlockHeader = (TBlockHeader *) s_pNextBlock;
-		s_pNextBlock += (sizeof (TBlockHeader) + ulSize + BLOCK_ALIGN-1) & ~ALIGN_MASK; //xzl: round up?
-		if (s_pNextBlock > s_pBlockLimit) {
-            release(&alloc_lock);
-			return 0;	    // no enough mem in reserved region for malloc()
+		s_pNextBlock += (sizeof (TBlockHeader) + ulSize + BLOCK_ALIGN-1) & ~ALIGN_MASK; // round up (so there's some leak?)
+		if (s_pNextBlock > s_pBlockLimit) { // run out of reserved region for malloc()
+            release(&alloc_lock); BUG(); // XXX: reverse s_pNextBlock? 
+			return 0;
 		}
 		pBlockHeader->nMagic = BLOCK_MAGIC;
 		pBlockHeader->nSize = (unsigned) ulSize;	
@@ -269,12 +321,10 @@ void *malloc (unsigned ulSize) {
 #ifdef MEM_DEBUG
     if (++pBucket->nCount > pBucket->nMaxCount)
         pBucket->nMaxCount = pBucket->nCount;
-    // if (pBucket->nSize == 262144)
-    //     I("xzl: origsize %lu pBucket->nSize %lu", origsize, pBucket->nSize);
 #endif    
     release(&alloc_lock);
 
-	pBlockHeader->pNext = 0;
+	pBlockHeader->pNext = 0; // the newly block is allocated, i.e. off any freelist
 
 	void *pResult = pBlockHeader->Data;
 	assert (((unsigned long) pResult & ALIGN_MASK) == 0);
@@ -282,16 +332,17 @@ void *malloc (unsigned ulSize) {
 	return pResult;
 }
 
+/* return the mem block to one of the freelists */
 void free (void *pBlock) {
 	assert (pBlock != 0);
 	TBlockHeader *pBlockHeader = (TBlockHeader *) ((unsigned long) pBlock - sizeof (TBlockHeader));
 	assert (pBlockHeader->nMagic == BLOCK_MAGIC);
-    BUG_ON(pBlockHeader->pNext != 0); // xzl this
+    BUG_ON(pBlockHeader->pNext != 0); // as of now, the block should be off any freelist
 
     int freed = 0; 
 
 	for (TBlockBucket *pBucket = s_BlockBucket; pBucket->nSize > 0; pBucket++) {
-		if (pBlockHeader->nSize == pBucket->nSize) {
+		if (pBlockHeader->nSize == pBucket->nSize) { // found the list
             acquire(&alloc_lock);
 			pBlockHeader->pNext = pBucket->pFreeList;
 			pBucket->pFreeList = pBlockHeader;
@@ -369,10 +420,14 @@ void pfree (void *pPage) {
 
 #ifdef MEM_DEBUG
 void dump_mem_info (void) {
+	unsigned total=0; 
 	for (TBlockBucket *pBucket = s_BlockBucket; pBucket->nSize > 0; pBucket++) {
 		I("alloc: malloc(%u): outstanding %u blocks (max %u)",
 			     pBucket->nSize, pBucket->nCount, pBucket->nMaxCount);
+		total+=(pBucket->nSize)*pBucket->nCount; 
 	}
+	I("alloc: TOTAL allocated %lu %s (%d/100)", 
+		int_val(total), int_postfix(total), total*100/(MALLOC_PAGES * PAGE_SIZE));
 
 #ifdef MEM_PAGE_ALLOC
 	LoggerWrite (LoggerGet (), "alloc", LogDebug, "palloc: %u pages (max %u)",

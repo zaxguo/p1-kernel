@@ -90,8 +90,8 @@ int cpuid(void);  // util.S must be called with irq disabled
 
 // alloc.c 
 unsigned int paging_init();
-void *kalloc(); // Get a page. return: kernel va. NOT MT SAFE
-void kfree(void *p);    // p: kernel va. NOT MT SAFE
+void *kalloc(); // Get a page. return: kernel va.
+void kfree(void *p);    // p: kernel va.
 unsigned long get_free_page();      // pa
 void free_page(unsigned long p);    // pa 
 int reserve_phys_region(unsigned long pa_start, unsigned long size); 

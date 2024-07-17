@@ -358,7 +358,8 @@ static int do_fb_init(struct fb_struct *fbs)
     }
     release(&mboxlock); 
     if (reserve_phys_region(mbox[28], fbs->size)) {
-        E("failed to reserve fb memory. already in use."); 
+        E("failed to reserve fb mem. pa 0x%x size 0x%x already in use.",
+            mbox[28], fbs->size); BUG(); 
         return -1; 
     } else 
         return 0; 
