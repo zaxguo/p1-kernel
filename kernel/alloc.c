@@ -33,6 +33,7 @@
 (3) the malloc region (to be reserved).
 one byte for a page. 1=allocated */
 static unsigned char mem_map [ MAX_PAGING_PAGES ] = {0,}; 
+unsigned paging_pages_used = 0, paging_pages_total = 0;
 
 /*  Minimalist page allocation 
 	all alloc/free funcs below are locked (SMP safe) */
@@ -62,7 +63,7 @@ unsigned long get_free_page() {
 	acquire(&alloc_lock);
 	for (int i = 0; i < PAGING_PAGES-MALLOC_PAGES; i++){
 		if (mem_map[i] == 0){
-			mem_map[i] = 1;
+			mem_map[i] = 1; paging_pages_used++;
 			release(&alloc_lock);
 			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
 			memzero_aligned(PA2VA(page), PAGE_SIZE);
@@ -76,7 +77,7 @@ unsigned long get_free_page() {
 /* free a page. @p is pa of the page. */
 void free_page(unsigned long p){
 	acquire(&alloc_lock);
-	mem_map[(p - LOW_MEMORY)>>PAGE_SHIFT] = 0;
+	mem_map[(p - LOW_MEMORY)>>PAGE_SHIFT] = 0; paging_pages_used--;
 	release(&alloc_lock);
 }
 
@@ -98,6 +99,8 @@ static int _reserve_phys_region(unsigned long pa_start,
 		i<((pa_start-LOW_MEMORY+size)>>PAGE_SHIFT); i++){
 		mem_map[i] = is_reserve; 
 	}
+	if (is_reserve) paging_pages_used += (size>>PAGE_SHIFT); 
+		else paging_pages_used -= (size>>PAGE_SHIFT);
 
 	W("%s: %s. pa_start %lx -- %lx size %lx",
 		 __func__, is_reserve?"reserved":"freed", 
@@ -133,14 +136,6 @@ unsigned int paging_init() {
 	
     BUG_ON(2 * MALLOC_PAGES >= PAGING_PAGES); // too many malloc pages 
 
-	I("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
-	I("	kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
-	I("	paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY0);
-	I("     %lu%s %ld pages", 
-		int_val((HIGH_MEMORY0 - LOW_MEMORY)),
-		int_postfix((HIGH_MEMORY0 - LOW_MEMORY)),
-		PAGING_PAGES);
-
     /* reserve a virtually contig region for malloc()  */
     if (MALLOC_PAGES) {
         acquire(&alloc_lock); 
@@ -150,10 +145,22 @@ unsigned int paging_init() {
 			MALLOC_PAGES*PAGE_SIZE); 		
         release(&alloc_lock);
     } 
-    I("     malloc area: %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),
+
+	I("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
+	I("\t kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
+	I("\t paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT));
+	I("\t\t %lu%s %ld pages", 
+		int_val((HIGH_MEMORY0 - LOW_MEMORY)),
+		int_postfix((HIGH_MEMORY0 - LOW_MEMORY)),
+		PAGING_PAGES);
+    I("\t malloc mem: %08x -- %08x", HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT), HIGH_MEMORY0);
+	I("\t\t %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),
                                  int_postfix(MALLOC_PAGES * PAGE_SIZE)); 
-	I(" unused (left for framebuffer): %08x -- %08x", 
+	I("\t reserved for framebuffer: %08x -- %08x", 
 		HIGH_MEMORY0, HIGH_MEMORY);
+
+	paging_pages_total = ((HIGH_MEMORY0-LOW_MEMORY)>>PAGE_SHIFT) - MALLOC_PAGES; 
+
 	return PAGING_PAGES; 
 }
 

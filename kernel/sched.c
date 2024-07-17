@@ -648,6 +648,12 @@ void procdump(void) {
         printf("\t %5d %10s %10s %20lx\n", p->pid, state, p->name, 
                (unsigned long)p->chan);
     }
+    
+    // TBD: move it to /proc/meminfo, also count malloc() allocations
+extern unsigned paging_pages_used, paging_pages_total; // alloc.c
+	printf("paging mem: used %u total %u (%u/100)\n", 
+		paging_pages_used, paging_pages_total, 
+        paging_pages_used*100/(paging_pages_total));
 }
 
 ////// fork.c 

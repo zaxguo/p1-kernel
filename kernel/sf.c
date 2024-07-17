@@ -339,12 +339,11 @@ static int sf_composite(void) {
     unsigned char *p0, *p1, cnt=0;
     slist_t *node = 0; 
     struct sf_struct *sf;
-    int t0;
 
     acquire(&mboxlock);
     if (!the_fb.fb) {release(&mboxlock); return 0;} // we may have 0 surface, fb closed
     
-    I("%s starts >>>>>>> ", __func__);  t0 = sys_uptime(); 
+    I("%s starts >>>>>>> ", __func__);  int t00 = sys_uptime(); 
     if (bk_dirty) { // draw backgnd
         I("%s: draw bkgnd", __func__); 
         for (int i=0; i<VH;i++) {
@@ -365,7 +364,7 @@ static int sf_composite(void) {
             if (sf->transparency!=100) { // sf transparent
                 // read back the fb row, mix, and write back                
                 __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
-                int t1=sf->transparency; t0=100-t1;
+                int t1=sf->transparency, t0=100-t1;
                 for (int k=0;k<sf->w;k++) {
                     unsigned int *px0 = (unsigned int*)p0; 
                     unsigned int *px1 = (unsigned int*)p1; 
@@ -390,7 +389,7 @@ static int sf_composite(void) {
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
     release(&mboxlock);
 
-    I("%s done. %d ms", __func__, sys_uptime()-t0);
+    I("%s done. %d ms", __func__, sys_uptime()-t00);
     return cnt; 
 }
 
