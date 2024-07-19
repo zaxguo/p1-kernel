@@ -16,19 +16,19 @@
 
 // const char *init_cmds = "slider 50 50 -1 -1&\n";
 
-// failed (overlapped surfaces) 
-// const char *init_cmds = "sysmon fb0 &\n"
-//                         "slider 50 50 -1 -1&\n";
+// ok
+const char *init_cmds = "sysmon fb0 &\n"
+                       "blockchain &\n";
 
 // ok if sleep() in sh
 // const char *init_cmds = "sysmon fb0 &\n"
 //                         "slider 300 300 -1 -1&\n";
 
-// ok if enough kernel malloc mem 
-const char *init_cmds = "sysmon fb0 &\n"
-                        "slider 50 50 -1 -1&\n"
-                        "slider 100 100 -1 -1&\n"
-                        "slider 300 300 -1 -1&\n";
+// ok
+// const char *init_cmds = "sysmon fb0 &\n"
+//                         "slider 50 50 -1 -1&\n"
+//                         "slider 100 100 -1 -1&\n"
+//                         "slider 300 300 -1 -1&\n";
 
 // sometimes ok
 // const char *init_cmds = "slider 300 300 -1 -1&\n"

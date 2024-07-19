@@ -14,9 +14,6 @@
 
 SDL_Surface *screen = NULL;
 
-SDL_Window* window = NULL;
-SDL_Renderer* renderer = NULL;
-
 // static void drawVerticalLine(int x, int y0, int y1, uint32_t color) {
 //   assert(y0 <= y1);
 //   int i;
@@ -65,11 +62,7 @@ static_assert(BAR_MAX_LEN>0 && BAR_HEIGHT>0);
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-// #define COLOR_BKGND_R 56 
-// #define COLOR_BKGND_G 56
-// #define COLOR_BKGND_B 56
-// #define COLOR_BKGND rgba_to_pixel(56,56,56,0)  
-SDL_Color COLOR_BKGND = {.r=56, .g=56, .b=56, .a=0};  // gray
+#define COLOR_BKGND rgba_to_pixel(56,56,56,0)  // gray
 
 static SDL_Rect bars[MAX_NCPU]; 
 
@@ -83,14 +76,12 @@ void init_bars(void) {
   }
 }
 
-SDL_Color util_to_color(int util) {
-  SDL_Color c = {
-    .r = util*255 / 100,
-    .g = 0, 
-    .b = 255 - c.r,
-    .a = 0
-  };
-  return c; 
+unsigned util_to_color(int util) {
+  int r, g, b; 
+  r = util*255 / 100; 
+  g = 0; 
+  b = 255 - r; 
+  return rgba_to_pixel(r, g, b, 0); 
 }
 
 void visualize(int util[MAX_NCPU], int ncpus) {
@@ -98,6 +89,7 @@ void visualize(int util[MAX_NCPU], int ncpus) {
   static int last_util[MAX_NCPU];
 
   if (memcmp(last_util, util, sizeof(last_util)) == 0)  // why not working??
+  // if(last_util[0]==util[0] && last_util[1]==util[1] && last_util[2]==util[2] && last_util[3]==util[3])
     return; 
   
   memcpy(last_util, util, sizeof(last_util)); 
@@ -106,11 +98,11 @@ void visualize(int util[MAX_NCPU], int ncpus) {
 
   for (i=0; i<ncpus; i++) {
     bars[i].w = BAR_MAX_LEN;
-    renderer->c = COLOR_BKGND; SDL_RenderFillRect(renderer, bars+i);
+    SDL_FillRect(screen, bars+i, COLOR_BKGND);
     bars[i].w = util[i]*BAR_MAX_LEN/100;
-    renderer->c = util_to_color(util[i]); SDL_RenderFillRect(renderer, bars+i);
+    SDL_FillRect(screen, bars+i, util_to_color(util[i]));
   }
-  SDL_RenderPresent(renderer);
+  SDL_UpdateRect(screen, 0, 0, 0, 0);
 }
 
 // visualize on the serial terminal 
@@ -143,35 +135,38 @@ void visual_console(int util[MAX_NCPU], int ncpus) {
 
 int mode=MOD_CON;
 
-/* usage: 
-  ./sysmon          # direct render to /dev/fb
-  ./sysmon [x][y]   # indirect render to /dev/fb0 with offset
-  ./sysmon con      # no gfx. show on stdout
-*/
 int main(int argc, char *argv[]) {
   int util[MAX_NCPU], ncpu; 
-  int x=0,y=0,flags=0; 
 
   if (argc>1) { 
     if (strcmp(argv[1], "con")==0) 
-      mode=MOD_CON; 
-    else {    
+      mode=MOD_CON;
+    else if (strcmp(argv[1], "fb")==0) 
+      mode=MOD_FB; 
+    else if (strcmp(argv[1], "fb0")==0) 
       mode=MOD_FB0; 
-      x=atoi(argv[1]); y=atoi(argv[2]); 
-      flags = (SDL_WINDOW_SWSURFACE|SDL_TRANSPARENCY); 
-    }
-  } else 
-    { mode=MOD_FB; flags = (SDL_WINDOW_HWSURFACE|SDL_WINDOW_FULLSCREEN); }
+  }
 
   if (mode!=MOD_CON) {
-    window = SDL_CreateWindow("SYSMON", x, y, W, H, flags); assert(window);
-    renderer = SDL_CreateRenderer(window,-1/*index*/,0/*flags*/);
-    // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
+    if (mode==MOD_FB)
+      screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE);
+    else 
+      screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE|SDL_TRANSPARENCY);
+      // screen = SDL_SetVideoMode(W, H, 32, SDL_SWSURFACE);
 
+    assert(screen); 
+    SDL_FillRect(screen, NULL, 0);
+    SDL_UpdateRect(screen, 0, 0, 0, 0);
     init_bars(); 
   }
+
+  // // test color bars -- OK. to del
+  // util[0]=0;
+  // while (1) {
+  //   util[0]=(util[0]+5)%100;
+  //   visualize(util, 4);
+  //   msleep(1000);
+  // }
 
   while (1) {
     SDL_Event ev;

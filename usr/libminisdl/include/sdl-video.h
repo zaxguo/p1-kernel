@@ -271,13 +271,19 @@ typedef union {
   struct {
     uint8_t r, g, b, a;
   };
-  uint32_t val;
+  uint32_t val; // NB: val's format is a/b/g/r (not a/r/g/b)
 } SDL_Color;
 
 typedef struct {
 	int ncolors;
 	SDL_Color *colors;
 } SDL_Palette;
+
+typedef struct SDL_Point
+{
+    int x;
+    int y;
+} SDL_Point;
 
 typedef struct {
 	SDL_Palette *palette;
@@ -329,26 +335,29 @@ void SDL_UnlockSurface(SDL_Surface *s);
 #define PIXELSIZE 4 /*ARGB, expected by /dev/fb*/ 
 typedef unsigned int PIXEL; 
 
-// new APIs
-// need by doom
-// expected by SDL2.0 window API. but we can define whatever we want inside
-// https://stackoverflow.com/questions/32246738/where-can-i-find-the-definition-of-sdl-window
-
-// a screen 
-typedef struct {
-	int dispinfo[MAX_DISP_ARGS]; 
-	int fb; 
-    const char *title; 
-} SDL_Window; 
+/* new APIs. Support Window & textures
+    need by doom
+    expected by SDL2.0 window API. but we can define whatever we want inside
+    https://stackoverflow.com/questions/32246738/where-can-i-find-the-definition-of-sdl-window */
 
 typedef enum SDL_WindowFlags {
     SDL_WINDOW_FULLSCREEN = 0x00000001,         /**< fullscreen window */
+    SDL_WINDOW_HWSURFACE = 0x00000002,         /* using /dev/fb */
+    SDL_WINDOW_SWSURFACE = 0x00000004,         /* using /dev/fb0 */
 	// xzl: there's more...
 } SDL_WindowFlags;
 
+// a window, either backed by /dev/fb (fullscr) or /dev/fb0
+typedef struct {
+	int dispinfo[MAX_DISP_ARGS]; 
+	int fb; 
+    SDL_WindowFlags flags; 
+    const char *title; 
+} SDL_Window; 
+
 typedef struct {
 	SDL_Window * win; 
-	char *buf; 		// byte-to-byte mirror of the whole hw fb (inc pitch)
+	char *buf; 		// byte-to-byte mirror of the whole fb (inc pitch)
 	int buf_sz;     // in bytes
 	char *tgt[2]; // two tgt, pointing to the buf above. each tgt corresponds to a viweport
 	int tgt_sz; 	// in bytes
@@ -360,7 +369,7 @@ typedef struct {
 
 typedef struct {
 	char *buf;
-	int w, h; 
+	int w, h;   // no row padding 
 	int buf_sz; // in bytes
 } SDL_Texture; 
 
@@ -411,5 +420,15 @@ int SDL_RenderCopy(SDL_Renderer * renderer,
 //Set the title of a window.
 void SDL_SetWindowTitle(SDL_Window * window,
                         const char *title);
+
+// Fill a rectangle on the current rendering target with the drawing color.
+// rect==NULL for the entire rendering target
+int SDL_RenderFillRect(SDL_Renderer * renderer,
+                   const SDL_Rect * rect);
+
+// Draw a series of connected lines on the current rendering target.
+int SDL_RenderDrawLines(SDL_Renderer * renderer,
+                    const SDL_Point * points,
+                    int count);
 
 #endif

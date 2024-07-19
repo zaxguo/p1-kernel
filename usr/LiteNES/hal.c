@@ -1,8 +1,8 @@
 /*
-(by FL)
 Principle: minimum OS requirement. NO dependency on:
     -- thread (CLONE_VM, spinlock, semaphore, etc)
     -- non-blocking IO (O_NONBLOCK) 
+    -- SDL_xxx (libminisdl) functions (hence directly writes to /dev/fb)
 
 Event dispatch is implemented as multiple tasks (processes) communicating with
 pipelines. 

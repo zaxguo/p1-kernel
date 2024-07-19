@@ -1,6 +1,6 @@
 // play pre-recorded sound samples
 // uncompressed samples in C header file
-// no dep on libc or libvorbis
+// NO dep on libc or libvorbis
 
 #include <assert.h>
 #include <stdint.h>
