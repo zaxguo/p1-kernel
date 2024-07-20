@@ -1263,11 +1263,73 @@ setenv bootcmd "dhcp 0x80000 10.10.10.173:kernel8-rpi3.img;go 0x80000"
 saveenv
 reset
 
-KNOWN BUGs: uboot sometimes cannot boot the kernel.... 
+KNOWN BUGs:
+    
     will boot either "cleanall makeall", or reboot a few times,.... why???
     dcache problem???
 
     simple kernel "hello world" can boot eveery time. why
+
+    ** emmc (sdcard) failed to init  if boot from uboot... why????
+        all sdcard registers look identical though. 
+        sd cmd failed immediately with "bad status"
+        (cf sd_int) 
+    maybe b/c clock setup by uboot?? (meanwhile uboot can do sd card fine, e.g. can save parameters... why
+
+
+    cf uboot arch/arm/dts/bcm2837-rpi-3-b.dts
+    ...
+    /* SDHCI is used to control the SDIO for wireless */
+    ...
+    /* SDHOST is used to drive the SD card */
+
+    also same file, &gpio{ .... } has full def
+
+    CAUSE
+    uboot bcm2835_sdhost.c
+                * The 2835 has two SD controllers: The Arasan sdhci controller
+            * (supported by the iproc driver) and a custom sdhost controller
+            * (supported by this driver).
+            *
+            * The sdhci controller supports both sdcard and sdio.  The sdhost
+            * controller supports the sdcard only, but has better performance.
+            * Also note that the rpi3 has sdio wifi, so driving the sdcard with
+            * the sdhost controller allows to use the sdhci controller for wifi
+            * support.
+            * 
+            */
+    so, uboot uses "sdhost" to drive the sd card. 
+    and our kernel uses "sdhci". there must be some lingering effect, so that 
+        our code using sdhci failed to communciate with the card
+
+    it's not the card itself.. tried to power it down, unplug it and replug...
+    no avail
+
+    pin mux also seems right. (our code has it)
+    Circle does NOT help  (it supports both. emmc.cpp & sdhost.cpp) but not 
+    at the same time. (conditional compilation)
+    reading the code also does not reveal anything suspicious. 
+
+    and, a quick try with uboot + Circle leads to hang (so I cannot verify
+    if Circle can reconfigure sdhci, after uboot configures SDhost)
+
+    OVERALL, it was UNCELAR (also lack of documentation) how to switch between 
+    the two SD controllers (sdhost, sdhci) at run time (they share the same set of
+    pins, but changing GPIO pin mux AT RUN TIME does NOT help??)
+        our code seems to properly configure the pins (function selection and pull up/down mode) 
+    it is even UNCELAR whether can be done? (maybe yes? b/c Linux can boot from 
+    uboot)???
+
+    7/20/24 
+    ** Gave up as of now. if need to use SD card, just do card dancing 
+    (instead of uboot). it's a simpler setup anyway
+
+    future; if this becomes a must, ideas: 
+        ** check all GPIO pins configuration, e.g. pull down mode, (most promising)
+        ** change uboot code (e.g. device tree??) so it uses sdhci for sd card. 
+            but I couldn't figure out how to do so yet... is it hardcoded throughout the code?
+
+
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 fix smp problem, cache coherency, understand bootloader better (armstub etc) 
@@ -1346,6 +1408,7 @@ common cause for: qemu ok; real hw bug
     cache flush 
     SMP scheduling
     memory initlaization values
+    IO implement details (e.g. diffrent fb hw buffer addr)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 surface flinger
 
@@ -1373,4 +1436,8 @@ malloc regions are disjoint....
 
 
 ~~~~
-[ ] update sysmon with newer SDL API. also test the API (for indirect drawing
+[x] update sysmon with newer SDL API. also test the API (for indirect drawing
+
+[x]separate "top" window from "focus" window. so that sysmon can float on top
+
+[ ] residual shadow in "sysmon"... transparency handling... has to clear the real eastate...

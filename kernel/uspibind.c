@@ -60,7 +60,7 @@ void ConnectInterrupt (unsigned nIRQ, TInterruptHandler *pHandler, void *pParam)
 }
 
 int SetPowerStateOn (unsigned nDeviceId) {
-	if (set_powerstate_on(nDeviceId) == 0)
+	if (set_powerstate(nDeviceId, 1/*on*/) == 0)
 		return 1; 
 	else 
 		return 0;

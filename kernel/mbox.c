@@ -29,6 +29,7 @@
  // https://github.com/raspberrypi/firmware/wiki/Mailboxes
 // ref: https://github.com/RT-Thread/rt-thread/blob/master/bsp/raspberry-pi/raspi3-64/driver/mbox.c 
 // ref: https://www.valvers.com/open-software/raspberry-pi/bare-metal-programming-in-c-part-5/#part-5armc-016
+// ref: uboot arch/arm/mach-bcm283x/msg.c
 
 #include "plat.h"
 #include "mmu.h"
@@ -109,9 +110,9 @@ int mbox_call(unsigned char ch)
 #define MBOX_CH_COUNT   7
 #define MBOX_CH_PROP    8
 
-/* tags */
-#define MBOX_TAG_SETPOWER       0x28001
-#define MBOX_TAG_SETCLKRATE     0x38002
+/* tags */ // redundant, TO DEL
+// #define MBOX_TAG_SETPOWER       0x28001
+// #define MBOX_TAG_SETCLKRATE     0x38002
 #define MBOX_TAG_LAST           0
 
 // in a successful resp, b31 is set; b30-0 is "value length in bytes"
@@ -125,7 +126,7 @@ int mbox_call(unsigned char ch)
 #define PROPTAG_GET_ARM_MEMORY		0x00010005
 #define PROPTAG_GET_VC_MEMORY		0x00010006
 #define PROPTAG_SET_POWER_STATE		0x00028001
-    #define DEVICE_ID_SD_CARD	0
+    #define DEVICE_ID_SD_CARD	0   // FL: SDHCI, not SDHOST
 	#define DEVICE_ID_USB_HCD	3
     #define POWER_STATE_OFF		(0 << 0)
 	#define POWER_STATE_ON		(1 << 0)
@@ -562,12 +563,12 @@ void fb_showpicture()
 
 /////////////////////////////
 // other property tag operations. 
-// xzl TODO: add lock??
 
 // 0 on success, <0 on errors
-int set_powerstate_on(unsigned deviceid) {
+int set_powerstate(unsigned deviceid, int on) {
     int ret = 0; 
-    unsigned power = (POWER_STATE_ON | POWER_STATE_WAIT); 
+    unsigned power = on ? 
+        (POWER_STATE_ON | POWER_STATE_WAIT) : (POWER_STATE_OFF | POWER_STATE_WAIT);
 
     acquire(&mboxlock); 
 
@@ -596,7 +597,9 @@ int set_powerstate_on(unsigned deviceid) {
     power = mbox[6];
     if (power & POWER_STATE_NO_DEVICE)
         {ret = -5; goto fail;}
-    if (!(power & POWER_STATE_ON))
+    if (on && !(power & POWER_STATE_ON))
+        {ret = -6; goto fail;}
+    if (!on && (power & POWER_STATE_ON))
         {ret = -6; goto fail;}
 
     release(&mboxlock); 
@@ -608,6 +611,7 @@ fail:
 }
 
 // 0 on success, <0 on errors
+// resp length: 6
 int get_mac_addr(unsigned char buf[MAC_SIZE]) {
     int ret = 0; 
 
@@ -647,6 +651,7 @@ fail:
 }
 
 // return 0 on success
+// resp length: 8
 int get_board_serial(unsigned long *s) {
     if (!s) return -1;
 
