@@ -10,7 +10,7 @@ endif
 
 # support for fat32 fs
 # comment out == disable fatfs & secondary device
-# CONFIG_FAT ?= 1
+CONFIG_FAT ?= 1
 
 BUILD_DIR = build-$(PLAT)
 SRC_DIR = .

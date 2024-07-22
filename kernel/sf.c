@@ -1,6 +1,6 @@
-// #define K2_DEBUG_WARN
+#define K2_DEBUG_WARN
 // #define K2_DEBUG_VERBOSE
-#define K2_DEBUG_INFO
+// #define K2_DEBUG_INFO
 
 /* In-kernel surface flinger (SF). 
    each task configures desired surface size/loc via /proc/sfctl, 
@@ -352,7 +352,7 @@ static int sf_composite(void) {
     acquire(&mboxlock);
     if (!the_fb.fb) {release(&mboxlock); return 0;} // we may have 0 surface, fb closed
     
-    I("%s starts >>>>>>> ", __func__);  int t00 = sys_uptime(); 
+    I("%s starts >>>>>>> ", __func__);  __attribute__ ((unused)) int t00 = sys_uptime(); 
     if (bk_dirty) { // draw backgnd
         I("%s: draw bkgnd", __func__); 
         for (int i=0; i<VH;i++) {

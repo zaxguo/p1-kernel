@@ -102,7 +102,7 @@ static int _reserve_phys_region(unsigned long pa_start,
 	if (is_reserve) paging_pages_used += (size>>PAGE_SHIFT); 
 		else paging_pages_used -= (size>>PAGE_SHIFT);
 
-	W("%s: %s. pa_start %lx -- %lx size %lx",
+	I("%s: %s. pa_start %lx -- %lx size %lx",
 		 __func__, is_reserve?"reserved":"freed", 
 		 pa_start, pa_start+size, size);
 	return 0; 

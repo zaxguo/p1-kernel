@@ -1,5 +1,5 @@
-// #define K2_DEBUG_WARN
-#define K2_DEBUG_VERBOSE
+#define K2_DEBUG_WARN
+// #define K2_DEBUG_VERBOSE
 
 /*
  * Limitation: does not work if the kernel boots from uboot. Cf sd_init() - FL
@@ -459,7 +459,7 @@ int sd_init()
     *GPPUDCLK1=(1<<18) | (1<<19) | (1<<20) | (1<<21);
     wait_cycles(150); *GPPUD=0; *GPPUDCLK1=0;
     sd_hv = (*EMMC_SLOTISR_VER & HOST_SPEC_NUM) >> HOST_SPEC_NUM_SHIFT;
-    W("EMMC: GPIO set up. host_spec %lu", sd_hv);
+    I("EMMC: GPIO set up. host_spec %lu", sd_hv);
 
     // Reset the card.
     *EMMC_CONTROL0 = 0; *EMMC_CONTROL1 |= C1_SRST_HC;

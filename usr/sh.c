@@ -270,7 +270,7 @@ main(void)
   
   if (mkdir("/tmp") != 0)
     printf("warning: failed to create /tmp"); 
-  printf("To create dev/procfs entries ...."); 
+  printf("sh: To create dev/procfs entries ...."); 
   if (create_dev_procfs()==0)
     printf("OK\n"); 
   logo();

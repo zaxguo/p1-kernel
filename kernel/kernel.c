@@ -122,7 +122,8 @@ extern void dump_pgdir(void); // mm.c
 void kernel_main() {
 	uart_init();
 	init_printf(NULL, putc);	
-	printf("------ kernel boot ------ %d\n\r", cpuid());
+	printf("------ kernel boot ------  core %d\n\r", cpuid());
+	printf("build time (kernel.c) %s %s\n", __DATE__, __TIME__); // simplicity 
 		
 	paging_init(); 
 	dump_pgdir();
