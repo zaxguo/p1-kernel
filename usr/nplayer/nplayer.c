@@ -1,8 +1,13 @@
-// a simple music player that can do ogg
-// idea: https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nplayer/src/main.c
-//
-// qemu lacks support for sound emulation (rpi3/4), so this can only be tried
-// out on real hardware (which uses pwm 3.5mm jack for sound output)
+/* A simple music player that can play ogg files
+  idea: https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nplayer/src/main.c
+
+  dependency: 
+    rpi3 hardware. qemu lacks support for sound emulation (rpi3/4), so
+  this can only be tried out on real hardware (which uses pwm 3.5mm jack for
+  sound output) 
+    sdl (abstraction for keyboard events, audio, and visualization)
+    libvorbis (ogg playback)
+*/
 
 #include <stdint.h>
 #include <string.h>

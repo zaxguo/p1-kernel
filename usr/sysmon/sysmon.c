@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     else {    
       mode=MOD_FB0; 
       x=atoi(argv[1]); y=atoi(argv[2]); 
-      flags = (SDL_WINDOW_SWSURFACE|SDL_TRANSPARENCY); 
+      flags = (SDL_WINDOW_SWSURFACE|SDL_WINDOW_TRANSPARENCY|SDL_WINDOW_FLOATING); 
     }
   } else 
     { mode=MOD_FB; flags = (SDL_WINDOW_HWSURFACE|SDL_WINDOW_FULLSCREEN); }

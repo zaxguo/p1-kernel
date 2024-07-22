@@ -272,7 +272,7 @@ struct trampframe * task_pt_regs(struct task_struct *tsk);
 // mbox.c
 #define MAC_SIZE        6   // in bytes
 int get_mac_addr(unsigned char buf[MAC_SIZE]);
-int set_powerstate_on(unsigned deviceid); 
+int set_powerstate(unsigned deviceid, int on); 
 int get_board_serial(unsigned long *s);
 
 int fb_init(void); 

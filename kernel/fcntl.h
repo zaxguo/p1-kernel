@@ -97,6 +97,7 @@ enum {
 #define ZORDER_INC          2   // zorder+=1
 #define ZORDER_DEC          3   // zorder-=1
 #define ZORDER_UNCHANGED    4   // zorder-=1
+#define ZORDER_FLOATING     5   // always top, rendered after all "normal" surfaces
 
 
 #endif

@@ -792,8 +792,6 @@ SMALL             2000 2024-01-01   0:00
         1 file                2 000 bytes
                           1 026 048 bytes free
 
-also can do:
-mcopy -i smallfat.bin x:/SMALL /tmp/
 
 https://unix.stackexchange.com/questions/629492/create-and-populate-fat32-filesystem-without-mounting-it
 # Create a 2 MB file
@@ -1325,7 +1323,7 @@ KNOWN BUGs:
     (instead of uboot). it's a simpler setup anyway
 
     future; if this becomes a must, ideas: 
-        ** check all GPIO pins configuration, e.g. pull down mode, (most promising)
+        ** check all GPIO pins configuration, e.g. pull down mode, (most promising). GPIO_CMD
         ** change uboot code (e.g. device tree??) so it uses sdhci for sd card. 
             but I couldn't figure out how to do so yet... is it hardcoded throughout the code?
 

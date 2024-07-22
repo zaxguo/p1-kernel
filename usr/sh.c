@@ -17,8 +17,8 @@
 // const char *init_cmds = "slider 50 50 -1 -1&\n";
 
 // ok
-const char *init_cmds = "sysmon fb0 &\n"
-                       "blockchain &\n";
+// const char *init_cmds = "sysmon fb0 &\n"
+//                        "blockchain &\n";
 
 // ok if sleep() in sh
 // const char *init_cmds = "sysmon fb0 &\n"
@@ -37,7 +37,7 @@ const char *init_cmds = "sysmon fb0 &\n"
 // ok 
 // const char *init_cmds = "sysmon fb0 &\n";
 
-// const char *init_cmds=0; // no init cmd
+const char *init_cmds=0; // no init cmd
 
 // Parsed command representation
 #define EXEC  1

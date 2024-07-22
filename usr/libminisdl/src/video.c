@@ -15,8 +15,7 @@
 #include "string.h"
 
 //////////////////////////////////////////
-//// new APIs
-
+//// New APIs (renderer, window, texture)
 
 // Create direct or indirect windows (i.e. /dev/fb vs /dev/fb0)
 // flags are ignored. expected to be SDL_WINDOW_FULLSCREEN
@@ -37,8 +36,9 @@ SDL_Window *SDL_CreateWindow(const char *title,
             return 0;
         }
     } else {
-        if (config_fbctl0(FB0_CMD_INIT,x,y,w,h,ZORDER_TOP,
-            (flags & SDL_TRANSPARENCY) ? 80:100 // transparency. can change value 
+        int zorder = (flags & SDL_WINDOW_FLOATING) ? ZORDER_FLOATING:ZORDER_TOP;
+        if (config_fbctl0(FB0_CMD_INIT,x,y,w,h,zorder,
+            (flags & SDL_WINDOW_TRANSPARENCY) ? 80:100 // transparency. can change value 
             ) != 0) return 0;
     }
 
@@ -261,7 +261,7 @@ int SDL_RenderFillRect(SDL_Renderer * rdr,
 }
 
 //////////////////////////////////////////
-//// SDL_Surface APIs 
+//// Old APIs (e.g. SDL_Surface)
 
 // (xzl) unlike window/texture, surface APIs are more "direct", 
 // allows app to access surface-provided pixels, which are 

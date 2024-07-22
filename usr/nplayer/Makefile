@@ -1,5 +1,5 @@
 # a music player program
-# dependency: libc, libnew, libminisdl, libvorbis
+# dependency: libc, libminisdl, libvorbis
 
 include $(abspath ../../config.mk)
 

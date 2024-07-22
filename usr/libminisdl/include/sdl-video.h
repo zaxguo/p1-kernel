@@ -344,6 +344,8 @@ typedef enum SDL_WindowFlags {
     SDL_WINDOW_FULLSCREEN = 0x00000001,         /**< fullscreen window */
     SDL_WINDOW_HWSURFACE = 0x00000002,         /* using /dev/fb */
     SDL_WINDOW_SWSURFACE = 0x00000004,         /* using /dev/fb0 */
+    SDL_WINDOW_FLOATING = 0x00000008,       /* floating above other windows */
+    SDL_WINDOW_TRANSPARENCY = 0x00000010
 	// xzl: there's more...
 } SDL_WindowFlags;
 

@@ -28,10 +28,9 @@ struct sf_struct {
     int transparency;  // 0-100
     int dirty;  // redraw this surface? 
     int pid; // owner 
-    int floating; // always on top?
     struct kb_struct kb; // kb events dispatched to this surface
     slist_t list;
-    slist_t list1;  // to link sf on a tmplist, cf sf_composite()
+    slist_t list2;  // allow sf on a tmplist, cf sf_composite()
 }; 
 
 static struct spinlock sflock = {.locked=0, .cpu=0, .name="sflock"};
@@ -42,12 +41,11 @@ static int bk_dirty = 1; // is background dirty? protected by sflock
 extern int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
 extern int sys_getpid(void);  // sys.c
 
-// dimension of hw fb
 #define VW 1024
 #define VH 768
 
-// bkgnd color, gray
-#define BK_COLOR  0x00222222   
+// bkgnd
+#define BK_COLOR  0x00222222    // gray
 
 // return 0 on success
 static int reset_fb() {
@@ -77,7 +75,6 @@ static struct sf_struct *find_sf(int pid) {
     return 0; 
 }
 
-// mark all sfs as dirty, to be redrawn
 // caller MUST hold sflock
 static void dirty_all_sf(void) {
     slist_t *node = 0;
@@ -97,8 +94,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
 
     if (!s) {BUG();return -1;}
     s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);BUG();return -2;}
-    s->x=x; s->y=y; s->w=w; s->h=h; s->pid=pid; 
-    s->dirty=1; s->transparency=trans; s->floating=0; 
+    s->x=x; s->y=y; s->w=w; s->h=h; s->pid=pid; s->dirty=1; s->transparency=trans;
     s->kb.r=s->kb.w=0; // spinlock unused
 
     acquire(&sflock);
@@ -112,14 +108,11 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
         slist_insert(&sflist, &s->list);         
     } else if (zorder == ZORDER_TOP) // list tail
         slist_append(&sflist, &s->list);  // no dirty needed
-    else if (zorder == ZORDER_FLOATING) {
-        s->floating = 1; slist_append(&sflist, &s->list);
-    }
     else BUG(); 
 
     dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all    
 
-    if (slist_len(&sflist) == 1) // reset the fb hw, if this is the 1st surface
+    if (slist_len(&sflist) == 1) // reset fb, if this is the 1st surface
         reset_fb();     
     wakeup(&sflist); // notify flinger
     release(&sflock);
@@ -127,7 +120,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
     return 0; 
 }
 
-// called by exit_process() (sched.c)
+// needed by exit_process() (sched.c)
 // return 0 on success; <0 on err
 int sf_free(int pid)  {
     struct sf_struct *sf = 0;
@@ -139,7 +132,8 @@ int sf_free(int pid)  {
         slist_remove(&sflist, &sf->list);
         if (sf->buf) free(sf->buf); 
         free(sf); 
-    
+    }    
+    if (sf) {
         if (slist_len(&sflist) == 0) 
             {I("freed");fb_fini();}  // no surface left
         else
@@ -153,10 +147,9 @@ int sf_free(int pid)  {
     return ret;
 }
 
-/*  return the buf size (in bytes) of a sf. 
-    needed by filelseek() (file.c)
-    caller must NOT hold sflock 
-    return -1 on error */
+// needed by filelseek() (file.c)
+// caller must NOT hold sflock 
+// return -1 on error
 int sf_size(int pid) {
     int ret = -1; 
     struct sf_struct *sf = 0;
@@ -191,8 +184,6 @@ static int sf_config(int pid, int x, int y, int w, int h, int zorder) {
                 slist_append(&sflist, &sf->list); 
             else if (zorder == ZORDER_BOTTOM) 
                 slist_insert(&sflist, &sf->list);
-            else if (zorder == ZORDER_FLOATING) 
-                sf->floating = 1;
             else BUG(); // ZORDER_INC, ZORDER_DEC ... TBD
         }
     }
@@ -203,7 +194,7 @@ static int sf_config(int pid, int x, int y, int w, int h, int zorder) {
     return 0; 
 }
 
-// mov the bottom surface to the top, which also moves focus to it 
+// mov the bottom surface to the top
 // return 0 on success, <0 on error 
 // call must NOT hold sflock
 static int sf_alt_tab(void) {
@@ -327,14 +318,15 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
             t[i] = b[i] = clr;
     }
 
-    // left & right boundaries
+    // left and right boundaries
+    // for (int yy=y+B_THICKNESS; yy<y+h-B_THICKNESS; yy++) { //yy:row num in fb
     for (int yy=y; yy<y+h; yy++) { //yy:row num in fb
         // per row
         t0 = the_fb.fb + yy*the_fb.pitch + x*PIXELSIZE; // left
         b0 = the_fb.fb + yy*the_fb.pitch + (x+w+1-B_THICKNESS)*PIXELSIZE; // right
         t = (unsigned int *)t0; b = (unsigned int *)b0;
         for (int i=0; i<B_THICKNESS;i++)
-            t[i] = b[i] = clr;
+            t[i] = b[i] = clr; // 0x000000ff
     }
 
     return 0; 
@@ -362,64 +354,40 @@ static int sf_composite(void) {
         }
         bk_dirty=0;
     }
-
-    /* iterate over all sfs in two passes, in descending z order
-        pass0: skip non-dirty sfs. for dirty sfs: draw non-floating sfs, defer
-        floating sfs to pass1 
-        pass1: draw floating sfs */
-    slist_t tmplist = SLIST_OBJECT_INIT(tmplist), *ll=0; 
-    unsigned xx,yy,ww,hh; // top surface's boundary
-    for (int pass=0;pass<2;pass++) {
-        if (pass==0) ll=&sflist; else ll=&tmplist; 
-        slist_for_each(node, ll) { 
-            if (pass==0) // pass0: iterate all sfs: 
-                sf = slist_entry(node, struct sf_struct, list);
-            else // pass1: iterate floating sfs (deferred from pass0)
-                sf = slist_entry(node, struct sf_struct, list1);
-            if (!sf->dirty) continue;            
-            if (pass==0) { 
-                if (!node->next) // top surface. will draw its bounary later
-                    {xx=sf->x; yy=sf->y; ww=sf->w; hh=sf->h;}
-                if (sf->floating) { // defer floating sf to pass1
-                    slist_append(&tmplist, &sf->list1);  
-                    continue;
+    slist_for_each(node, &sflist) { // iterate all sfs: descending z order (bottom up)
+        sf = slist_entry(node, struct sf_struct, list);
+        if (!sf->dirty) continue;
+        I("%s draw: pid %d; x %d y %d w %d h %d trans %d", __func__, sf->pid,
+            sf->x, sf->y, sf->w, sf->h, sf->transparency); 
+        // p0: hw fb; p1: the current surface
+        p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 
+        for (int j=0;j<sf->h;j++) {  // copy by row
+            if (sf->transparency!=100) { // sf transparent
+                // read back the fb row, mix, and write back                
+                __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
+                int t1=sf->transparency, t0=100-t1;
+                for (int k=0;k<sf->w;k++) {
+                    unsigned int *px0 = (unsigned int*)p0; 
+                    unsigned int *px1 = (unsigned int*)p1; 
+                    //  mix per pixel, per channel
+                    unsigned char r0=(px0[k]>>16)&0xff,g0=(px0[k]>>8)&0xff,b0=px0[k]&0xff;
+                    unsigned char r1=(px1[k]>>16)&0xff,g1=(px1[k]>>8)&0xff,b1=px1[k]&0xff;
+                    px0[k]= (MIN((r0*t0+r1*t1)/100, 0xff)<<16) 
+                            | (MIN((g0*t0+g1*t1)/100, 0xff)<<8) 
+                            | (MIN((b0*t0+b1*t1)/100, 0xff));  
                 }
-            }
-            I("%s draw pass%d: pid %d; x %d y %d w %d h %d trans %d", __func__, 
-                pass, sf->pid,
-                sf->x, sf->y, sf->w, sf->h, sf->transparency); 
-            // p0 (dest): hw fb; p1 (src): the current surface
-            p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 
-            for (int j=0;j<sf->h;j++) {  // copy by row
-                if (sf->transparency!=100) { // sf transparent
-                    // read back the fb row, mix, and write back                
-                    __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
-                    int t1=sf->transparency, t0=100-t1;
-                    for (int k=0;k<sf->w;k++) {
-                        unsigned int *px0 = (unsigned int*)p0; 
-                        unsigned int *px1 = (unsigned int*)p1; 
-                        //  mix per pixel, per channel
-                        unsigned char r0=(px0[k]>>16)&0xff,g0=(px0[k]>>8)&0xff,b0=px0[k]&0xff;
-                        unsigned char r1=(px1[k]>>16)&0xff,g1=(px1[k]>>8)&0xff,b1=px1[k]&0xff;
-                        px0[k]= (MIN((r0*t0+r1*t1)/100, 0xff)<<16) 
-                                | (MIN((g0*t0+g1*t1)/100, 0xff)<<8) 
-                                | (MIN((b0*t0+b1*t1)/100, 0xff));  
-                    }
-                } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->w*PIXELSIZE)%8==0)
-                    memcpy_aligned(p0, p1, sf->w*PIXELSIZE); // sf opaque, fast path
-                else
-                    memcpy(p0, p1, sf->w*PIXELSIZE); // sf opaque, slow path
-                p0 += the_fb.pitch; p1 += sf->w*PIXELSIZE;
-            }
-            sf->dirty=0; cnt++; 
+            } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->w*PIXELSIZE)%8==0)
+                memcpy_aligned(p0, p1, sf->w*PIXELSIZE); // sf opaque, fast path
+            else
+                memcpy(p0, p1, sf->w*PIXELSIZE); // sf opaque, slow path
+            p0 += the_fb.pitch; p1 += sf->w*PIXELSIZE;
         }
+        sf->dirty=0; cnt++; 
+        if (!node->next) // this is the top surface. draw its bounary
+            draw_boundary(sf->x,sf->y,sf->w,sf->h, B_COLOR);
     }
-
-    if (cnt) {
-        draw_boundary(xx,yy,ww,hh, B_COLOR);
-        // what if no flush? (TBD optimization: partial flush)
+    if (cnt) // what if no flush? (TBD optimization: partial flush)
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
-    }
     release(&mboxlock);
 
     I("%s done. %d ms", __func__, sys_uptime()-t00);
