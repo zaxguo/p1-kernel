@@ -37,7 +37,11 @@
 // ok 
 // const char *init_cmds = "sysmon fb0 &\n";
 
-const char *init_cmds=0; // no init cmd
+const char *init_cmds = "nplayer /d/sample.ogg 10 10 &\n";
+// const char *init_cmds = "nplayer /d/angel.ogg 10 10 &\n";
+
+// no init cmd
+// const char *init_cmds=0; 
 
 // Parsed command representation
 #define EXEC  1

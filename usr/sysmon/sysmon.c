@@ -12,38 +12,10 @@
 // #include <SDL-video.h>
 #include "math.h"
 
-SDL_Surface *screen = NULL;
+// SDL_Surface *screen = NULL;
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-
-// static void drawVerticalLine(int x, int y0, int y1, uint32_t color) {
-//   assert(y0 <= y1);
-//   int i;
-//   uint32_t *p = (void *)screen->pixels;
-//   for (i = y0; i <= y1; i ++) {
-//     p[i * W + x] = color;
-//   }
-// }
-
-// static void visualize(int16_t *stream, int samples) {
-//   int i;
-//   static int color = 0;
-//   SDL_FillRect(screen, NULL, 0);
-//   int center_y = H / 2;
-//   for (i = 0; i < samples; i ++) {
-//     // fixedpt multipler = fixedpt_cos(fixedpt_divi(fixedpt_muli(FIXEDPT_PI, 2 * i), samples));
-//     float multipler = cos(3.14*2*i/samples); 
-//     int x = i * W / samples;
-//     // int y = center_y - fixedpt_toint(fixedpt_muli(fixedpt_divi(fixedpt_muli(multipler, stream[i]), 32768), H / 2));
-//     int y = center_y - (int)((multipler * stream[i])/32768 *(H/2));
-//     if (y < center_y) drawVerticalLine(x, y, center_y, color);
-//     else drawVerticalLine(x, center_y, y, color);
-//     color ++;
-//     color &= 0xffffff;
-//   }
-//   SDL_UpdateRect(screen, 0, 0, 0, 0);
-// }
 
 #define FPS 10
 #define W 200
@@ -165,7 +137,7 @@ int main(int argc, char *argv[]) {
 
   if (mode!=MOD_CON) {
     window = SDL_CreateWindow("SYSMON", x, y, W, H, flags); assert(window);
-    renderer = SDL_CreateRenderer(window,-1/*index*/,0/*flags*/);
+    renderer = SDL_CreateRenderer(window,-1/*index*/,0/*flags*/); assert(renderer);
     // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderClear(renderer);
     SDL_RenderPresent(renderer);

@@ -260,6 +260,31 @@ int SDL_RenderFillRect(SDL_Renderer * rdr,
     return 0; 
 }
 
+// Draw a line on the current rendering target.
+// Returns 0 on success or a negative error code on failure
+int SDL_RenderDrawLine(SDL_Renderer * rdr,
+                   int x1, int y1, int x2, int y2) {    
+    // if (!(x1>=0 && y1>=0 && x2>=0 && y2>=0)) 
+    //     printf("%d %d %d %d \n", x1,y1,x2,y2);
+    assert(x1>=0 && y1>=0 && x2>=0 && y2>=0);
+    assert(x1==x2); // TBD only support vertical line
+
+    char *tgt = rdr->tgt[rdr->cur_id];
+    int pitch = rdr->pitch;    
+    PIXEL p = rgba_to_pixel(rdr->c.r, rdr->c.g, rdr->c.b, rdr->c.a);
+
+    int yy1=y1, yy2=y2; 
+    if (y1>y2) {yy1=y2;yy2=y1;}
+    for (int y=yy1; y<yy2; y++) {
+        // if (!(x1 >= 0 && y >= 0)) {
+        //     printf("y1 %d yy1 %d yy2 %d yy %d \n", y1, yy1, yy2, y);
+        // }
+        setpixel(tgt, x1, y, pitch, p);
+    }
+
+    return 0; 
+}
+
 //////////////////////////////////////////
 //// Old APIs (e.g. SDL_Surface)
 

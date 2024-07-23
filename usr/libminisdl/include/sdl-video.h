@@ -428,6 +428,10 @@ void SDL_SetWindowTitle(SDL_Window * window,
 int SDL_RenderFillRect(SDL_Renderer * renderer,
                    const SDL_Rect * rect);
 
+// Draw a line on the current rendering target.
+int SDL_RenderDrawLine(SDL_Renderer * renderer,
+                   int x1, int y1, int x2, int y2); 
+                   
 // Draw a series of connected lines on the current rendering target.
 int SDL_RenderDrawLines(SDL_Renderer * renderer,
                     const SDL_Point * points,

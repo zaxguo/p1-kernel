@@ -268,7 +268,7 @@ struct sound_drv {
 // rpi3 (1GB of mem) should be fine
 static void* malloc_dma30(unsigned size) { 
     void *p = malloc(size);
-    W("malloc_dma30 returns %lx", (unsigned long)p); 
+    V("malloc_dma30 returns %lx", (unsigned long)p); 
     return p; 
 } 
 
@@ -950,7 +950,7 @@ int sound_start(struct sound_drv *drv) {
         BUS_ADDRESS((uintptr)dev->m_pControlBlock[0]));
 
     // kick off dma 
-    W("kick dma ch %u", dev->m_nDMAChannel); 
+    I("kick dma ch %u", dev->m_nDMAChannel); 
 
 	write32 (ARM_DMACHAN_CS (dev->m_nDMAChannel),   CS_WAIT_FOR_OUTSTANDING_WRITES
 					         | (DEFAULT_PANIC_PRIORITY << CS_PANIC_PRIORITY_SHIFT)
@@ -1107,7 +1107,7 @@ struct sound_drv * sound_init(unsigned nChunkSize)
     if (id >= MAX_SOUND_DRV)    
         return 0; 
 
-    drv = drvs + id; W("id = %d", id); 
+    drv = drvs + id; V("id = %d", id); 
     
     // CSoundBaseDevice::CSoundBaseDevice()
     sound_drv_init(drv, SoundFormatUnsigned32,
@@ -1182,7 +1182,7 @@ struct sound_drv * sound_init(unsigned nChunkSize)
     //  hw native: SoundFormatUnsigned32, 2 channels. 
     SetWriteFormat(drv, SoundFormatUnsigned8, 1 /*chs*/); 
 
-    W("audio init ok"); 
+    I("audio init ok"); 
 
     return drv; 
 }
@@ -1305,14 +1305,14 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;    
         // acquire(&(drvs+id)->m_SpinLock);    // xzl: TODO dont grab lock here. grab inside sound_fini. and only take dev lock
-        W("sound fini drv %d", id);
+        I("sound fini drv %d", id);
         sound_fini(drvs+id); 
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
         break;
     case SB_CMD_INIT: // init
         if (args[1] >= 0) {
-            W("sound init chunksize=%d", args[1]);
+            I("sound init chunksize=%d", args[1]);
             sound_init(args[1]);
             ret = 1; 
         }
@@ -1322,7 +1322,7 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;    
         // acquire(&(drvs+id)->m_SpinLock);  // xzl XXX shouldn't lock. as GetNextChunk will grab drv lock
-        W("sound_start drv %d", id);
+        I("sound_start drv %d", id);
         sound_start(drvs+id);
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
@@ -1332,7 +1332,7 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;
         // acquire(&(drvs+id)->m_SpinLock); // xzl XXX shouldn't lock.
-        W("sound_cancel drv %d", id);
+        I("sound_cancel drv %d", id);
         sound_cancel(drvs+id);
         // release(&(drvs+id)->m_SpinLock); 
         ret = 2; 
@@ -1342,12 +1342,12 @@ int procfs_parse_sbctl(int args[PROCFS_MAX_ARGS]) {
         if (id>=MAX_SOUND_DRV) return 0; 
         if (!drvs[id].valid) return 0;
         if (args[2]>=SoundFormatUnsigned32 || args[3]>2) return 0;         
-        W("SetWriteFormat drv %d wrfmt %d nchans %d", id, args[2], args[3]);
+        I("SetWriteFormat drv %d wrfmt %d nchans %d", id, args[2], args[3]);
         SetWriteFormat(drvs+id, args[2], args[3]); 
         ret = 2; 
         break;
     case SB_CMD_TEST:  // play sound samples built-in the kernel
-        W("test sound");
+        I("test sound");
         test_sound(); 
         break; 
     default:

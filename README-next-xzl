@@ -1438,6 +1438,18 @@ malloc regions are disjoint....
 
 [x]separate "top" window from "focus" window. so that sysmon can float on top
 
+[ ] exec fail sometimes. (in sh) WHY
+
 [ ] residual shadow in "sysmon"... transparency handling... has to clear the real eastate...
 
-[ ] add userspace crash... stacktrace mechanism (+core dump)
+[?] add userspace crash... stacktrace mechanism (+core dump)
+    /// debugging gtricks... to print out return addr
+    //  can do this for the whole call chain. probably enough??? 
+    if (!(x >= 0 && y >= 0)) {
+            (unsigned long)__builtin_return_address(0 /*current func*/)
+        );
+    }
+
+[x] nplayer. fixed:
+floating point + int calulation will overflow, causing very large neg values
+lack of locking for stream_save. (race conditions)

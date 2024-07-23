@@ -166,3 +166,21 @@ int config_fbctl0(int cmd, int x, int y, int w, int h, int zorder, int trans) {
     close(fbctl0);   // flush
     return 0; 
 }
+
+
+// simple userspace spinlock. same as in ulib.c
+// XXX move it out of io.c, or rename io.c 
+void spinlock_init(struct spinlock_u *lk) {
+  lk->locked = 0; 
+}
+
+void spinlock_lock(struct spinlock_u *lk) {
+  while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
+    ;
+  __sync_synchronize();
+}
+
+void spinlock_unlock(struct spinlock_u *lk) {
+  __sync_synchronize();
+  __sync_lock_release(&lk->locked);
+}

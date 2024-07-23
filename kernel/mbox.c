@@ -1,5 +1,5 @@
-// #define K2_DEBUG_WARN
-#define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
+// #define K2_DEBUG_INFO
 
 /*
  * Copyright (C) 2018 bzt (bztsrc@github)
@@ -83,8 +83,8 @@ int mbox_call(unsigned char ch)
         if(r == *MBOX_READ) {
             V("r is 0x%x", r); 
             __asm_invalidate_dcache_range((void *)mbox, (char *)mbox + sizeof(mbox)); 
-            /* is it a valid successful response? */
-            if (mbox[1]!=MBOX_RESPONSE) E("mbox[1] is %08x", mbox[1]);
+            /* is it a valid successful response? (strange it's benign) */
+            if (mbox[1]!=MBOX_RESPONSE) I("mbox[1] is %08x", mbox[1]);            
             return mbox[1]==MBOX_RESPONSE;
         } else {
             W("got an irrelvant msg. bug?"); 

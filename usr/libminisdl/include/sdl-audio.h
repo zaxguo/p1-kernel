@@ -7,6 +7,9 @@ typedef struct {
   uint8_t channels;
   uint16_t samples;
   uint32_t size;
+  /* To be provided by the app that uses SDL. 
+    the func will be called by SDL's audio thread, in order to refill 
+    the thread's audio buffer ("stream"). */
   void (*callback)(void *userdata, uint8_t *stream, int len);
   void *userdata;
 } SDL_AudioSpec;

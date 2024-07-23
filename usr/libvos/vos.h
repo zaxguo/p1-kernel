@@ -70,6 +70,14 @@ enum {
 extern unsigned int uptime_ms(void);  
 extern unsigned int msleep(unsigned int msec); 
 
+// simple spinlock for user. same as ulib.c
+struct spinlock_u {
+    unsigned int locked; 
+}; 
+void spinlock_init(struct spinlock_u *lk); 
+void spinlock_lock(struct spinlock_u *lk); 
+void spinlock_unlock(struct spinlock_u *lk); 
+
 // semaphores. see kernel sys_semcreate() for design comments
 // direct call syscalls, as they have no libc wrappers
 int sys_semcreate(int count); 
