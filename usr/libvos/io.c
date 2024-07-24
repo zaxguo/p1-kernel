@@ -115,8 +115,8 @@ int config_sbctl(int cmd, int arg1, int arg2, int arg3) {
     if (sbctl <= 0) {printf("open err\n"); return -1;}
     
     sprintf(line, "%d %d %d %d\n", cmd, arg1, arg2, arg3); len1 = strlen(line); 
-    if ((len1 = write(sbctl, line, len1)) < 0) {
-        printf("write to sbctl failed with %d. shouldn't happen", len1);
+    if ((len1 = write(sbctl, line, len1)) <= 0) {
+        printf("%s: write failed with %d", __func__, len1);
         exit(1);
     }
     close(sbctl);   // flush
@@ -128,7 +128,7 @@ int config_sbctl(int cmd, int arg1, int arg2, int arg3) {
 int read_sbctl(struct sbctl_info *cfg) {
     char line[TXTSIZE]; 
     FILE *fp = fopen("/proc/sbctl", "r"); 
-    if (!fp) {printf("open err\n"); return -1;}
+    if (!fp) {printf("%s: open err\n", __func__); return -1;}
     while (fgets(line, TXTSIZE, fp)) {
         if (line[0] == '#') 
             continue;   // skip a comment line 
@@ -143,7 +143,7 @@ int read_sbctl(struct sbctl_info *cfg) {
             }
         } 
     }
-    printf("read file err\n"); fclose(fp); return -1;
+    printf("%s: read err\n", __func__); fclose(fp); return -1;
 }
 
 

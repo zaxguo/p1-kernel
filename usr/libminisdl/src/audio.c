@@ -99,7 +99,8 @@ int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
 
   if (desired->channels>2) return -1; 
 
-  config_sbctl(SB_CMD_WR_FMT, 0/*drv id*/, wrfmt, desired->channels); 
+  if (config_sbctl(SB_CMD_WR_FMT, 0/*drv id*/, wrfmt, desired->channels)!=0)
+    return -1; // failed
 
   return clone(thread_func, 
     // the thread's stack. Ok to use an abitrary VA in the middle 
