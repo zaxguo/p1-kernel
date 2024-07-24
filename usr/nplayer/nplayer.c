@@ -1,12 +1,21 @@
 /* A simple music player that can play ogg files
   based on: https://github.com/NJU-ProjectN/navy-apps/blob/master/apps/nplayer/src/main.c
 
+  Usage (see main())
+
+  Control (USB keyboard):
+    - : volume down
+    = : volume up
+    p : pause / resume
+    q : quit
+
   dependency: 
     rpi3 hardware. qemu lacks support for sound emulation (rpi3/4), so
   this can only be tried out on real hardware (which uses pwm 3.5mm jack for
   sound output) 
     sdl (abstraction for keyboard events, audio, and visualization)
     libvorbis (ogg playback)
+
 
   Some of the comments are by FL 
 */
@@ -125,19 +134,20 @@ void FillAudio(void *userdata, uint8_t *stream, int len) {
   // sys_semv(sem);
 }
 
-/* usage
+/* Usage
   # play /d/sample.ogg, visualize on hw surface
   ./nplayer 
   # play own sample, visualize on hw surface
   ./nplayer /d/angel.ogg 
   # play own sample, visualize on sw surface, offset at 10, 10
   ./nplayer /d/angel.ogg 10 10
-
 */
 int main(int argc, char *argv[]) {
   char *path = (argc>1) ? argv[1] : MUSIC_PATH; 
   FILE *fp = fopen(path, "r");
   int ret, x=0, y=0, flags=(SDL_WINDOW_HWSURFACE|SDL_WINDOW_FULLSCREEN); 
+  int evflags = SDL_EV_HW;
+
   if (!fp) {
     printf("failed to open file %s\n", path); 
     return -1; 
@@ -146,9 +156,14 @@ int main(int argc, char *argv[]) {
   if (argc>2) { // screen locations given. use sw surface
     x=atoi(argv[2]); y=atoi(argv[3]);
     flags=SDL_WINDOW_SWSURFACE;
+    evflags = SDL_EV_SW; 
   }
 
-  SDL_Init(SDL_INIT_AUDIO);
+  if (SDL_Init(SDL_INIT_AUDIO) != 0) {
+    printf("WARNING -- %s: SDL_Init failed. No sound device?\n", __func__);
+    // return -1;   // continue to run...
+  }
+
 #if HAS_VISUAL  
   // screen = SDL_SetVideoMode(W, H, 32, SDL_HWSURFACE); assert(screen); 
   // ret = SDL_FillRect(screen, NULL, 0); assert(ret==0); 
@@ -206,7 +221,7 @@ int main(int argc, char *argv[]) {
 
   while (!is_end) {
     SDL_Event ev;
-    while (SDL_PollEvent(&ev)) {
+    while (SDL_PollEvent(&ev, evflags)) {
       if (ev.type == SDL_KEYDOWN) {
         switch (ev.key.keysym.sym) {
           case SDLK_MINUS:  if (volume >= 8) volume -= 8; break;

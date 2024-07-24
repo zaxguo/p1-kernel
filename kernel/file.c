@@ -472,9 +472,11 @@ int procfs_gen_content(int major, char *txtbuf, int sz) {
     case PROCFS_FBCTL0: 
         len = snprintf(txtbuf, sz, "TBD"); 
         break; 
+#ifdef PLAT_RPI3
     case PROCFS_SBCTL: 
         len = procfs_sbctl_gen(txtbuf, sz); 
         break; 
+#endif        
     case PROCFS_CPUINFO: //cpu util, e.g. "10 20 30 40"
         {
             // XXX probably need certain locks for cpu::last_util
@@ -488,7 +490,8 @@ int procfs_gen_content(int major, char *txtbuf, int sz) {
         break;
     default:
         // implement more procfs type here
-        len = snprintf(txtbuf, sz, "%s\n", "TBD"); 
+        // len = snprintf(txtbuf, sz, "%s\n", "TBD"); 
+        len = 0; 
         break;
     }
     BUG_ON(len<0||len>=sz);
@@ -576,10 +579,14 @@ int procfs_parse_usercontent(struct file *f) {
         break;    
     case PROCFS_FBCTL0:
         procfs_parse_fbctl0(args); 
-        break;            
+        break;
+#ifdef PLAT_RPI3
     case PROCFS_SBCTL: 
         procfs_parse_sbctl(args); 
+        break;                 
+#endif
     default:
+        return 0;
         break;
     }
     return nargs; 
@@ -596,9 +603,6 @@ static void init_devfs() {
 
     devsw[DEVZERO].read = devzero_read;
     devsw[DEVZERO].write = 0; // nothing
-
-    devsw[DEVSB].read = 0; 
-    devsw[DEVSB].write = devsb_write; 
 
     devsw[FRAMEBUFFER].read = 0; // TBD (readback?
     devsw[FRAMEBUFFER].write = devfb_write; 

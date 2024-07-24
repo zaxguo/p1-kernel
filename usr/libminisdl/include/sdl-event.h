@@ -22,6 +22,11 @@ enum SDL_Keys {
 // this seems how sdl does things. 
 #endif
 
+enum SDL_EventFlags {
+  SDL_EV_HW = 0,  /* /dev/events */
+  SDL_EV_SW = 1,  /* /dev/events0 */
+};
+
 enum SDL_EventType {
     /* Application events */
     SDL_QUIT = 0x100,    /**< User-requested quit */
@@ -62,8 +67,8 @@ typedef union {  // xzl: note it's not a struct
 } SDL_Event;
 
 int SDL_PushEvent(SDL_Event *ev);
-int SDL_PollEvent(SDL_Event *ev);  // xzl: non blocking
-int SDL_WaitEvent(SDL_Event *ev);
+int SDL_PollEvent(SDL_Event *ev, int flags);  // xzl: non blocking
+int SDL_WaitEvent(SDL_Event *ev, int flags);
 int SDL_PeepEvents(SDL_Event *ev, int numevents, int action, uint32_t mask);
 uint8_t* SDL_GetKeyState(int *numkeys);
 

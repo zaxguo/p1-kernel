@@ -21,6 +21,8 @@
 #include "kb.h"
 #include "list.h"
 #include "fcntl.h"
+#include "sched.h"
+#include "file.h"
 
 struct sf_struct {
     unsigned char *buf; // kernel va
@@ -89,6 +91,11 @@ static void dirty_all_sf(void) {
     bk_dirty=1; 
 }
 
+extern struct kb_struct the_kb; // kb.c
+int kb_task_quit = 0; // protected by the_kb.lock
+int kb_task_id = -1;
+static void kb_task(int arg); 
+
 // zorder: ZORDER_BOTTOM, ZORDER_TOP, etc 
 // trans: transparency, 0 (fully transparent)-100(fullyopaque)
 // return 0 on success; <0 on err
@@ -119,8 +126,12 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
 
     dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all    
 
-    if (slist_len(&sflist) == 1) // reset the fb hw, if this is the 1st surface
-        reset_fb();     
+    if (slist_len(&sflist) == 1) { // reset the fb hw, if this is the 1st surface
+        reset_fb();
+        int res = copy_process(PF_KTHREAD, (unsigned long)&kb_task, 0/*arg*/,
+        "[kb]"); BUG_ON(res<0); 
+    }
+
     wakeup(&sflist); // notify flinger
     release(&sflock);
     W("cr ok. pid %d", pid); 
@@ -140,9 +151,17 @@ int sf_free(int pid)  {
         if (sf->buf) free(sf->buf); 
         free(sf); 
     
-        if (slist_len(&sflist) == 0) 
-            {I("freed");fb_fini();}  // no surface left
-        else
+        if (slist_len(&sflist) == 0) { // no surface left
+            // clean up hw fb        
+            I("freed");fb_fini();
+            // terminate the kb task
+            acquire(&the_kb.lock);
+            kb_task_quit = 1; 
+            wakeup(&the_kb.r);
+            release(&the_kb.lock);
+            I("wait for kb task to finish...");
+            int wpid=wait(0); BUG_ON(wpid<0);
+        }  else
             dirty_all_sf(); 
         wakeup(&sflist);
         ret=0; 
@@ -472,7 +491,7 @@ int procfs_parse_fbctl0(int args[PROCFS_MAX_ARGS]) {
     return ret; 
 }
 
-/* Write from /dev/fb0 from user task */
+/* Write to /dev/fb0 by user task */
 int devfb0_write(int user_src, uint64 src, int off, int n, void *content) {
     int ret = 0, len, pid = sys_getpid(); 
     slist_t *node = 0;
@@ -507,17 +526,19 @@ out:
     return ret; 
 }
 
-extern struct kb_struct the_kb; // kb.c
+/* 
+    Read from kb driver's queue, interpret surface commands (e.g. alt-tab), 
+    and dispatch other events to the surface that has the focus 
 
-/* read from kb driver's queue, interpret surface commands (e.g. alt-tab), 
-and dispatch other events to the surface that has the focus 
+    separate this from sf_task, b/c these two are logically diff, 
+    and sleep() on different events (kb inputs vs. user surface draw)
 
-separate this from sf_task, b/c these two are logically diff, 
-and sleep() on different events (kb inputs vs. user surface draw)
+    Once launched, the task will block kb, racing any app tries to read from 
+    /dev/events. Therefore, this task only runs when # of sf clients >=1.
 
     cf kb_read() kb.c
 */
-static void kb_dispatch_task(int arg) {
+static void kb_task(int arg) {
     struct kbevent ev;
     struct sf_struct *top=0; 
 
@@ -525,12 +546,14 @@ static void kb_dispatch_task(int arg) {
 
     while (1)  {
         acquire(&the_kb.lock);
-        // if (!blocking && (the_kb.r == the_kb.w)) break;
 
         // wait until interrupt handler has put some
         // input into the driver buffer.
-        while (the_kb.r == the_kb.w) {         
+        while (the_kb.r == the_kb.w && !kb_task_quit) {         
             sleep(&the_kb.r, &the_kb.lock);
+        }
+        if (kb_task_quit) {
+            release(&the_kb.lock);I("%s quits", __func__);return;
         }
 
         ev = the_kb.buf[the_kb.r++ % INPUT_BUF_SIZE];
@@ -621,9 +644,6 @@ int kb0_read(int user_dst, uint64 dst, int off, int n, char blocking, void *cont
     return target - n;
 }
 
-#include "sched.h"
-#include "file.h"
-
 int start_sf(void) {
     // register 
     devsw[KEYBOARD0].read = kb0_read;
@@ -633,8 +653,8 @@ int start_sf(void) {
     devsw[FRAMEBUFFER0].write = devfb0_write;
 
     int res = copy_process(PF_KTHREAD, (unsigned long)&sf_task, 0/*arg*/,
-		 "[sf]"); BUG_ON(res<0); 
-    res = copy_process(PF_KTHREAD, (unsigned long)&kb_dispatch_task, 0/*arg*/,
-        "[kb]"); BUG_ON(res<0); 
+		 "[sf]"); BUG_ON(res<0);         
+    // res = copy_process(PF_KTHREAD, (unsigned long)&kb_task, 0/*arg*/,
+    //     "[kb]"); BUG_ON(res<0);  // fork on demand, instead
     return 0; 
 }

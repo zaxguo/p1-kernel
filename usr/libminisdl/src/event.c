@@ -13,14 +13,16 @@ int SDL_PushEvent(SDL_Event *ev) {
 // Poll for currently pending events.
 // Returns 1 if there is a pending event or 0 if there are none available.
 // since the kernel buffers kb events, we dont buffer it here
-int SDL_PollEvent(SDL_Event *ev) {
+int SDL_PollEvent(SDL_Event *ev, int flags) {
   
   if (eventfd && blocking==1) {
     close(eventfd); eventfd = 0; 
   }
     
   if (!eventfd) {
-    eventfd = open("/dev/events", O_RDONLY | O_NONBLOCK); assert(eventfd>0); 
+    eventfd = open((flags & SDL_EV_SW) ? "/dev/events0":"/dev/events",
+        O_RDONLY | O_NONBLOCK); 
+    assert(eventfd>0); 
     blocking = 0; 
   }
 
@@ -46,12 +48,14 @@ int SDL_PollEvent(SDL_Event *ev) {
 
 // Wait indefinitely for the next available event.
 // Returns 1 on success or 0 if there was an error while waiting for events
-int SDL_WaitEvent(SDL_Event *event) {
+int SDL_WaitEvent(SDL_Event *event, int flags) {
   if (eventfd && !blocking) {
     close(eventfd); eventfd = 0; 
   }
   if (!eventfd) {
-    eventfd = open("/dev/events", O_RDONLY); assert(eventfd>0); 
+    eventfd = open((flags & SDL_EV_SW) ? "/dev/events0":"/dev/events",
+        O_RDONLY | O_NONBLOCK); 
+    assert(eventfd>0); 
     blocking = 1; 
   }  
 

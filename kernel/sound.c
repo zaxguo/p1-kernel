@@ -9,6 +9,9 @@
 
 #include "utils.h"
 #include "plat.h"
+#include "spinlock.h"
+#include "file.h"
+#include "fcntl.h"
 #include "circle-glue.h"
 #include "spinlock.h"
 #include "gpio.h"
@@ -1181,6 +1184,11 @@ struct sound_drv * sound_init(unsigned nChunkSize)
     // can be changed later via /proc/sbctl
     //  hw native: SoundFormatUnsigned32, 2 channels. 
     SetWriteFormat(drv, SoundFormatUnsigned8, 1 /*chs*/); 
+
+    // init devfs
+extern int devsb_write(int user_src, uint64 src, int off, int n, void *content); // sound.c
+    devsw[DEVSB].read = 0; 
+    devsw[DEVSB].write = devsb_write; 
 
     I("audio init ok"); 
 

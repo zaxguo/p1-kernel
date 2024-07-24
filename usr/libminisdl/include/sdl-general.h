@@ -10,7 +10,7 @@
 #define SDL_INIT_NOPARACHUTE 0x08
 #define SDL_INIT_JOYSTICK    0x10
 
-int SDL_Init(uint32_t flags);
+int SDL_Init(uint32_t flags); // 0 on success
 void SDL_Quit();
 void SDL_QuitSubSystem(uint32_t flags); // by doom
 

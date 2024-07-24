@@ -137,7 +137,7 @@ int read_sbctl(struct sbctl_info *cfg) {
                 &cfg->id, &cfg->hw_fmt, &cfg->sample_rate, 
                 &cfg->queue_sz, &cfg->bytes_free, &cfg->write_fmt,
                 &cfg->write_channels) != 7) {
-                    printf("wrong # of paras read"); fclose(fp); return -1; 
+                    printf("%s wrong # of paras read", __func__); fclose(fp); return -1; 
                 } else {
                 fclose(fp); return 0; // done
             }

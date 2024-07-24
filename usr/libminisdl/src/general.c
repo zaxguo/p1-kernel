@@ -7,8 +7,8 @@ extern void sdl_fini_audio(void); // audio.c
 
 int SDL_Init(uint32_t flags) {
   if (flags & SDL_INIT_AUDIO)
-    sdl_init_audio(); 
-  return 0; 
+    return sdl_init_audio(); 
+  return -1; 
 }
 
 void SDL_Quit() {

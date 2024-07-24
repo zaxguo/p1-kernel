@@ -153,10 +153,7 @@ C_OBJS += $(BUILD_DIR)/uspibind_c.o
 C_OBJS += $(BUILD_DIR)/kb_c.o
 # usb devices (kb, gamepad, etc
 BIN_OBJS += addon/usb/lib/libuspi.a		
-# sound 		
-C_OBJS += $(BUILD_DIR)/sound_c.o
-C_OBJS += $(BUILD_DIR)/gpio_c.o
-C_OBJS += $(BUILD_DIR)/machineinfo_c.o	
+# (sound support - NA)
 # sd card
 C_OBJS += $(BUILD_DIR)/sd_c.o
 endif

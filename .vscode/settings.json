@@ -104,7 +104,8 @@
         "sdl-video.h": "c",
         "numeric": "c",
         "semaphore": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "sound-sample-trimmed.h": "c"
     },
     "files.exclude": {
         "docs/**": true,
