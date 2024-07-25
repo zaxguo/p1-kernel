@@ -336,6 +336,7 @@ static inline void warn_failed (const char *pExpr, const char *pFile, unsigned n
 
 #define MAX(a,b) ((a) > (b) ? a : b)
 #define MIN(a,b) ((a) < (b) ? a : b)
+#define ABS(x) ((x) < 0 ? -(x) : (x))
 
 // debug.h
 #include "debug.h"

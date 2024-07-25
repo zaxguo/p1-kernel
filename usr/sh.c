@@ -10,9 +10,9 @@
 //                    "cat logo.txt\n";
 // const char *init_cmds = "nes &\n";
 
-// ok
-// const char *init_cmds = "slider 0 0 -1 -1&\n"
-//                        "slider 50 50 -1 -1 75&\n";
+// 2 normal windows
+const char *init_cmds = "slider 0 0 -1 -1&\n"
+                       "slider 50 50 -1 -1&\n";
 
 // const char *init_cmds = "slider 50 50 -1 -1&\n";
 
@@ -20,11 +20,14 @@
 // const char *init_cmds = "sysmon fb0 &\n"
 //                        "blockchain &\n";
 
-// ok if sleep() in sh
+// 1 floating + 1 norm window
 // const char *init_cmds = "sysmon fb0 &\n"
 //                         "slider 300 300 -1 -1&\n";
 
-// ok
+// const char *init_cmds = "slider 0 0 -1 -1&\n"
+//                        "slider 50 50 -1 -1 75&\n";
+
+// multi windows
 // const char *init_cmds = "sysmon fb0 &\n"
 //                         "slider 50 50 -1 -1&\n"
 //                         "slider 100 100 -1 -1&\n"
@@ -38,8 +41,11 @@
 // const char *init_cmds = "sysmon fb0 &\n";
 
 // ok
-const char *init_cmds = "nplayer /d/sample.ogg 10 10 &\n";
+// const char *init_cmds = "nplayer /d/sample.ogg 10 10 &\n";
 // const char *init_cmds = "nplayer /d/angel.ogg 10 10 &\n";
+
+// const char *init_cmds = "nplayer /d/sample.ogg 10 10 &\n"
+//                         "sysmon fb0 &\n";
 
 // no init cmd
 // const char *init_cmds=0; 

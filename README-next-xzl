@@ -1453,3 +1453,11 @@ malloc regions are disjoint....
 [x] nplayer. fixed:
 floating point + int calulation will overflow, causing very large neg values
 lack of locking for stream_save. (race conditions)
+
+[x] fixed SDL + /dev/events0 
+
+[x] ptimize sf redrawing (windowds and backgrnd)
+
+[ ] sf: fix the way we calculate boudnary width. (why +1 pixel??
+
+[ ] nes - make a SDL version? (so it can be windowed, & multi instances 

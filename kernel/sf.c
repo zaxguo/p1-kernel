@@ -1,8 +1,9 @@
-#define K2_DEBUG_WARN
+// #define K2_DEBUG_WARN
 // #define K2_DEBUG_VERBOSE
-// #define K2_DEBUG_INFO
+#define K2_DEBUG_INFO
 
-/* In-kernel surface flinger (SF). 
+/* 
+    In-kernel surface flinger (SF). 
    each task configures desired surface size/loc via /proc/sfctl, 
    and writes their pixels to /dev/sf; 
    the SF maintains per-task buffers and composite them to the actual hw
@@ -24,9 +25,42 @@
 #include "sched.h"
 #include "file.h"
 
+struct region {
+    int x,y,w,h;
+}; 
+
+int do_regions_intersect(struct region *r1, struct region *r2) {
+    // Calculate bottom-right coordinates
+    int r1_x2 = r1->x + r1->w;
+    int r1_y2 = r1->y + r1->h;
+    int r2_x2 = r2->x + r2->w;
+    int r2_y2 = r2->y + r2->h;
+    // Check if one rectangle is to the left of the other
+    if (r1->x >= r2_x2 || r2->x >= r1_x2)
+        return 0;
+    // Check if one rectangle is above the other
+    if (r1->y >= r2_y2 || r2->y >= r1_y2)
+        return 0;
+    return 1;
+}
+
+struct region regions_union(struct region *r1, struct region *r2) {
+    int r1_x2 = r1->x + r1->w;
+    int r1_y2 = r1->y + r1->h;
+    int r2_x2 = r2->x + r2->w;
+    int r2_y2 = r2->y + r2->h;
+    struct region r; 
+    r.x = MIN(r1->x, r2->x); 
+    r.y = MIN(r1->y, r2->y); 
+    r.w = MAX(r1_x2, r2_x2) - r.x; 
+    r.h = MAX(r1_y2, r2_y2) - r.y;
+    return r; 
+}
+
 struct sf_struct {
     unsigned char *buf; // kernel va
-    unsigned x,y,w,h; // with regard to (0,0) of the hw fb
+    // unsigned x,y,w,h; // with regard to (0,0) of the hw fb
+    struct region r; // with regard to (0,0) of the hw fb
     int transparency;  // 0-100
     int dirty;  // redraw this surface? 
     int pid; // owner 
@@ -36,20 +70,31 @@ struct sf_struct {
     slist_t list1;  // to link sf on a tmplist, cf sf_composite()
 }; 
 
-static struct spinlock sflock = {.locked=0, .cpu=0, .name="sflock"};
-// ordered by z. tail: 0 (top most)
-static slist_t sflist = SLIST_OBJECT_INIT(sflist);  
-static int bk_dirty = 1; // is background dirty? protected by sflock
-
-extern int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
-extern int sys_getpid(void);  // sys.c
-
 // dimension of hw fb
 #define VW 1024
 #define VH 768
 
 // bkgnd color, gray
 #define BK_COLOR  0x00222222   
+
+static struct spinlock sflock = {.locked=0, .cpu=0, .name="sflock"};
+// ordered by z. tail: 0 (top most)
+static slist_t sflist = SLIST_OBJECT_INIT(sflist);  
+// static int bk_dirty = 1; // is background dirty? protected by sflock
+/* the dirty region on the background. 
+    when the bkgnd is dirty (e.g. a window moved, a window closed), often only a
+    very small region in the bkgnd needs to be redrawn, e.g. the region exposed
+    by the moved/closed window. if we only redraw such regions instead of the
+    entire bkgnd, we can avoid overdrawing lots of surfaces atop the bkgnd 
+*/    
+// static struct {
+//     int x,y,w,h;
+// } bk_dirty = {.x=0, .y=0, .w=VW, .h=VH};
+
+static struct region bk_dirty = {.x=0, .y=0, .w=VW, .h=VH};
+
+extern int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
+extern int sys_getpid(void);  // sys.c
 
 // return 0 on success
 static int reset_fb() {
@@ -88,7 +133,7 @@ static void dirty_all_sf(void) {
         sf = slist_entry(node, struct sf_struct/*struct name*/, list /*field name*/); BUG_ON(!sf);
         sf->dirty=1; 
     }
-    bk_dirty=1; 
+    // bk_dirty=1; 
 }
 
 extern struct kb_struct the_kb; // kb.c
@@ -104,7 +149,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
 
     if (!s) {BUG();return -1;}
     s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);BUG();return -2;}
-    s->x=x; s->y=y; s->w=w; s->h=h; s->pid=pid; 
+    s->r.x=x; s->r.y=y; s->r.w=w; s->r.h=h; s->pid=pid; 
     s->dirty=1; s->transparency=trans; s->floating=0; 
     s->kb.r=s->kb.w=0; // spinlock unused
 
@@ -147,10 +192,7 @@ int sf_free(int pid)  {
     acquire(&sflock);
     sf = find_sf(pid); 
     if (sf) {
-        slist_remove(&sflist, &sf->list);
-        if (sf->buf) free(sf->buf); 
-        free(sf); 
-    
+        slist_remove(&sflist, &sf->list);            
         if (slist_len(&sflist) == 0) { // no surface left
             // clean up hw fb        
             I("freed");fb_fini();
@@ -161,8 +203,15 @@ int sf_free(int pid)  {
             release(&the_kb.lock);
             I("wait for kb task to finish...");
             int wpid=wait(0); BUG_ON(wpid<0);
-        }  else
-            dirty_all_sf(); 
+        }  else {
+            // dirty_all_sf(); 
+            // dirty the bkgnd region occupied by the free'd surface
+            // bk_dirty = sf->r; 
+            bk_dirty = regions_union(&bk_dirty, &sf->r); 
+        }
+        
+        if (sf->buf) free(sf->buf); 
+        free(sf); 
         wakeup(&sflist);
         ret=0; 
     } else 
@@ -184,7 +233,7 @@ int sf_size(int pid) {
     sf = find_sf(pid); 
     if (!sf) 
         goto out; 
-    ret = sf->w * sf->h * PIXELSIZE;
+    ret = sf->r.w * sf->r.h * PIXELSIZE;
 out:
     release(&sflock);
     return ret; 
@@ -198,14 +247,15 @@ static int sf_config(int pid, int x, int y, int w, int h, int zorder) {
     acquire(&sflock);
     sf = find_sf(pid); 
     if (sf) {
-        if (sf->w!=w || sf->h!=h) {
+        if (sf->r.w!=w || sf->r.h!=h) {
             // TBD resize sf: alloc new buf, free old buf...
             BUG(); 
         }
-        sf->x=x; sf->y=y; sf->w=w; sf->h=h;
+        sf->r.x=x; sf->r.y=y; sf->r.w=w; sf->r.h=h;
         if (zorder != ZORDER_UNCHANGED) { 
             // take the sf out and plug in back
-            slist_remove(&sflist, &sf->list); // XXX ok? or &sf->list?
+            slist_remove(&sflist, &sf->list); 
+            sf->dirty = 1; // sf_composite() will figure out redrawing other sf
             if (zorder == ZORDER_TOP)
                 slist_append(&sflist, &sf->list); 
             else if (zorder == ZORDER_BOTTOM) 
@@ -215,7 +265,7 @@ static int sf_config(int pid, int x, int y, int w, int h, int zorder) {
             else BUG(); // ZORDER_INC, ZORDER_DEC ... TBD
         }
     }
-    dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all 
+    // dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all 
     wakeup(&sflist); // notify flinger
     release(&sflock);
     if (!sf) return -1; // pid no found
@@ -235,8 +285,9 @@ static int sf_alt_tab(void) {
     bot = slist_first_entry(&sflist, struct sf_struct, list); 
     slist_remove(&sflist, &bot->list); 
     slist_append(&sflist, &bot->list); 
-    
-    dirty_all_sf(); wakeup(&sflist); 
+    bot->dirty = 1; 
+    // dirty_all_sf(); 
+    wakeup(&sflist); 
     ret=0; 
 out: 
     release(&sflock);
@@ -257,25 +308,38 @@ static int sf_move(int dir) {
     if (slist_len(&sflist)==0) {ret=-1; goto out;}
 
     top = slist_tail_entry(&sflist, struct sf_struct, list); 
-    switch(dir) {
+    struct region *r = &top->r, r0 = top->r; 
+    switch(dir) {        
         case 0: // R
             // TBD: allow part of the surface to move out of the window 
-            top->x = MIN(VW - top->w, (int)(top->x) + STEPSIZE); 
+            r->x = MIN(VW - r->w, (int)(r->x) + STEPSIZE);
+            bk_dirty.x = r0.x;          bk_dirty.w = ABS(r->x - r0.x)+1; //+1 b/c the way we render boundary
+            bk_dirty.y = r->y;          bk_dirty.h = r->h; 
             break; 
         case 1: // L
-            top->x = MAX(0, (int)(top->x) - STEPSIZE); 
+            r->x = MAX(0, (int)(r->x) - STEPSIZE);
+            bk_dirty.x = r->x + r->w;   bk_dirty.w = ABS(r->x - r0.x)+1; 
+            bk_dirty.y = r->y;          bk_dirty.h = r->h;
             break;
         case 2: // Dn
-            top->y = MIN(VH - top->h, (int)(top->y) + STEPSIZE); 
+            r->y = MIN(VH - r->h, (int)(r->y) + STEPSIZE); 
+            bk_dirty.x = r->x;          bk_dirty.w = r->w; 
+            bk_dirty.y = r0.y;          bk_dirty.h = ABS(r->y - r0.y)+1;
             break; 
         case 3: // Up
-            top->y = MAX(0, (int)(top->y) - STEPSIZE); 
+            r->y = MAX(0, (int)(r->y) - STEPSIZE);
+            bk_dirty.x = r->x;          bk_dirty.w = r->w;  
+            bk_dirty.y = r->y + r->h;   bk_dirty.h = ABS(r->y - r0.y)+1;
             break;
         default: 
             ret = -1; 
             break; 
     }
-    if (ret!=-1) {dirty_all_sf(); wakeup(&sflist);}
+    if (ret!=-1) {
+        // dirty_all_sf();
+        top->dirty = 1; 
+        wakeup(&sflist);
+    }
 out: 
     release(&sflock);
     return ret; 
@@ -289,7 +353,7 @@ static void sf_dump(void) { // debugging
     printf("pid x y w h\n"); 
     slist_for_each(node, &sflist) { // descending z order, bottom up
         sf = slist_entry(node, struct sf_struct, list /*field name*/);        
-        printf("%d %d %d %d %d\n", sf->pid, sf->x, sf->y, sf->w, sf->h);
+        printf("%d %d %d %d %d\n", sf->pid, sf->r.x, sf->r.y, sf->r.w, sf->r.h);
     }
     release(&sflock);
 }
@@ -363,58 +427,73 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
 // caller MUST hold sflock
 // return # of layers redrawn
 extern int sys_uptime(); 
+#define MAX_SF  20 
 static int sf_composite(void) {
     unsigned char *p0, *p1, cnt=0;
     slist_t *node = 0; 
     struct sf_struct *sf;
+    struct region redrawn_regions[MAX_SF]; int n_redrawn = 0; 
 
     acquire(&mboxlock);
     if (!the_fb.fb) {release(&mboxlock); return 0;} // we may have 0 surface, fb closed
     
     I("%s starts >>>>>>> ", __func__);  __attribute__ ((unused)) int t00 = sys_uptime(); 
-    if (bk_dirty) { // draw backgnd
-        I("%s: draw bkgnd", __func__); 
-        for (int i=0; i<VH;i++) {
+    if (bk_dirty.w || bk_dirty.h) { // draw backgnd
+        int y0=MAX(bk_dirty.y, 0), y1=MIN(bk_dirty.y+bk_dirty.h, VH);
+        int x0=MAX(bk_dirty.x, 0), x1=MIN(bk_dirty.x+bk_dirty.w, VW);
+        I("%s: draw bkgnd %d %d %d %d", __func__, x0,y0,x1,y1); 
+        for (int i=y0; i<y1;i++) {
             unsigned int *p0 = (unsigned int *)(the_fb.fb + the_fb.pitch*i); 
-            for (int j=0; j<VW;j++)
+            for (int j=x0; j<x1;j++)
                 p0[j]=BK_COLOR;
         }
-        bk_dirty=0;
+        redrawn_regions[n_redrawn++] = bk_dirty; 
+        bk_dirty.x=bk_dirty.y=bk_dirty.w=bk_dirty.h=0;
     }
 
     /* iterate over all sfs in two passes, in descending z order
-        pass0: skip non-dirty sfs. for dirty sfs: draw non-floating sfs, defer
-        floating sfs to pass1 
+        pass0: defer floating sf to pass1, draw remaing sf, if dirty     
         pass1: draw floating sfs */
     slist_t tmplist = SLIST_OBJECT_INIT(tmplist), *ll=0; 
-    unsigned xx,yy,ww,hh; // top surface's boundary
+    struct region bbb; // top surface's boundary
     for (int pass=0;pass<2;pass++) {
         if (pass==0) ll=&sflist; else ll=&tmplist; 
         slist_for_each(node, ll) { 
-            if (pass==0) // pass0: iterate all sfs: 
+            if (pass==0) { // pass0: iterate over all sfs: 
                 sf = slist_entry(node, struct sf_struct, list);
-            else // pass1: iterate floating sfs (deferred from pass0)
-                sf = slist_entry(node, struct sf_struct, list1);
-            if (!sf->dirty) continue;            
-            if (pass==0) { 
                 if (!node->next) // top surface. will draw its bounary later
-                    {xx=sf->x; yy=sf->y; ww=sf->w; hh=sf->h;}
+                    // {xx=sf->x; yy=sf->y; ww=sf->w; hh=sf->h;}
+                    bbb = sf->r; 
                 if (sf->floating) { // defer floating sf to pass1
                     slist_append(&tmplist, &sf->list1);  
                     continue;
                 }
+            } else // pass1: iterate over floating sfs (deferred from pass0)
+                sf = slist_entry(node, struct sf_struct, list1);
+
+            if (!sf->dirty) { 
+                // should this sf intersected with any prior redrawn region, 
+                // the sf is also dirty 
+                for (int ii=0; ii<n_redrawn; ii++) {
+                    if (do_regions_intersect(&sf->r, redrawn_regions+ii)) {
+                        sf->dirty=1; break; 
+                    }
+                }
             }
+            if (!sf->dirty)
+                continue;
+                            
             I("%s draw pass%d: pid %d; x %d y %d w %d h %d trans %d", __func__, 
                 pass, sf->pid,
-                sf->x, sf->y, sf->w, sf->h, sf->transparency); 
+                sf->r.x, sf->r.y, sf->r.w, sf->r.h, sf->transparency); 
             // p0 (dest): hw fb; p1 (src): the current surface
-            p0 = the_fb.fb + sf->y * the_fb.pitch + sf->x*PIXELSIZE; p1 = sf->buf; 
-            for (int j=0;j<sf->h;j++) {  // copy by row
+            p0 = the_fb.fb + sf->r.y * the_fb.pitch + sf->r.x*PIXELSIZE; p1 = sf->buf; 
+            for (int j=0;j<sf->r.h;j++) {  // copy by row
                 if (sf->transparency!=100) { // sf transparent
                     // read back the fb row, mix, and write back                
-                    __asm_invalidate_dcache_range(p0, p0+sf->w*PIXELSIZE); //what if no invalidation?
+                    __asm_invalidate_dcache_range(p0, p0+sf->r.w*PIXELSIZE); //what if no invalidation?
                     int t1=sf->transparency, t0=100-t1;
-                    for (int k=0;k<sf->w;k++) {
+                    for (int k=0;k<sf->r.w;k++) {
                         unsigned int *px0 = (unsigned int*)p0; 
                         unsigned int *px1 = (unsigned int*)p1; 
                         //  mix per pixel, per channel
@@ -424,18 +503,18 @@ static int sf_composite(void) {
                                 | (MIN((g0*t0+g1*t1)/100, 0xff)<<8) 
                                 | (MIN((b0*t0+b1*t1)/100, 0xff));  
                     }
-                } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->w*PIXELSIZE)%8==0)
-                    memcpy_aligned(p0, p1, sf->w*PIXELSIZE); // sf opaque, fast path
+                } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->r.w*PIXELSIZE)%8==0)
+                    memcpy_aligned(p0, p1, sf->r.w*PIXELSIZE); // fast path: opaque sf, aligned
                 else
-                    memcpy(p0, p1, sf->w*PIXELSIZE); // sf opaque, slow path
-                p0 += the_fb.pitch; p1 += sf->w*PIXELSIZE;
+                    memcpy(p0, p1, sf->r.w*PIXELSIZE); // slow path
+                p0 += the_fb.pitch; p1 += sf->r.w*PIXELSIZE;
             }
-            sf->dirty=0; cnt++; 
+            redrawn_regions[n_redrawn++] = sf->r; sf->dirty=0; cnt++; 
         }
     }
 
     if (cnt) {
-        draw_boundary(xx,yy,ww,hh, B_COLOR);
+        draw_boundary(bbb.x,bbb.y,bbb.w,bbb.h, B_COLOR);
         // what if no flush? (TBD optimization: partial flush)
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
     }
@@ -447,12 +526,14 @@ static int sf_composite(void) {
 
 // extern int sys_sleep(int ms); 
 static void sf_task(int arg) {
+    __attribute__ ((unused)) int n;
     I("%s starts", __func__);
 
     acquire(&sflock); 
     while (1)  {
-        __attribute__ ((unused))
-        int n = sf_composite(); V("%s: composite %d surfaces", __func__, n);
+        if (slist_len(&sflist)) {
+            sf_composite(); V("%s: composite %d surfaces", __func__, n);
+        }
         sleep(&sflist, &sflock); 
     }
     release(&sflock); // never reach here?
@@ -509,7 +590,7 @@ int devfb0_write(int user_src, uint64 src, int off, int n, void *content) {
     if (!sf) {BUG(); ret=-1; goto out;} // pid not found 
     BUG_ON(!sf->buf); 
     
-    len = MIN(sf->w * sf->h * PIXELSIZE - off, n); 
+    len = MIN(sf->r.w * sf->r.h * PIXELSIZE - off, n); 
     if (either_copyin(sf->buf + off, 1, src, len) == -1)
         goto out;
     ret = len;
