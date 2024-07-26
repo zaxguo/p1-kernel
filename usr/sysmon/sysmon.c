@@ -74,7 +74,7 @@ void visualize(int util[MAX_NCPU], int ncpus) {
   
   memcpy(last_util, util, sizeof(last_util)); 
 
-  printf("%s redraw\n", __func__);
+  // printf("%s redraw\n", __func__);
 
   for (i=0; i<ncpus; i++) {
     bars[i].w = BAR_MAX_LEN;
@@ -123,6 +123,7 @@ int mode=MOD_CON;
 int main(int argc, char *argv[]) {
   int util[MAX_NCPU], ncpu; 
   int x=0,y=0,flags=0; 
+  int evflags = SDL_EV_HW;
 
   if (argc>1) { 
     if (strcmp(argv[1], "con")==0) 
@@ -131,6 +132,7 @@ int main(int argc, char *argv[]) {
       mode=MOD_FB0; 
       x=atoi(argv[1]); y=atoi(argv[2]); 
       flags = (SDL_WINDOW_SWSURFACE|SDL_WINDOW_TRANSPARENCY|SDL_WINDOW_FLOATING); 
+      evflags = SDL_EV_SW; 
     }
   } else 
     { mode=MOD_FB; flags = (SDL_WINDOW_HWSURFACE|SDL_WINDOW_FULLSCREEN); }
@@ -147,7 +149,7 @@ int main(int argc, char *argv[]) {
 
   while (1) {
     SDL_Event ev;
-    while (SDL_PollEvent(&ev)) {
+    while (SDL_PollEvent(&ev, evflags)) {
       if (ev.type == SDL_KEYDOWN) {
         switch (ev.key.keysym.sym) {
           case SDLK_q: goto cleanup; break; 

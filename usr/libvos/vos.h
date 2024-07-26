@@ -90,6 +90,8 @@ int sys_semv(int id); // V()
 // return -1 on failure, otherwise pid (or 0)
 int clone(int (*fn)(void *), void *stack, int flags, void *arg); 
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 #ifdef __cplusplus
 } // extern "C"
 #endif // __cplusplus

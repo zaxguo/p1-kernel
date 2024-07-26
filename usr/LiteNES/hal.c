@@ -189,7 +189,7 @@ void nes_hal_init() {
         ev.type = EV_TIMER; 
         printf("timer task running\n");
         while (1) {            
-            sleep(1000/FPS_HZ);
+            sleep(1000/FPS_HZ); // in ms
             if(write(fds[1], &ev, sizeof ev) != sizeof ev){
                 printf("write timerev failed"); 
                 exit(1);

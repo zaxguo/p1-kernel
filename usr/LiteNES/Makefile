@@ -9,7 +9,9 @@ CFLAGS  += -O2  # Os to shrink binary size, e..g to fit xv6 fs limit
 
 LDFLAGS := 
 
-CFILES  := $(shell find . -name "*.c")
+# CFILES  := $(shell find . -name "*.c" ! -name "*sdl.c")
+CFILES  := common.c  cpu-addressing.c  cpu.c  fce.c memory.c  mmc.c  ppu.c  psg.c
+CFILES  += hal.c main.c 
 OBJS    := $(CFILES:%.c=%.o)
 OBJS	+= ../ulib.o ../printf.o ../usys_s.o ../umalloc.o
 OBJS	+= ../uio.o ../tinyprintf.o

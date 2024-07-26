@@ -6,7 +6,9 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#ifndef NULL
 #define NULL 0   // xzl
+#endif
 
 // xzl: from xv6. TODO clean up
 typedef unsigned int   uint;

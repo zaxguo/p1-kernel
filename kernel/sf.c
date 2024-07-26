@@ -1,6 +1,8 @@
-// #define K2_DEBUG_WARN
 // #define K2_DEBUG_VERBOSE
-#define K2_DEBUG_INFO
+// #define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
+
+// #define PROFILE_SF 1 // profile timing of composition
 
 /* 
     In-kernel surface flinger (SF). 
@@ -276,17 +278,22 @@ static int sf_config(int pid, int x, int y, int w, int h, int zorder) {
 // return 0 on success, <0 on error 
 // call must NOT hold sflock
 static int sf_alt_tab(void) {
-    struct sf_struct *bot = 0;
+    struct sf_struct *bot = 0, *top = 0;
     int ret; 
     
     V("%s", __func__); 
     acquire(&sflock);
     if (slist_len(&sflist) <= 1) {ret=0; goto out;}
     bot = slist_first_entry(&sflist, struct sf_struct, list); 
+    top = slist_tail_entry(&sflist, struct sf_struct, list);
     slist_remove(&sflist, &bot->list); 
     slist_append(&sflist, &bot->list); 
     bot->dirty = 1; 
     // dirty_all_sf(); 
+    // also dirty the the top sf: it lost "boundary", 
+    // and therefore shall be redrawn. (XXX inefficient)
+    top->dirty = 1; 
+
     wakeup(&sflist); 
     ret=0; 
 out: 
@@ -401,10 +408,10 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
     BUG_ON(h<=B_THICKNESS || w<=B_THICKNESS);
     V("%s: %d %d %d %d", __func__, x,y,w,h);
 
-    // top & bottom boundaries
+    // top & bottom boundaries, by row
     for (int j=0; j<B_THICKNESS; j++) {
         t0 = the_fb.fb + (y+j)*the_fb.pitch + x*PIXELSIZE; // top
-        b0 = the_fb.fb + (y+h+1+j-B_THICKNESS)*the_fb.pitch + x*PIXELSIZE; // bottom
+        b0 = the_fb.fb + (y+h+j-B_THICKNESS)*the_fb.pitch + x*PIXELSIZE; // bottom
         t = (unsigned int *)t0; b = (unsigned int *)b0;
         for (int i=0; i<w; i++)
             t[i] = b[i] = clr;
@@ -414,7 +421,7 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
     for (int yy=y; yy<y+h; yy++) { //yy:row num in fb
         // per row
         t0 = the_fb.fb + yy*the_fb.pitch + x*PIXELSIZE; // left
-        b0 = the_fb.fb + yy*the_fb.pitch + (x+w+1-B_THICKNESS)*PIXELSIZE; // right
+        b0 = the_fb.fb + yy*the_fb.pitch + (x+w-B_THICKNESS)*PIXELSIZE; // right
         t = (unsigned int *)t0; b = (unsigned int *)b0;
         for (int i=0; i<B_THICKNESS;i++)
             t[i] = b[i] = clr;
@@ -517,6 +524,19 @@ static int sf_composite(void) {
         draw_boundary(bbb.x,bbb.y,bbb.w,bbb.h, B_COLOR);
         // what if no flush? (TBD optimization: partial flush)
         __asm_flush_dcache_range(the_fb.fb, the_fb.fb+the_fb.size); 
+
+#if PROFILE_SF // XXX not thread safe?
+        static unsigned total=0, total_self=0, cnt=0, last=0;
+        unsigned t0 = sys_uptime(); 
+        total += (t0 - last); cnt ++; 
+        total_self += (t0 - t00); 
+        if (total > 1000 /*ms*/) {
+            printf("%s: avg interval %d ms. self %d ms\n", 
+                __func__, total/cnt, total_self/cnt);
+            cnt = total = total_self = 0; 
+        }
+        last = t0; 
+#endif
     }
     release(&mboxlock);
 

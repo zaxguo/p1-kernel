@@ -1458,6 +1458,7 @@ lack of locking for stream_save. (race conditions)
 
 [x] ptimize sf redrawing (windowds and backgrnd)
 
-[ ] sf: fix the way we calculate boudnary width. (why +1 pixel??
+[x] sf: fix the way we calculate boudnary width. (why +1 pixel??
 
-[ ] nes - make a SDL version? (so it can be windowed, & multi instances 
+[x] nes - make a SDL version (so it can be windowed, & multi instances 
+

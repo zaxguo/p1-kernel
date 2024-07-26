@@ -11,8 +11,8 @@
 // const char *init_cmds = "nes &\n";
 
 // 2 normal windows
-const char *init_cmds = "slider 0 0 -1 -1&\n"
-                       "slider 50 50 -1 -1&\n";
+// const char *init_cmds = "slider 0 0 -1 -1&\n"
+//                        "slider 50 50 -1 -1&\n";
 
 // const char *init_cmds = "slider 50 50 -1 -1&\n";
 
@@ -37,7 +37,6 @@ const char *init_cmds = "slider 0 0 -1 -1&\n"
 // const char *init_cmds = "slider 300 300 -1 -1&\n"
 //                         "sysmon fb0 &\n";
 
-// ok 
 // const char *init_cmds = "sysmon fb0 &\n";
 
 // ok
@@ -45,7 +44,15 @@ const char *init_cmds = "slider 0 0 -1 -1&\n"
 // const char *init_cmds = "nplayer /d/angel.ogg 10 10 &\n";
 
 // const char *init_cmds = "nplayer /d/sample.ogg 10 10 &\n"
-//                         "sysmon fb0 &\n";
+//                         "sysmon 300 300 &\n";
+
+// const char *init_cmds = "nes1 -- 50 50 &\n "
+//                         "sysmon 300 300 &\n";
+
+const char *init_cmds = "nes1 -- 50 50 &\n "
+                        "nes1 -- 300 300 &\n "
+                        "sysmon 600 600 &\n";
+
 
 // no init cmd
 // const char *init_cmds=0; 

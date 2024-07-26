@@ -19,13 +19,14 @@ UPROGS = \
 	build/rm	\
 	build/wc
 
-# apps have rich UI or func
+# below: UI apps with low dependency 
 UPROGS += build/slider
 UPROGS += build/buzz
 UPROGS += build/nes
-# below: depends on libc & etc
+# below: UI apps with rich dependency (libc, sdl, & etc
 UPROGS += build/nplayer
 UPROGS += build/sysmon
+UPROGS += build/nes1
 # below: cpp, depends on libc
 UPROGS += build/blockchain
 
@@ -83,6 +84,11 @@ build/nes: ulib.o printf.o usys_s.o umalloc.o uio.o tinyprintf.o
 	cd LiteNES && $(MAKE)
 	cp LiteNES/nes build/
 	$(ARMGNU)-strip build/nes
+
+build/nes1: build-lib/libvos.a build-lib/libminisdl.a
+	cd LiteNES && $(MAKE) -f Makefile.sdl
+	cp LiteNES/nes1 build/
+	$(ARMGNU)-strip build/nes1
 
 # to prevent makefile from its implicit rule which is shorter & preferred
 # https://www.gnu.org/software/make/manual/html_node/Canceling-Rules.html
