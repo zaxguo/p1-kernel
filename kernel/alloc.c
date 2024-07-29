@@ -1,3 +1,7 @@
+// #define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_INFO
+#define K2_DEBUG_WARN
+
 #include "plat.h"
 #include "utils.h"
 #include "mmu.h"
@@ -146,17 +150,17 @@ unsigned int paging_init() {
         release(&alloc_lock);
     } 
 
-	I("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
-	I("\t kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
-	I("\t paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT));
-	I("\t\t %lu%s %ld pages", 
+	printf("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
+	printf("\t kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
+	printf("\t paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT));
+	printf("\t\t %lu%s %ld pages", 
 		int_val((HIGH_MEMORY0 - LOW_MEMORY)),
 		int_postfix((HIGH_MEMORY0 - LOW_MEMORY)),
 		PAGING_PAGES);
-    I("\t malloc mem: %08x -- %08x", HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT), HIGH_MEMORY0);
-	I("\t\t %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),
+    printf("\t malloc mem: %08x -- %08x", HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT), HIGH_MEMORY0);
+	printf("\t\t %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),
                                  int_postfix(MALLOC_PAGES * PAGE_SIZE)); 
-	I("\t reserved for framebuffer: %08x -- %08x", 
+	printf("\t reserved for framebuffer: %08x -- %08x", 
 		HIGH_MEMORY0, HIGH_MEMORY);
 
 	paging_pages_total = ((HIGH_MEMORY0-LOW_MEMORY)>>PAGE_SHIFT) - MALLOC_PAGES; 
@@ -248,8 +252,10 @@ static unsigned char *s_pPageLimit;
 
 // mutiple freelists, each holding free blocks of a specific size
 static TBlockBucket s_BlockBucket[] = {{0x40}, {0x400}, {0x1000}, {0x4000}, 
-							{0x40000}, {0x80000}, {0}};
-#define MAX_ALLOC_SIZE 0x80000	// the largest bucket. malloc() cannot exceed this size
+							{0x40000}, {0x80000}, {0x100000}, {0}};
+// the largest bucket. malloc() exceeding this size will fail
+// 0x80000 - 512KB; 0x100000 - 1MB. Doom's fb is ~1000KB (640x400x4)
+#define MAX_ALLOC_SIZE 0x100000
 
 #ifdef MEM_PAGE_ALLOC
 static TPageBucket s_PageBucket;		// a freelist of pages...

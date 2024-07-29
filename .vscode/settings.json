@@ -105,7 +105,9 @@
         "numeric": "c",
         "semaphore": "c",
         "unistd.h": "c",
-        "sound-sample-trimmed.h": "c"
+        "sound-sample-trimmed.h": "c",
+        "i_timer.h": "c",
+        "m_argv.h": "c"
     },
     "files.exclude": {
         "docs/**": true,

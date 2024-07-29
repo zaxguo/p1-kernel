@@ -151,6 +151,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
 
     if (!s) {BUG();return -1;}
     s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);BUG();return -2;}
+    // if sf dimension out of the hw fb, sf_composite() will clip it
     s->r.x=x; s->r.y=y; s->r.w=w; s->r.h=h; s->pid=pid; 
     s->dirty=1; s->transparency=trans; s->floating=0; 
     s->kb.r=s->kb.w=0; // spinlock unused
@@ -320,23 +321,23 @@ static int sf_move(int dir) {
         case 0: // R
             // TBD: allow part of the surface to move out of the window 
             r->x = MIN(VW - r->w, (int)(r->x) + STEPSIZE);
-            bk_dirty.x = r0.x;          bk_dirty.w = ABS(r->x - r0.x)+1; //+1 b/c the way we render boundary
+            bk_dirty.x = r0.x;          bk_dirty.w = ABS(r->x - r0.x); // +1; //+1 b/c the way we render boundary
             bk_dirty.y = r->y;          bk_dirty.h = r->h; 
             break; 
         case 1: // L
             r->x = MAX(0, (int)(r->x) - STEPSIZE);
-            bk_dirty.x = r->x + r->w;   bk_dirty.w = ABS(r->x - r0.x)+1; 
+            bk_dirty.x = r->x + r->w;   bk_dirty.w = ABS(r->x - r0.x); // +1; 
             bk_dirty.y = r->y;          bk_dirty.h = r->h;
             break;
         case 2: // Dn
             r->y = MIN(VH - r->h, (int)(r->y) + STEPSIZE); 
             bk_dirty.x = r->x;          bk_dirty.w = r->w; 
-            bk_dirty.y = r0.y;          bk_dirty.h = ABS(r->y - r0.y)+1;
+            bk_dirty.y = r0.y;          bk_dirty.h = ABS(r->y - r0.y); // +1;
             break; 
         case 3: // Up
             r->y = MAX(0, (int)(r->y) - STEPSIZE);
             bk_dirty.x = r->x;          bk_dirty.w = r->w;  
-            bk_dirty.y = r->y + r->h;   bk_dirty.h = ABS(r->y - r0.y)+1;
+            bk_dirty.y = r->y + r->h;   bk_dirty.h = ABS(r->y - r0.y); // +1;
             break;
         default: 
             ret = -1; 
@@ -408,6 +409,10 @@ static int draw_boundary(int x, int y, int w, int h, unsigned int clr) {
     BUG_ON(h<=B_THICKNESS || w<=B_THICKNESS);
     V("%s: %d %d %d %d", __func__, x,y,w,h);
 
+    // clip by the screen boundary 
+    h = MIN(h, the_fb.height - y); 
+    w = MIN(w, the_fb.width - x);     
+
     // top & bottom boundaries, by row
     for (int j=0; j<B_THICKNESS; j++) {
         t0 = the_fb.fb + (y+j)*the_fb.pitch + x*PIXELSIZE; // top
@@ -469,7 +474,6 @@ static int sf_composite(void) {
             if (pass==0) { // pass0: iterate over all sfs: 
                 sf = slist_entry(node, struct sf_struct, list);
                 if (!node->next) // top surface. will draw its bounary later
-                    // {xx=sf->x; yy=sf->y; ww=sf->w; hh=sf->h;}
                     bbb = sf->r; 
                 if (sf->floating) { // defer floating sf to pass1
                     slist_append(&tmplist, &sf->list1);  
@@ -495,12 +499,15 @@ static int sf_composite(void) {
                 sf->r.x, sf->r.y, sf->r.w, sf->r.h, sf->transparency); 
             // p0 (dest): hw fb; p1 (src): the current surface
             p0 = the_fb.fb + sf->r.y * the_fb.pitch + sf->r.x*PIXELSIZE; p1 = sf->buf; 
-            for (int j=0;j<sf->r.h;j++) {  // copy by row
+            // the actual sf h/w to draw, as clipped by hw fb boundary 
+            int hh = MIN(sf->r.h, the_fb.height - sf->r.y); 
+            int ww = MIN(sf->r.w, the_fb.width - sf->r.x); 
+            for (int j=0;j<hh;j++) {  // copy by row
                 if (sf->transparency!=100) { // sf transparent
                     // read back the fb row, mix, and write back                
                     __asm_invalidate_dcache_range(p0, p0+sf->r.w*PIXELSIZE); //what if no invalidation?
                     int t1=sf->transparency, t0=100-t1;
-                    for (int k=0;k<sf->r.w;k++) {
+                    for (int k=0;k<ww;k++) {
                         unsigned int *px0 = (unsigned int*)p0; 
                         unsigned int *px1 = (unsigned int*)p1; 
                         //  mix per pixel, per channel
@@ -511,9 +518,9 @@ static int sf_composite(void) {
                                 | (MIN((b0*t0+b1*t1)/100, 0xff));  
                     }
                 } else if ((unsigned long)p0%8==0 && (unsigned long)p1%8==0 && (sf->r.w*PIXELSIZE)%8==0)
-                    memcpy_aligned(p0, p1, sf->r.w*PIXELSIZE); // fast path: opaque sf, aligned
+                    memcpy_aligned(p0, p1, ww*PIXELSIZE); // fast path: opaque sf, aligned
                 else
-                    memcpy(p0, p1, sf->r.w*PIXELSIZE); // slow path
+                    memcpy(p0, p1, ww*PIXELSIZE); // slow path
                 p0 += the_fb.pitch; p1 += sf->r.w*PIXELSIZE;
             }
             redrawn_regions[n_redrawn++] = sf->r; sf->dirty=0; cnt++; 

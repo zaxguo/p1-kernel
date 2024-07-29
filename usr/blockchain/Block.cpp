@@ -127,7 +127,7 @@ int Block::miner(void *param) {
 	} while (memcmp(myhash, p->diffstr, diff));
 
 	found = 0; 
-	if (__atomic_compare_exchange_n(&p->found, &found, 1, 
+	if (__atomic_compare_exchange_n(&p->found /*ptr*/, &found /*expected*/, 1 /*desired*/, 
 		false, __ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST)) {
 		PRINTF_R("task %d: found nounce %u\n", tid, nounce);
 		memcpy(blk->_sHash, myhash, HASHLEN); 

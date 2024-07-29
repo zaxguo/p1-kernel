@@ -10,22 +10,37 @@
 #include "mmu.h"
 #include "entry.h"
 
-//  locking protocol 
-//  sched_lock is our 'scheduler lock'. protects adding/deleting/iterating of task[] entries.
-//  task_struct::state indicates whehter a slot is free, sched_lock must be 
-//  held to access it. 
-// 
-//  task::cpu_context is not protected with lock, as it is only touched in 
-//  task creation and cpu_switch_to(), when no other code would access cpu_context
-// 
-//  all other fields in a task::struct is protected by task_struct::lock
-//
+/*      Locking protocol 
 
-static struct mm_struct mm_tables[NR_MMS];
+    sched_lock is our 'scheduler lock'. protects adding/deleting/iterating of
+    task[] entries. task_struct::state indicates whehter a slot is free,
+    sched_lock must be held to access it. 
 
-// TODO: have a separate global lock (mtable_lock) for all mm::ref. hence, 
-// allocating/freeing mm slots won't need to take individual mm->lock, which 
-// might be slowed down by, e.g. a task is holding mm->lock during exec()
+    task::cpu_context is not protected with lock, as it is only touched in task
+    creation and cpu_switch_to(), when no other code would access cpu_context
+
+    all other fields in a task::struct is protected by task_struct::lock
+
+    a single mm_struct is protected by mm_struct::lock; the allocation of
+    mm_struct (in mm_table) is done via __atomic intrinsics on (mm_struct:ref)
+    hence lockfree. 
+
+    ----- 
+    exec():  mm::lock --> sched_lock (b/c readi())     
+        a bad design??
+
+    fork() : sched_lock -> task::lock -> (mm_alloc no longer grabs mm::lock, just use
+        intrinics) 
+
+    freeproc():  sched_lock -> task::lock -> mm::lock
+
+    THEREFORE: deadlock still possible between exec() and freeproc() 
+        but how will this occur? a task cannot call exec() and freeproc() same time..
+
+    more locking consideration: cf README-next-xzl: 1530
+ */
+
+static struct mm_struct mm_table[NR_MMS];
 
 // kernel_stacks[i]: kernel stack for task with pid=i. 
 // WARNING: various kernel code assumes each kernel stack is page-aligned. 
@@ -89,9 +104,9 @@ void sched_init(void) {
         // (inc sp/pc) to idle_tasks[i]
     }
 
-    memset(mm_tables, 0, sizeof(mm_tables)); 
+    memset(mm_table, 0, sizeof(mm_table)); 
     for (int i = 0; i < NR_MMS; i++)
-        initlock(&mm_tables[i].lock, "mmlock");
+        initlock(&mm_table[i].lock, "mmlock");
     
     // init task, will be picked up once cpu0 calls schedule() for the 1st time
     // current = init_task = task[0]; // UP
@@ -546,11 +561,10 @@ void exit_process(int status) {
     panic("zombie exit");
 }
 
-// Destroys a task: task_struct, kernel stack, etc. 
-// free a proc structure and the data hanging from it,
-// including user & kernel pages. 
-//
-// sched_lock must be held.  p->lock must be held
+/* Destroys a task: task_struct, kernel stack, etc. free a proc structure and
+    the data hanging from it, including user & kernel pages. 
+
+    sched_lock must be held.  p->lock must be held */
 static void freeproc(struct task_struct *p) {
     BUG_ON(!p); V("%s entered. pid %d", __func__, p->pid);
 
@@ -559,13 +573,15 @@ static void freeproc(struct task_struct *p) {
     // FIX: since we cannot recycle task slot now, so we dont dec nr_tasks ...
 
     if (p->mm) {    // kernel task has mm==0
-        acquire(&p->mm->lock);
-        p->mm->ref --; BUG_ON(p->mm->ref<0);
-        if (p->mm->ref == 0) { // this marks p->mm as unused
-            V("<<<< free mm %lu", p->mm-mm_tables); 
+        acquire(&p->mm->lock); 
+        // must hold mm::lock: need the lock immediately in case newref==0
+        int newref = __atomic_sub_fetch(&p->mm->ref, 1, __ATOMIC_SEQ_CST); 
+        BUG_ON(newref<0);
+        if (newref == 0) {
+            V("<<<< free mm %lu", p->mm-mm_table); 
             free_task_pages(p->mm, 0 /* free all user and kernel pages*/);        
-        } 
-        release(&p->mm->lock);     
+        }
+        release(&p->mm->lock);
         p->mm = 0; 
     }
 
@@ -656,27 +672,31 @@ extern unsigned paging_pages_used, paging_pages_total; // alloc.c
         paging_pages_used*100/(paging_pages_total));
 }
 
-////// fork.c 
+/* -------------  fork related  -------------------- */
 
-// alloc a blank mm. on success, return mm, AND hold mm->lock 
-// on failure, return 0
+/* alloc a blank mm. 
+    on success, return mm, AND hold mm->lock  on failure, return 0 */
 static struct mm_struct *alloc_mm(void) {
     struct mm_struct *mm; 
-    for (mm = mm_tables; mm < mm_tables + NR_MMS; mm++) {
-        acquire(&mm->lock);
-        if (mm->ref == 0)
+    for (mm = mm_table; mm < mm_table + NR_MMS; mm++) {
+        int expected = 0; 
+	    if (__atomic_compare_exchange_n(&mm->ref /*ptr*/, 
+            &expected /* expected: ref=0 */, 
+            1 /*desired ref*/, 0 /*weak*/, 
+            __ATOMIC_SEQ_CST /*success_memorder*/,
+            __ATOMIC_SEQ_CST /*failure_memorder*/)) {
+            // have successfully set mm->ref from 0 to 1
+            acquire(&mm->lock);
             break; 
-        else 
-            release(&mm->lock);
+        }
     }
-    if (mm == mm_tables + NR_MMS) 
+    if (mm == mm_table + NR_MMS) 
         {E("no free mm"); BUG(); return 0;}  
     // now we hold mm->lock
-    mm->ref = 1; 
     mm->pgd = 0; 
     mm->kernel_pages_count = 0;
     mm->user_pages_count = 0;
-    V(">>>> alloc_mm %lu", mm-mm_tables); 
+    V(">>>> alloc_mm %lu", mm-mm_table); 
     return mm;
 }
 
@@ -742,13 +762,15 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 
 static int lastpid=0; // a hint for the next free tcb slot. slowdown pid reuse for dbg ease
 
-// For creating both user and kernel tasks
-// return pid on success, <0 on err
-// 
-// clone_flags: PF_KTHREAD for kernel thread, PF_UTHREAD for user thread
-// fn: task func entry. only matters for PF_KTHREAD. 
-// arg: arg to kernel thread; or stack (userva) for user thread
-// name: to be copied to task->name[]. if null, copy parent's name
+/* For creating both user and kernel tasks
+
+    return pid on success, <0 on err
+
+    clone_flags: PF_KTHREAD for kernel thread, PF_UTHREAD for user thread
+    fn: task func entry. only matters for PF_KTHREAD. 
+    arg: arg to kernel thread; or stack (userva) for user thread
+    name: to be copied to task->name[]. if null, copy parent's name 
+*/
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
     const char *name) {
 	struct task_struct *p = 0, *cur=myproc(); 
@@ -782,9 +804,10 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
         childregs->regs[0] = 0; // fork()'s return value for child 
         if (clone_flags & PF_UTHREAD) {	// fork a "thread", i.e. sharing an existing mm
             p->mm = cur->mm; BUG_ON(!p->mm);
-            acquire(&p->mm->lock);
-            p->mm->ref++;
-            release(&p->mm->lock);
+            // acquire(&p->mm->lock);
+            // p->mm->ref++;
+            __atomic_add_fetch(&p->mm->ref, 1, __ATOMIC_SEQ_CST);
+            // release(&p->mm->lock);
             childregs->sp = arg; V("childregs->sp %lx", childregs->sp);
             // same pc 
         } else {	// fork a "process", having a mm of its own

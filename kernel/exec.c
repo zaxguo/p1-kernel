@@ -1,5 +1,5 @@
-#define K2_DEBUG_WARN 
-// #define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_WARN 
+#define K2_DEBUG_VERBOSE
 
 #include "plat.h"
 #include "utils.h"
@@ -131,7 +131,7 @@ int exec(char *path, char **argv) {
     goto bad; 
   }
   memzero_aligned(kva, PAGE_SIZE); 
-  // map a guard page near USER_MAX_STACK as non accessible
+  // map a guard page (inaccessible) near USER_MAX_STACK
   if (!(kva=allocate_user_page_mm(tmpmm, USER_VA_END - USER_MAX_STACK - PAGE_SIZE, MMU_PTE_FLAGS | MM_AP_EL1_RW))) {
     BUG(); 
     goto bad; 
@@ -182,10 +182,10 @@ int exec(char *path, char **argv) {
   free_task_pages(p->mm, 1 /*useronly*/);  
 
   // Careful: transfer refcnt/lock from existing mm
-  tmpmm->ref = p->mm->ref; 
+  tmpmm->ref = p->mm->ref; // mm::lock ensures memory barriers needed for mm::ref
   tmpmm->lock = p->mm->lock; 
 
-  *(p->mm) = *tmpmm;  // commit (NB: this calls memcpy under hood)
+  *(p->mm) = *tmpmm;  // commit (NB: gcc calls memcpy())
   p->mm->sz = p->mm->codesz = sz;  
   V("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
   kfree(tmpmm); 
@@ -235,6 +235,7 @@ static int loadseg(struct mm_struct* mm, uint64 va, struct inode *ip,
       n = sz - i;
     else
       n = PAGE_SIZE;
+    // NB: fs func called by readi() may grab sched_lock()
     if(readi(ip, 0/*to kernel va*/, (uint64)PA2VA(pa), offset+i, n) != n)
       return -1;
   }

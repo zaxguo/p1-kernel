@@ -52,12 +52,20 @@ struct trampframe {
 
 #include "spinlock.h"
 
-// a user task's VM. a VM can be shared by multi user tasks
-// kernel thread has no such a thing, task_struct::mm=0
-// will be allocated in a static table, cf mm_tables
-// TODO: the size grows with MAX_TASK_XXX_PAGES, could be problem for larger user programs in the future...
+/* A user task's VM. 
+  A VM can be shared by multi user tasks kernel thread has no such a thing,
+  task_struct::mm=0 will be allocated in a static table, cf mm_table TODO: the
+  size grows with MAX_TASK_XXX_PAGES, could be problem for larger user programs
+  in the future...
+ */
 struct mm_struct {
-	int ref; // how many task_structs point to me. 0 means invalid
+  /* # of task_structs refers to this mm_struct. 0 means invalid. 
+    accessed using atomic intrinsics (instead of a spinlock), in order to 
+    avoid deadlock between mm_struct::lock and sched_lock. cf sched.c comments
+    on the lock protocol */
+	int ref; 
+  
+  struct spinlock lock; // to protect everything below 
 
 	unsigned long pgd;	// pa. this is loaded to ttbr0 (user va)
 	
@@ -68,9 +76,7 @@ struct mm_struct {
 
 	int kernel_pages_count;
 	/* which kernel pages are used by this task, e.g. those for pgtables.  PA */
-	unsigned long kernel_pages[MAX_TASK_KER_PAGES]; 
-
-	struct spinlock lock; // to protect the whole mm_struct
+	unsigned long kernel_pages[MAX_TASK_KER_PAGES]; 	
 };
 
 // the metadata describing a task
@@ -136,7 +142,6 @@ static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
 #define PSR_MODE_EL2h	0x00000009
 #define PSR_MODE_EL3t	0x0000000c
 #define PSR_MODE_EL3h	0x0000000d
-
 
 #define MEMBER_OFFSET(type, member) ((long)(&((type *)0)->member))
 // task_struct::killed

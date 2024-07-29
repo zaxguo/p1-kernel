@@ -52,8 +52,8 @@ void wait_for_frame()
     }
 
     while (SDL_PollEvent(&ev, SDL_EV_SW)) {
-        if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
-            assert(ev.key.keysym.sym<=MAX_KEYSYM);
+        if ((ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP)
+            && (ev.key.keysym.sym<=MAX_KEYSYM)) {
             key_states[ev.key.keysym.sym]=ev.type;   
             // TBD: clean up & quit 
             // switch (ev.key.keysym.sym) {

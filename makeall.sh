@@ -30,6 +30,13 @@ make -j10
 # make clean && make -j20
 popd
 
+# doom 
+pushd .
+cd usr/doomgeneric/doomgeneric
+make -j10
+# make clean && make -j20
+popd
+
 pushd .
 cd kernel
 make -j10

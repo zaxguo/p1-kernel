@@ -27,13 +27,11 @@
 // const char *init_cmds = "slider 0 0 -1 -1&\n"
 //                        "slider 50 50 -1 -1 75&\n";
 
-// multi windows
 // const char *init_cmds = "sysmon fb0 &\n"
 //                         "slider 50 50 -1 -1&\n"
 //                         "slider 100 100 -1 -1&\n"
 //                         "slider 300 300 -1 -1&\n";
 
-// sometimes ok
 // const char *init_cmds = "slider 300 300 -1 -1&\n"
 //                         "sysmon fb0 &\n";
 
@@ -47,12 +45,22 @@
 //                         "sysmon 300 300 &\n";
 
 // const char *init_cmds = "nes1 -- 50 50 &\n "
-//                         "sysmon 300 300 &\n";
+//                         "nes1 -- 300 300 &\n "
+//                         "sysmon 600 600 &\n";
 
-const char *init_cmds = "nes1 -- 50 50 &\n "
-                        "nes1 -- 300 300 &\n "
-                        "sysmon 600 600 &\n";
+// sf out of screen boundary
+// const char *init_cmds = "nes1 -- 1000 50 &\n ";
 
+
+// 4x nes in a row
+// const char *init_cmds = "nes1 -- 0 0 &\n "
+//                         "nes1 -- 256 0 &\n "
+//                         "nes1 -- 512 0 &\n "
+//                         "nes1 -- 768 0 &\n "
+//                         "sysmon 600 600 &\n";
+
+
+const char *init_cmds = "doom -offset 0 0 -playdemo demo1 &\n";
 
 // no init cmd
 // const char *init_cmds=0; 
@@ -307,7 +315,7 @@ main(void)
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(0);
-    sleep(500); // otherwise sf may malfunction.... maybe due to SMP races inside kernel.. (e.g alloc)
+    // sleep(500);
   } 
 
   // Read and run input commands from stdin (inf loop)
