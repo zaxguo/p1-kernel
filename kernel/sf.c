@@ -73,8 +73,12 @@ struct sf_struct {
 }; 
 
 // dimension of hw fb
-#define VW 1024
-#define VH 768
+// XXX need lock...
+#ifdef PLAT_RPI3
+static int VW=0, VH=0; // 0 means same as detected scr dim 
+#else
+static int VW=1024, VH=768; 
+#endif
 
 // bkgnd color, gray
 #define BK_COLOR  0x00222222   
@@ -89,11 +93,7 @@ static slist_t sflist = SLIST_OBJECT_INIT(sflist);
     by the moved/closed window. if we only redraw such regions instead of the
     entire bkgnd, we can avoid overdrawing lots of surfaces atop the bkgnd 
 */    
-// static struct {
-//     int x,y,w,h;
-// } bk_dirty = {.x=0, .y=0, .w=VW, .h=VH};
-
-static struct region bk_dirty = {.x=0, .y=0, .w=VW, .h=VH};
+static struct region bk_dirty; //= {.x=0, .y=0, .w=VW, .h=VH};
 
 extern int procfs_parse_fbctl(int args[PROCFS_MAX_ARGS]); // mbox.c
 extern int sys_getpid(void);  // sys.c
@@ -104,11 +104,19 @@ static int reset_fb() {
     // hw fb setup
     int args[PROCFS_MAX_ARGS] = {
         VW, VH, /*w,h*/
-        VW, VH, /*vw,vh*/
+        VW, VH, /*vw,vh*/        
         0,0 /*offsetx, offsety*/
     }; 
     int ret = procfs_parse_fbctl(args);  // reuse the func
     I("%s +++++ done ", __func__);
+
+    // XXX refactor the code below 
+    acquire(&mboxlock);
+    VW=the_fb.vwidth; VH=the_fb.vheight;
+    release(&mboxlock);
+
+    bk_dirty.x=bk_dirty.y=0;
+    bk_dirty.w=VW; bk_dirty.h=VH; 
     return ret; 
 }
 
