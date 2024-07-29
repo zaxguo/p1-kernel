@@ -192,10 +192,11 @@ struct fb_struct the_fb = {
     .vwidth = 320, 
     .vheight = 240,
 #else // rpi3 hw
-    .width = 1024,
-    .height = 768, 
-    .vwidth = 1024, 
-    .vheight = 768,
+    // =0 same as the detected scr dim, see below
+    .width  = 0, // 1024,  
+    .height = 0, // 768, 
+    .vwidth = 0, // 1024, 
+    .vheight = 0, // 768,
 #endif
     .scr_width = 0,
     .scr_height = 0, 
@@ -209,11 +210,15 @@ struct fb_struct the_fb = {
 // rpi3 hw will return "0" even if we asks for "1"
 // qemu will do whatever we ask ("0" or "1"), but if "1", color channels are bgr
 
-// detect phys display optimal x/y, if unconfigured
-// caller must hold mboxlock
-// 0 on success
-int fb_detect_phys_dim(uint *w, uint *h) {
-    // acquire(&mboxlock); 
+/* detect phys display optimal x/y, if unconfigured
+    caller must hold mboxlock
+    return: 0 on success 
+
+    FL's 720p monitor: 1360 768
+    qemu 640 480 (initial? subject to reconfig for larger fb)
+
+*/
+int fb_detect_scr_dim(uint *w, uint *h) {
     mbox[0] = 8*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
         mbox[2] = 0x40003;     // rls framebuffer
@@ -228,8 +233,7 @@ int fb_detect_phys_dim(uint *w, uint *h) {
         return -1;
     } 
 
-    *w=mbox[5];*h=mbox[6]; W("detected screen dim %d %d", *w, *h);    
-    // release(&mboxlock);          
+    *w=mbox[5];*h=mbox[6]; I("detected screen dim %d %d", *w, *h);    
     return 0; 
 }
 
@@ -285,7 +289,15 @@ static int do_fb_init(struct fb_struct *fbs)
 
     acquire(&mboxlock); 
 
-    // fb_detect_phys_dim(&the_fb.width,&the_fb.height); // maxmize viewport
+#ifdef PLAT_RPI3
+    // if (v)width/(v)height is 0, set them = the scr size
+    if (fb_detect_scr_dim(&fbs->scr_width,&fbs->scr_height)==0) {
+        fbs->vwidth = fbs->vwidth ? fbs->vwidth:fbs->scr_width;
+        fbs->vheight = fbs->vheight ? fbs->vheight:fbs->scr_height;
+        fbs->width  = fbs->width ? fbs->width:fbs->scr_width;
+        fbs->height  = fbs->height ? fbs->height:fbs->scr_height;        
+    }
+#endif
 
     mbox[0] = 35*4;     // size of the whole buf that follows
     mbox[1] = MBOX_REQUEST; // cpu->gpu request
@@ -354,7 +366,7 @@ static int do_fb_init(struct fb_struct *fbs)
             mbox[28], fbs->width, fbs->height, fbs->vwidth, fbs->vheight, 
                 fbs->pitch, fbs->isrgb); 
     } else {
-        E("Unable to set screen resolution to 1024x768x32\n");
+        E("Unable to set scr res to %d x %d\n", fbs->width, fbs->height);
         return -2; 
     }
     release(&mboxlock); 
@@ -538,7 +550,7 @@ void fb_showpicture()
     unsigned int img_fb_height = the_fb.vheight < IMG_HEIGHT ? the_fb.vheight : IMG_HEIGHT; 
     unsigned int img_fb_width = the_fb.vwidth < IMG_WIDTH ? the_fb.vwidth : IMG_WIDTH; 
 
-    // xzl: copy the image pixels to the start (top) of framebuf    
+    // copy the image pixels to the start (top) of framebuf    
     //ptr += (vheight-img_fb_height)/2*pitch + (vwidth-img_fb_width)*2;  
     ptr += (the_fb.vwidth-img_fb_width)/2*PIXELSIZE;  // top center
     ptr += (the_fb.vheight-img_fb_height)/2*the_fb.pitch; 
@@ -558,6 +570,9 @@ void fb_showpicture()
     x = (the_fb.vwidth-img_fb_width)/2;
     y = the_fb.vheight/2 + img_fb_height/2;
     fb_print(&x, &y, "UVA OS");
+    char res[16]; 
+    sprintf(res, " %dx%d", the_fb.width, the_fb.height);
+    fb_print(&x, &y, res);
     __asm_flush_dcache_range(the_fb.fb, the_fb.fb + the_fb.size); 
 }
 

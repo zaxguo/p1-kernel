@@ -60,7 +60,15 @@
 //                         "sysmon 600 600 &\n";
 
 
-const char *init_cmds = "doom -offset 0 0 -playdemo demo1 &\n";
+// doom -- 640x400
+// const char *init_cmds = "doom -offset 0 0 -timedemo demo1 &\n";
+
+// const char *init_cmds = "doom -offset 0 0 &\n"
+//                         "sysmon 800 0 &\n";
+
+// const char *init_cmds = "doom -offset 0 0 &\n"
+//                         "doom -offset 700 0 &\n"
+//                         "sysmon 0 500 &\n";
 
 // no init cmd
 // const char *init_cmds=0; 
@@ -204,15 +212,24 @@ getcmd(char *buf, int nbuf) // get a cmd line from stdin
   return 0;
 }
 
-// xzl: get a cmd line from string "cmds"
+// get a cmd line from string "cmds"
 // "cmds" contain multiple commands, separate by \n
 // return: new cmds position
 // =0 on end or error
 char * getcmd0(char *buf, int nbuf, const char *cmds) {
+  char *end; 
   if (!cmds) return 0; 
-  memset(buf, 0, nbuf);
-  char *end = strchr(cmds, '\n'); 
-  if (!end) return 0; // no more cmd
+  memset(buf, 0, nbuf);  
+  
+  // skip any comment lines starting with "#"
+  while (cmds[0] == '#') {
+    end = strchr(cmds, '\n'); 
+    if (!end) return 0; // no more line
+    cmds = end+1; 
+  }
+
+  end = strchr(cmds, '\n'); 
+  if (!end) return 0; // no more line
   if (end-cmds>nbuf) {printf("nbuf too small");return 0;}
   memcpy(buf, cmds, end-cmds+1); 
   return end+1;
@@ -277,6 +294,36 @@ void run_nes() {
   wait(0); 
 }
 
+/* read init cmd from a file. return # of bytes read. <0 on err*/
+#define INITCMD_MAX 512
+char init_cmds[INITCMD_MAX] = {0}; // max init cmd; 
+int read_init_cmd() {
+  // list of files to try
+  const char *fnames[] = {
+    "./initrc.txt",
+    "/initrc.txt",
+    "/d/initrc.txt",
+    0
+  };
+  int fd = -1, n; 
+  
+  for (const char **fn = fnames; *fn; fn++) {
+    if((fd = open(*fn, 0)) > 0) {
+      printf("sh: exec init cmds from %s...\n", *fn);
+      break; 
+    }
+  }
+  if (fd<=0) return -1; 
+
+  // read until returning 0
+  char *buf=init_cmds; int len = INITCMD_MAX;
+  while((n = read(fd, buf, len)) > 0) {
+    buf += n; len -= n; 
+    if (!len) return -2; // run out of buffer
+  }
+  return (INITCMD_MAX - len); 
+}
+
 int
 main(void)
 {
@@ -302,6 +349,8 @@ main(void)
   logo();
 
   // Run a list of hardcoded commands from "init_cmds"
+  read_init_cmd(); 
+
   const char *p=init_cmds; 
   while((p=getcmd0(buf, sizeof(buf), p))) {
     printf("sh: exec init cmd: %s", buf);

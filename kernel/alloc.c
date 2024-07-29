@@ -10,11 +10,11 @@
 
 /* Phys memory layout:	cf paging_init() below. 
 
-	Upon init, Rpi3 GPU will allocate framebuffer at certain addr. We need to
-	know that addr in order to decide paging memory usable to the kernel.
-	However, we won't know that addr until we initialize the GPU (cf mbox.c).
-	Based on my observation, GPU always allocates the framebuffer at fixed
-	locations (below) near the end of phys mem. 
+	Upon init, the Rpi3 hw (GPU) will allocate framebuffer at certain addr. We
+	need to know that addr in order to decide paging memory usable to the
+	kernel. However, we won't know that addr until we initialize the GPU (cf
+	mbox.c). Based on my observation, GPU always allocates the framebuffer at
+	fixed locations (below) near the end of phys mem. 
 
 	Based on the assumption, we exclude GUESS_FB_BASE_PA--HIGH_MEMORY from the
 	paging memory. (Hope we don't waste too much phys mem)
@@ -22,14 +22,12 @@
 	If later the GPU init code (mbox.c) finds these assumption is wrong, 
 	mem reservation will fail and kernel will panic. 
 */
-#ifdef PLAT_RPI3
-#define GUESS_FB_BASE_PA 0x3e8fa000
-#elif defined PLAT_RPI3QEMU
+// qemu always set to 0x3c100000 (a safe choice, I suppose?); the rpi3 hw will
+// change based on the requested fb size, e.g. 0x3e8fa000 for 1024x768;
+// 0x3e7fe000 for 1360x768... so pick "one size fits all"
 #define GUESS_FB_BASE_PA 0x3c100000
-#endif
 #define HIGH_MEMORY0 GUESS_FB_BASE_PA // the actual "highmem"
 // #define HIGH_MEMORY0 HIGH_MEMORY
-
 
 /* below: flags covering from LOW_MEMORY to HIGH_MEMORY, including: 
 (1) region for page allocator 
@@ -150,17 +148,17 @@ unsigned int paging_init() {
         release(&alloc_lock);
     } 
 
-	printf("phys mem: %08x -- %08x", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
-	printf("\t kernel: %08x -- %08lx", KERNEL_START, VA2PA(&kernel_end));
-	printf("\t paging mem: %08lx -- %08x", LOW_MEMORY, HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT));
-	printf("\t\t %lu%s %ld pages", 
+	printf("phys mem: %08x -- %08x\n", PHYS_BASE, PHYS_BASE + PHYS_SIZE);
+	printf("\t kernel: %08x -- %08lx\n", KERNEL_START, VA2PA(&kernel_end));
+	printf("\t paging mem: %08lx -- %08x\n", LOW_MEMORY, HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT));
+	printf("\t\t %lu%s %ld pages\n", 
 		int_val((HIGH_MEMORY0 - LOW_MEMORY)),
 		int_postfix((HIGH_MEMORY0 - LOW_MEMORY)),
 		PAGING_PAGES);
-    printf("\t malloc mem: %08x -- %08x", HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT), HIGH_MEMORY0);
-	printf("\t\t %lu%s", int_val(MALLOC_PAGES * PAGE_SIZE),
+    printf("\t malloc mem: %08x -- %08x\n", HIGH_MEMORY0-(MALLOC_PAGES<<PAGE_SHIFT), HIGH_MEMORY0);
+	printf("\t\t %lu%s\n", int_val(MALLOC_PAGES * PAGE_SIZE),
                                  int_postfix(MALLOC_PAGES * PAGE_SIZE)); 
-	printf("\t reserved for framebuffer: %08x -- %08x", 
+	printf("\t reserved for framebuffer: %08x -- %08x\n", 
 		HIGH_MEMORY0, HIGH_MEMORY);
 
 	paging_pages_total = ((HIGH_MEMORY0-LOW_MEMORY)>>PAGE_SHIFT) - MALLOC_PAGES; 

@@ -195,7 +195,7 @@ added test for pipe3: two writers, one reader.
                     ref: the C  version of circle usb stack
                 input driver is irq driven 
     [ x] sd card driver    
-    [ ]  port doom 
+    [x]  port doom 
 
     ~~~add fat32 support
         useful: https://cpl.li/posts/2019-03-12-mbrfat/
@@ -583,6 +583,14 @@ libunwind ... too heavy
 rt-thread os... no unwind for armv8, only v7
 circle ... no unwind, only gdb stub support 
 
+__builtin_return_address(0) only 0 is supported by arm
+https://stackoverflow.com/questions/9229702/gcc-return-address-of-calling-function-in-arm-architecture
+
+
+glibc backtrace() function
+
+also: libbacktrace 
+
 ---------------
 
 source files replaced
@@ -677,6 +685,19 @@ kb.c:115 mod 4 key 00 00 00 00 00 00
 future work (project idea): kb_intr can be modified to detect these events... 
 
 as of now just modify doom code...to use other keys
+
+
+doom 
+# native canvas is 320x200, default scaling x2 to 640x400
+# force x1 scaling: 
+doom -scaling 1 -offset 0 0 -playdemo demo1
+(drawing to a small area. but generic doom seems to still request 640x400 region. 
+can be moodified to shrink to 320x200... if so needed)
+
+download doom playback: 
+https://classicdoom.com/d1demos.htm
+
+
 ~~~~~~~~~~~~~~~~~ 
 a bug caused by linker/compiler issue
 
@@ -1449,6 +1470,9 @@ malloc regions are disjoint....
             (unsigned long)__builtin_return_address(0 /*current func*/)
         );
     }
+NB: not supporting unwind other than 0?
+https://stackoverflow.com/questions/9229702/gcc-return-address-of-calling-function-in-arm-architecture
+
 
 [x] nplayer. fixed:
 floating point + int calulation will overflow, causing very large neg values
@@ -1548,4 +1572,20 @@ runs for long... then
 panic: kernel hangs
 looks like a USB driver bug
 
+[ ]
+assertion failed: DWHCITransferStageDataGetState (pStageData) == StageStatePeriodicDelay at dwhcidevice.c:1285
+panic: kernel hangs
 
+~~~~~~~~~~~~~~~~~~
+doom timedemo, after finishing, then ....
+$
+irq.c:180 Unhandled EL0 sync exception, cpu-▒c, esr: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+[ ]better dbg support for this type of bug 
+
+doom is not terminating? after done timedemo
+G_CheckDemoStatus() is called. by who?? why not exit(0)
+
+~~~~~~~~~~~~~~
+[ ] implement window title bar (with text); thiner boundary then 
+
+~~~~~~~~~~~~~~
