@@ -1,5 +1,5 @@
-#define K2_DEBUG_WARN 
-// #define K2_DEBUG_VERBOSE
+// #define K2_DEBUG_WARN 
+#define K2_DEBUG_VERBOSE
 
 #include "plat.h"
 #include "utils.h"
@@ -55,14 +55,14 @@ int exec(char *path, char **argv) {
   char *s, *last;
   int i, off;
   uint64 argc, sz = 0, sz1, sp, ustack[MAXARG], argbase; 
-  struct mm_struct *tmpmm = 0; 
+  struct mm_struct *tmpmm = 0;  // new mm to prep aside, and commit to user VM
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
   void *kva; 
   struct task_struct *p = myproc();
 
-  I("exec called. path %s", path);
+  I("pid %d exec called. path %s", myproc()->pid, path);
 
   begin_op();
 
@@ -72,39 +72,44 @@ int exec(char *path, char **argv) {
   }
   ilock(ip);
 
-  acquire(&p->mm->lock); // no need to lock tmpmm->lock -- tmpmm is private
-
-  // Check ELF header
-  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
-    goto bad;
-
-  if(elf.magic != ELF_MAGIC)
-    goto bad;
-
-  if(p->mm->pgd == 0)
-    goto bad;
-
-  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  // otherwise, need more memory for mm....  
-  tmpmm = kalloc(); BUG_ON(!tmpmm); 
-  initlock(&tmpmm->lock, "tmpmmlock"); // actually dont care, but APIs like copyout(tmpmm) will grab mm->lock
+  // no need to lock tmpmm->lock -- tmpmm is private
+  // acquire(&p->mm->lock); 
   
-  // we will only remap user pages, so copy over kernel pages bookkeeping info
-  //  the caveat is that some of the kernel pages (eg for the old pgtables) will become unused and will not be
-  //  freed until exit()
+  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf)) // ELF header good?
+    goto bad;
+
+  if(elf.magic != ELF_MAGIC) // ELF magic good?
+    goto bad;
+
+  if(p->mm->pgd == 0) // task has a valid pgtable tree? 
+    goto bad;   // XXXX race condition; need lock
+
+  // for simplicity, we alloc a a single page for mm_struct
+  _Static_assert(sizeof(struct mm_struct) <= PAGE_SIZE);  
+  tmpmm = kalloc(); BUG_ON(!tmpmm); 
+  // not using tmpmm::lock, just to appease copyout(tmpmm) etc. which grabs mm->lock
+  initlock(&tmpmm->lock, "tmpmmlock"); 
+  
+  /* exec() only remaps user pages, so copy over kernel pages bookkeeping info.
+   the caveat is that some of the kernel pages (eg for the old pgtables) will
+   become unused and will not be freed until exit() */
   tmpmm->kernel_pages_count = p->mm->kernel_pages_count; 
   memmove(&tmpmm->kernel_pages, &p->mm->kernel_pages, sizeof(tmpmm->kernel_pages)); 
   tmpmm->pgd = 0; // start from a fresh pgtable tree...
 
-  // Load program into memory.  (Code below assumes: seg vaddrs are in ascending order...
+  // Load program into memory of tmpmm: iterate over all elf sections
+  // NB: code below assumes section vaddrs in ascending order
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
-    if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
+    // loader a section header
+    if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph)) 
       goto bad;
     if(ph.type != ELF_PROG_LOAD)
       continue;
-    V("%lx %lx", ph.vaddr, sz); BUG_ON(ph.vaddr < sz); // sz: last seg's va end (exclusive)
+    V("pid %d vaddr %lx sz %lx", myproc()->pid, ph.vaddr, sz); 
+    BUG_ON(ph.vaddr < sz); // sz: last seg's va end (exclusive)
     if(ph.memsz < ph.filesz)  // memsz: seg size in mem; filesz: seg bytes to load from file
       goto bad;
-    // seg start must be page aligned, but end does not have to 
+    // a section's start must be page aligned, but end does not have to 
     if(ph.vaddr + ph.memsz < ph.vaddr)
       goto bad;
     if(ph.vaddr % PAGE_SIZE != 0) 
@@ -121,14 +126,15 @@ int exec(char *path, char **argv) {
   end_op();
   ip = 0;
   
+  V("pid %d done loading prog", myproc()->pid); 
+
   sz = PGROUNDUP(sz);
   
-  // User stack 
+  /* Alloc a fresh user stack  */
   assert(sz + PAGE_SIZE + USER_MAX_STACK <= USER_VA_END); 
   // alloc the 1st stack page (instead of demand paging), for pushing args (below)
   if (!(kva=allocate_user_page_mm(tmpmm, USER_VA_END - PAGE_SIZE, MMU_PTE_FLAGS | MM_AP_RW))) {
-    BUG(); 
-    goto bad; 
+    BUG(); goto bad; 
   }
   memzero_aligned(kva, PAGE_SIZE); 
   // map a guard page (inaccessible) near USER_MAX_STACK
@@ -137,6 +143,7 @@ int exec(char *path, char **argv) {
     goto bad; 
   }
 
+  /* Prep prog arguments on user stack  */
   sp = USER_VA_END; 
   argbase = USER_VA_END - PAGE_SIZE; // args at most 1 PAGE
   // Push argument strings, prepare rest of stack in ustack.
@@ -164,9 +171,8 @@ int exec(char *path, char **argv) {
     goto bad;
 
   // arguments to user main(argc, argv)
-  // argc is returned via the system call return
-  // value, which goes in a0.
-  struct trampframe *regs = task_pt_regs(p);
+  // argc is returned via the system call return value, which goes in r0.
+  struct trapframe *regs = task_pt_regs(p);
   regs->regs[1] = sp; 
 
   // Save program name for debugging.
@@ -175,36 +181,36 @@ int exec(char *path, char **argv) {
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
     
-  // Commit to the user VM. free previous user mapping, pages. if any
+  /* Commit to the user VM. free previous user mapping & pages. if any */
   regs->pc = elf.entry;  // initial program counter = main
   regs->sp = sp; // initial stack pointer
-  I("pid %d (%s) init sp 0x%lx", myproc()->pid, myproc()->name, sp);
+  I("pid %d (%s) commit to user VM, sp 0x%lx", myproc()->pid, myproc()->name, sp);
+
+  acquire(&p->mm->lock); 
   free_task_pages(p->mm, 1 /*useronly*/);  
 
-  // Careful: transfer refcnt/lock from existing mm
+  // Careful: transfer refcnt/lock from the existing mm
   tmpmm->ref = p->mm->ref; // mm::lock ensures memory barriers needed for mm::ref
   tmpmm->lock = p->mm->lock; 
-
-  *(p->mm) = *tmpmm;  // commit (NB: gcc calls memcpy())
+  *(p->mm) = *tmpmm;  // commit (NB: compiled as memcpy())
   p->mm->sz = p->mm->codesz = sz;  
   V("pid %d p->mm %lx p->mm->sz %lu", p->pid,(unsigned long)p->mm, p->mm->sz);
   kfree(tmpmm); 
-
   set_pgd(p->mm->pgd);
   release(&p->mm->lock);
 
-  V("exec succeeds argc=%ld", argc);
+  I("pid %d exec succeeds", myproc()->pid);
   return argc; // this ends up in x0, the first argument to main(argc, argv)
 
  bad:
-  release(&p->mm->lock);
+  // release(&p->mm->lock);
 
-  if(tmpmm && tmpmm->pgd) { // new pgtable tree ever allocated .. 
+  if (tmpmm && tmpmm->pgd) { // new pgtable tree ever allocated .. 
     free_task_pages(tmpmm, 1 /*useronly*/);   
   }
   if (tmpmm)
     kfree(tmpmm); 
-  if(ip){
+  if (ip){
     iunlockput(ip);
     end_op();
   }

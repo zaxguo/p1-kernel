@@ -300,9 +300,9 @@ char init_cmds[INITCMD_MAX] = {0}; // max init cmd;
 int read_init_cmd() {
   // list of files to try
   const char *fnames[] = {
-    "./initrc.txt",
-    "/initrc.txt",
     "/d/initrc.txt",
+    "/initrc.txt",
+    "./initrc.txt",
     0
   };
   int fd = -1, n; 
@@ -364,7 +364,7 @@ main(void)
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(0);
-    // sleep(500);
+    // sleep(500);  // back-to-back exec() deadlock...
   } 
 
   // Read and run input commands from stdin (inf loop)

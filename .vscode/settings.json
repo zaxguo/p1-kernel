@@ -107,7 +107,8 @@
         "unistd.h": "c",
         "sound-sample-trimmed.h": "c",
         "i_timer.h": "c",
-        "m_argv.h": "c"
+        "m_argv.h": "c",
+        "streambuf": "c"
     },
     "files.exclude": {
         "docs/**": true,

@@ -267,7 +267,7 @@ struct task_struct *myproc(void);
 int copy_process(unsigned long clone_flags, unsigned long fn, 
     unsigned long arg, const char *name);
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc);
-struct trampframe * task_pt_regs(struct task_struct *tsk);
+struct trapframe * task_pt_regs(struct task_struct *tsk);
 
 // mbox.c
 #define MAC_SIZE        6   // in bytes

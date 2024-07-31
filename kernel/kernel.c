@@ -28,6 +28,7 @@ extern void test_sf();
 extern unsigned long user_begin;	// cf the linker script
 extern unsigned long user_end;
 extern void user_process(); // user.c
+extern void show_stack(struct task_struct *tsk, unsigned long *sp, const char *loglvl);
 
 // main body of kernel thread
 void kernel_process() {
@@ -48,6 +49,7 @@ void kernel_process() {
 	// test_kernel_tasks(); while (1);
 	// while (1) {test_sem();} while (1);	
 	// dump_mem_info(); test_sf(); while (1);
+	show_stack(myproc(), 0, "");
 
 	printf("Kernel process started at EL %d, pid %d\r\n", get_el(), myproc()->pid);
 	int err = move_to_user_mode(begin, end - begin, process - begin);
@@ -56,7 +58,7 @@ void kernel_process() {
 	} else I("move_to_user_mode ok");
 	// this func is called from ret_from_fork (entry.S). after returning from 
 	// this func, it goes back to ret_from_fork and performs kernel_exit there. 
-	// hence, trampframe populated by move_to_user_mode() will take effect. 
+	// hence, trapframe populated by move_to_user_mode() will take effect. 
 }
 
 void uart_send_string(char* str);

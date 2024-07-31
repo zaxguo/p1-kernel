@@ -76,9 +76,9 @@ struct task_struct *myproc(void) {
 
 // get a task's saved registers ("trapframe"), at the top of the task's kernel page. 
 // these regs are saved/restored by kernel_entry()/kernel_exit(). 
-struct trampframe * task_pt_regs(struct task_struct *tsk) {
-	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct trampframe);
-	return (struct trampframe *)p;
+struct trapframe * task_pt_regs(struct task_struct *tsk) {
+	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct trapframe);
+	return (struct trapframe *)p;
 }
 
 extern void init(int arg); // kernel.c
@@ -293,7 +293,7 @@ void timer_tick() {
 
         acquire(&sched_lock); 
         if (--cur->credits > 0) { // cur task continues to exec
-            I("leave timer_tick. no resche");
+            V("leave timer_tick. no resche");
             release(&sched_lock); return;
         }
         cur->credits=0;
@@ -703,7 +703,7 @@ static struct mm_struct *alloc_mm(void) {
 /*
    	Create 1st user task by elevating a kernel task to EL1
 
-	Populate trampframe for returning to user space (via kernel_exit) for the 1st time.
+	Populate trapframe for returning to user space (via kernel_exit) for the 1st time.
 	Note that the actual switch will not happen until kernel_exit.
 
 	@start: beginning of the user code (to be copied to the new task). kernel va
@@ -717,7 +717,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
     BUG_ON(size > PAGE_SIZE); // initially, user va only covers [0,PAGE_SIZE)
     struct task_struct *cur = myproc();
 
-	struct trampframe *regs = task_pt_regs(cur);
+	struct trapframe *regs = task_pt_regs(cur);
 	V("pc %lx", pc);
 
     BUG_ON(cur->mm); // kernel task has no mm 
@@ -793,14 +793,14 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	acquire(&p->lock);	
     acquire(&cur->lock);	
 
-	struct trampframe *childregs = task_pt_regs(p);
+	struct trapframe *childregs = task_pt_regs(p);
 
 	if (clone_flags & PF_KTHREAD) { // to create a kernel task...
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
     } else { // to create a user task...
-        struct trampframe *cur_regs = task_pt_regs(cur);
-        *childregs = *cur_regs; // copy over the entire trampframe
+        struct trapframe *cur_regs = task_pt_regs(cur);
+        *childregs = *cur_regs; // copy over the entire trapframe
         childregs->regs[0] = 0; // fork()'s return value for child 
         if (clone_flags & PF_UTHREAD) {	// fork a "thread", i.e. sharing an existing mm
             p->mm = cur->mm; BUG_ON(!p->mm);
@@ -845,6 +845,11 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
     // prep new task's scheduler context 
 	p->cpu_context.pc = (unsigned long)ret_from_fork; // entry.S
 	p->cpu_context.sp = (unsigned long)childregs; // XXX in fact a kernel task (PF_KTHREAD) can use all the way from the top of the stack page...
+
+    /* For the benefit of the unwinder, set up childregs->stackframe
+	   as the final frame for the new task. (Per aarch64 ABI, fp points to
+       the current "stackframe" (frame record)). Unwinding will stop here. */
+	p->cpu_context.fp = (unsigned long)childregs->stackframe;
 	
     release(&cur->lock);
 	release(&p->lock);

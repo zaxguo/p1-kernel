@@ -577,8 +577,53 @@ https://github.com/GrassLab/osdi/blob/master/supplement/sdhost.c
 https://grasslab.github.io/osdi/zh_TW/labs/lab8.html
 
 -------------
+OVERALL: it's conceptually simple, as long as compile everything with 
+-fno-omit-frame-pointer. 
+
+
+principle:
+
+more about armv8 backtrace
+https://johannst.github.io/notes/arch/arm64.html
+
+Frame chain
+    linked list of stack-frames
+        each frame links to the frame of its caller by a frame record
+        a frame record is described as a (FP,LR) pair
+    x29 (FP) must point to the frame record of the current stack-frame
+    end of the frame chain is indicated by following frame record (0,-)
+    *** location of the frame record in the stack frame is not specified (<<< xzl: this
+
+
+      +------+                   Hi
+      |   0  |     frame0        |
+   +->|   0  |                   |
+   |  |  ... |                   |
+   |  +------+                   |
+   |  |  LR  |     frame1        |
+   +--|  FP  |<-+                |
+      | ...  |  |                |
+      +------+  |                |
+      |  LR  |  |  current       |
+x29 ->|  FP  |--+  frame         v
+      | ...  |                   Lo
+
+    (xzl: framerecord.fp points to... the prev framerecord?
+        framerecord.lr: points to the return addr? (code addr, callsite) 
+
+
 stack unwind ref:
 https://elixir.bootlin.com/linux/latest/source/arch/arm64/kernel/stacktrace.c
+this explains the kernel unwinder
+https://tuxcare.com/blog/stack-unwinding-in-aarch64-processors-what-is-it-and-how-it-works/
+"In each stack frame, we can retrieve a return address where the calling
+function should delegate control after it finishes its work"
+
+also --- to print out symnames
+"To do so, we keep the names of the functions and their begin and end addresses.
+This can be implemented using the Linux kernel subsystem called kallsyms."
+
+
 libunwind ... too heavy 
 rt-thread os... no unwind for armv8, only v7
 circle ... no unwind, only gdb stub support 
@@ -587,9 +632,28 @@ __builtin_return_address(0) only 0 is supported by arm
 https://stackoverflow.com/questions/9229702/gcc-return-address-of-calling-function-in-arm-architecture
 
 
+the framepointer (fp) is an elegement solution. but needs compiler flag. 
+https://developer.arm.com/documentation/dui0774/l/Compiler-Command-line-Options/-fomit-frame-pointer---fno-omit-frame-pointer
+The -fno-omit-frame-pointer option instructs the compiler to store the stack
+frame pointer in a register. 
+
+"If you specify -fno-omit-frame-pointer, then any function which uses space on
+the stack creates a frame record, and changes the frame pointer to point to it"
+
+(there are some catches, though
+"If you specify -fno-omit-frame-pointer, then any function which uses space on
+the stack creates a frame record, and changes the frame pointer to point to it
+
 glibc backtrace() function
 
 also: libbacktrace 
+
+unwind... can also be basd on debug info (DWARF) intead of FP (x29)
+cf: 
+https://rwmj.wordpress.com/2023/02/14/frame-pointers-vs-dwarf-my-verdict/
+fedora adds FP compilation to all bin
+https://lwn.net/Articles/919940/
+https://lwn.net/ml/fedora-devel/CA+voJeXhBPph9R2nzV9UCiMOU4Tpo0s0NtA26HcJccTwFad25w@mail.gmail.com/
 
 ---------------
 
@@ -1585,7 +1649,19 @@ irq.c:180 Unhandled EL0 sync exception, cpu-▒c, esr: 0x00000000000000000000000
 doom is not terminating? after done timedemo
 G_CheckDemoStatus() is called. by who?? why not exit(0)
 
+ [ ] doom -- race condition among multiple instances?? maybe on (shared) files??
+ also ... race condition inside sf? 
+ $ sf.c:589 FB0_CMD_INIT called
+ (may stall
+sf.c:193 cr ok. pid 8
+
 ~~~~~~~~~~~~~~
 [ ] implement window title bar (with text); thiner boundary then 
 
 ~~~~~~~~~~~~~~
+[ ] impl core dump inside kern. (seems more useful than porting gdb....)
+
+elr seems illegal. feels like the kernel eret to a bad user addr, then throw this erro...
+irq.c:180 SYNC_INVALID_EL1h, cpu0, esr: 0x000000008a000000, elr: 0x000000000000001f, far: 0x000000000000001f
+irq.c:182 online esr decoder: https://esr.arm64.dev/#0x000000008a000000
+

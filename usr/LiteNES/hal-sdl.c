@@ -136,7 +136,6 @@ void nes_hal_init() {
     vtx_sz = SCREEN_WIDTH * SCREEN_HEIGHT * PIXELSIZE; 
     vtx = malloc(vtx_sz);
     if (!vtx) {printf("failed to alloc vtx\n"); exit(1);}
-    printf("fb alloc ...ok\n"); 
 
     // TODO: free vtx in graceful exit (if implemented
 }

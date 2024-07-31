@@ -23,8 +23,8 @@ COPS = -Wall -Werror -nostdlib -nostartfiles -ffreestanding \
 -g 
 
 # the default debug level, to be overridden by less verbose levels in individual files 
-# COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
-COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
+COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=10   # verbose
+# COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=30   # info
 # COPS += -DCONFIG_KAGE_GLOBAL_DEBUG_LEVEL=40   # warning
 
 # COPS += -DUSE_LFB		# uncomment this to enable GUI console. 
@@ -69,6 +69,9 @@ COPS1 += -O0
 # generic
 COPS += -O2
 # COPS += -O0
+
+# for stacktrace purpose
+COPS += -fno-omit-frame-pointer -Wno-frame-address 
 
 all : $(KERNEL)
 
@@ -134,6 +137,8 @@ C_OBJS += $(BUILD_DIR)/mbox_c.o
 C_OBJS += $(BUILD_DIR)/unittests_c.o
 # surface flinger 
 C_OBJS += $(BUILD_DIR)/sf_c.o
+# backtrace support
+C_OBJS += $(BUILD_DIR)/stacktrace_c.o
 
 ASM_OBJS = $(BUILD_DIR)/boot_s.o
 ASM_OBJS += $(BUILD_DIR)/entry_s.o

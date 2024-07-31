@@ -321,7 +321,7 @@ idup(struct inode *ip)
 
 // Lock the given inode.    
 // Reads the inode from disk if necessary.
-// xzl: grab a sleep lock. wont incre refcnt (which is just for in-mem inode slot mgmt)
+// xzl: grab ip::lock (sleeplock). wont incre refcnt (which is just for in-mem inode slot mgmt)
 //  this serializes concurrent access to a file (i.e. inode). therefore needed by iread/iwrite/etc
 void
 ilock(struct inode *ip)

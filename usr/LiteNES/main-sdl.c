@@ -4,6 +4,7 @@
 */
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -22,6 +23,15 @@ void do_exit() // normal exit at SIGINT
     kill(getpid(), SIGKILL);
 }
 #endif
+
+static int quiet = 0; 
+void pr_debug(char *fmt, ...) {
+  if (quiet) return; 
+  va_list va;
+  va_start(va,fmt);
+  printf(fmt,va); 
+  va_end(va);
+}
 
 /* PC Screen Font as used by Linux Console */
 typedef struct {
@@ -55,7 +65,7 @@ int load_font(const char *path) {
   assert(ret == 1);
   fclose(fp);
 
-  printf("loaded font %s %lu KB magic 0x%x\n", path, size, font->magic);
+  pr_debug("loaded font %s %lu KB magic 0x%x\n", path, size, font->magic);
   return 0; 
 }
 
@@ -127,11 +137,14 @@ int main(int argc, char *argv[])
         goto load; 
     }
 
-    if (argc==4) { // screen locations given.
+    if (argc>=4) { // screen locations given.
       xx=atoi(argv[2]); yy=atoi(argv[3]);
     }
 
-    fprintf(stdout, "start %d %d %d....\n", xx, yy, argc); 
+    if (argc>=5 && strcmp(argv[4], "--quiet")==0)
+      quiet = 1;
+
+    // fprintf(stdout, "start %d %d %d....\n", xx, yy, argc); 
 
     if (strncmp(argv[1], "--", 3) == 0)
       goto load; 
@@ -146,21 +159,21 @@ int main(int argc, char *argv[])
       fprintf(stderr, "Read rom file failed.\n");
       return 1; 
     }
-    printf("open rom...ok\n"); 
+    pr_debug("open rom...ok\n"); 
 
 load: 
     if (fce_load_rom(rom) != 0) {
         fprintf(stderr, "Invalid or unsupported rom.\n");
         return 1; 
     }
-    printf("load rom...ok\n"); 
+    pr_debug("load rom...ok\n"); 
     // signal(SIGINT, do_exit);
 
     load_font("font.psf");
 
     fce_init();
 
-    printf("running fce ...\n"); 
+    pr_debug("running fce ...\n"); 
     fce_run();
     return 0;
 }

@@ -43,11 +43,12 @@ struct user_page {
 };
 
 // a task's full cpu regs when taking exceptions (EL1->EL1, EL0->EL1)
-struct trampframe {
+struct trapframe {
 	unsigned long regs[31];
 	unsigned long sp;
 	unsigned long pc;
 	unsigned long pstate;
+  unsigned long stackframe[2]; // for unwinder
 };
 
 #include "spinlock.h"
@@ -152,15 +153,20 @@ static inline struct cpu* mycpu(void) {return &cpus[cpuid()];};
 // e.g. "error: initialization of ‘char (*)[312]’ from ‘int’ ...."
 // char (*__kaboom)[TASK_STRUCT_KILLED_OFFSET_C] = 1; 
 
+#define S_STACKFRAME_C MEMBER_OFFSET(struct trampframe, stackframe)
+#define S_FRAME_SIZE_C  sizeof(struct trapframe)
+
 #endif		// ! __ASSEMBLER__
 
 // exposed to asm...
 #define TASK_STRUCT_KILLED_OFFSET	304 	// see above
-#define S_FRAME_SIZE			272 		// size of all saved registers 
-#define S_X0				    0		// offset of x0 register in saved stack frame
+#define S_X0				      0		// offset of x0 register in saved stack frame
+#define S_STACKFRAME      272
+#define S_FRAME_SIZE			288 		// size of all saved registers 
 
 #ifndef __ASSEMBLER__
 _Static_assert(TASK_STRUCT_KILLED_OFFSET == TASK_STRUCT_KILLED_OFFSET_C);
+_Static_assert(S_FRAME_SIZE == S_FRAME_SIZE_C);
 #endif
 
 #endif

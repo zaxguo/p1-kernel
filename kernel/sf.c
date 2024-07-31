@@ -77,7 +77,7 @@ struct sf_struct {
 #ifdef PLAT_RPI3
 static int VW=0, VH=0; // 0 means same as detected scr dim 
 #else
-static int VW=1024, VH=768; 
+static int VW=1360, VH=768; 
 #endif
 
 // bkgnd color, gray
@@ -100,7 +100,7 @@ extern int sys_getpid(void);  // sys.c
 
 // return 0 on success
 static int reset_fb() {
-    I("%s +++++ ", __func__);
+    V("%s +++++ ", __func__);
     // hw fb setup
     int args[PROCFS_MAX_ARGS] = {
         VW, VH, /*w,h*/
@@ -108,7 +108,6 @@ static int reset_fb() {
         0,0 /*offsetx, offsety*/
     }; 
     int ret = procfs_parse_fbctl(args);  // reuse the func
-    I("%s +++++ done ", __func__);
 
     // XXX refactor the code below 
     acquire(&mboxlock);
@@ -117,6 +116,8 @@ static int reset_fb() {
 
     bk_dirty.x=bk_dirty.y=0;
     bk_dirty.w=VW; bk_dirty.h=VH; 
+
+    V("%s done ", __func__);
     return ret; 
 }
 
@@ -143,7 +144,6 @@ static void dirty_all_sf(void) {
         sf = slist_entry(node, struct sf_struct/*struct name*/, list /*field name*/); BUG_ON(!sf);
         sf->dirty=1; 
     }
-    // bk_dirty=1; 
 }
 
 extern struct kb_struct the_kb; // kb.c
@@ -156,21 +156,19 @@ static void kb_task(int arg);
 // return 0 on success; <0 on err
 static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans) {
     struct sf_struct *s = malloc(sizeof(struct sf_struct));     
+    int ret=0;
 
-    if (!s) {BUG();return -1;}
-    s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);BUG();return -2;}
+    if (!s) {E("failed");return -1;}
+    s->buf = malloc(w*h*PIXELSIZE); if (!s->buf) {free(s);E("failed");return -2;}
     // if sf dimension out of the hw fb, sf_composite() will clip it
     s->r.x=x; s->r.y=y; s->r.w=w; s->r.h=h; s->pid=pid; 
     s->dirty=1; s->transparency=trans; s->floating=0; 
     s->kb.r=s->kb.w=0; // spinlock unused
 
     acquire(&sflock);
-    if (find_sf(pid)) {
-        free(s->buf); free(s); 
-        release(&sflock); return -3;
-    }
+    if (find_sf(pid)) { E("pid already exists"); ret = -3; goto fail; }
 
-    // put new surface on the list of surfaces
+    // add new surface to the list of surfaces
     if (zorder == ZORDER_BOTTOM) { // list head
         slist_insert(&sflist, &s->list);         
     } else if (zorder == ZORDER_TOP) // list tail
@@ -178,20 +176,27 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
     else if (zorder == ZORDER_FLOATING) {
         s->floating = 1; slist_append(&sflist, &s->list);
     }
-    else BUG(); 
+    else {E("unknown zorder"); ret = -4; goto fail;}
 
     dirty_all_sf(); // XXX opt: sometimes we dont have to dirty all    
 
-    if (slist_len(&sflist) == 1) { // reset the fb hw, if this is the 1st surface
-        reset_fb();
+    if (slist_len(&sflist) == 1) { // if this is the 1st surface, reset 
+        reset_fb(); I("here");
         int res = copy_process(PF_KTHREAD, (unsigned long)&kb_task, 0/*arg*/,
-        "[kb]"); BUG_ON(res<0); 
+        "[kb]"); 
+        I("here");
+        if (res<0) {ret = -5; goto fail; }
     }
 
     wakeup(&sflist); // notify flinger
     release(&sflock);
     W("cr ok. pid %d", pid); 
     return 0; 
+
+fail:
+    free(s->buf); free(s); 
+    release(&sflock); 
+    return ret; 
 }
 
 // called by exit_process() (sched.c)
@@ -457,7 +462,7 @@ static int sf_composite(void) {
     acquire(&mboxlock);
     if (!the_fb.fb) {release(&mboxlock); return 0;} // we may have 0 surface, fb closed
     
-    I("%s starts >>>>>>> ", __func__);  __attribute__ ((unused)) int t00 = sys_uptime(); 
+    V("%s starts >>>>>>> ", __func__);  __attribute__ ((unused)) int t00 = sys_uptime(); 
     if (bk_dirty.w || bk_dirty.h) { // draw backgnd
         int y0=MAX(bk_dirty.y, 0), y1=MIN(bk_dirty.y+bk_dirty.h, VH);
         int x0=MAX(bk_dirty.x, 0), x1=MIN(bk_dirty.x+bk_dirty.w, VW);
@@ -502,7 +507,7 @@ static int sf_composite(void) {
             if (!sf->dirty)
                 continue;
                             
-            I("%s draw pass%d: pid %d; x %d y %d w %d h %d trans %d", __func__, 
+            V("%s draw pass%d: pid %d; x %d y %d w %d h %d trans %d", __func__, 
                 pass, sf->pid,
                 sf->r.x, sf->r.y, sf->r.w, sf->r.h, sf->transparency); 
             // p0 (dest): hw fb; p1 (src): the current surface
@@ -555,7 +560,7 @@ static int sf_composite(void) {
     }
     release(&mboxlock);
 
-    I("%s done. %d ms", __func__, sys_uptime()-t00);
+    V("%s done. %d ms", __func__, sys_uptime()-t00);
     return cnt; 
 }
 
@@ -567,7 +572,7 @@ static void sf_task(int arg) {
     acquire(&sflock); 
     while (1)  {
         if (slist_len(&sflist)) {
-            sf_composite(); V("%s: composite %d surfaces", __func__, n);
+            n = sf_composite(); V("%s: composite %d surfaces", __func__, n);
         }
         sleep(&sflist, &sflock); 
     }

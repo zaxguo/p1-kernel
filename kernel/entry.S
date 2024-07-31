@@ -73,7 +73,7 @@
 		the SP for EL1. The SP for EL0 can be found in the `sp_el0` register. 
 		The value of this register must be stored and restored upon entering/exiting 
 		the kernel, even if the kernel does not  use `sp_el0` in the exception handler. 
-		We need to virtualize `sp_el0` for each task having its own user stack. 
+		We need to save a copy of `sp_el0` for each task.
 	*/
 	mrs	x21, sp_el0
 	.else
@@ -81,10 +81,24 @@
 	.endif /* \el == 0 */
 
 	mrs	x22, elr_el1
-	mrs	x23, spsr_el1
-
+	mrs	x23, spsr_el1	
+	/* above: save reg0--29. 
+	 	below: save reg30, sp, pc(as elr_el1), pstate*/
 	stp	x30, x21, [sp, #16 * 15] 
 	stp	x22, x23, [sp, #16 * 16]
+
+	/*
+	 * For exceptions from EL0, create a final frame record.
+	 * For exceptions from EL1, create a synthetic frame record so the
+	 * interrupted code shows up in the backtrace.
+	 */
+	.if \el == 0
+	stp	xzr, xzr, [sp, #S_STACKFRAME]
+	.else
+	stp	x29, x22, [sp, #S_STACKFRAME] // x29 (fp for interrupted func) x22 (lr for it)
+	.endif
+	add	x29, sp, #S_STACKFRAME // x29 (fp) points to the frame record
+
 	.endm
 
 	.macro	kernel_exit, el
