@@ -524,7 +524,8 @@ static bool dump_backtrace_entry(void *arg, unsigned long where)
 	// char *loglvl = arg;
 	// printf("%s %pSb\n", loglvl, (void *)where); // xzl: this also prints symbol name?
     // printf("%s 0x%lx\n", loglvl, where);
-	printf("0x%lx \\ \n", where);
+	// printf("0x%lx \\ \n", where);
+	printf("0x%lx \\ \n", where-4); // prev insn?
 	return true;
 }
 
@@ -544,7 +545,7 @@ void dump_backtrace(struct trapframe *regs, struct task_struct *tsk,
 	// if (!try_get_task_stack(tsk))
 	// 	return;
 
-	printf("%sCall trace:\n", loglvl);
+	printf("%s Call trace:\n", __func__);
 	printf("addr2line -e ./kernel/build-rpi3qemu/kernel8.elf \\ \n");
 	arch_stack_walk(dump_backtrace_entry, (void *)loglvl, tsk, regs);
 
@@ -552,10 +553,11 @@ void dump_backtrace(struct trapframe *regs, struct task_struct *tsk,
 }
 
 // xzl: sp is ignored
-void show_stack(struct task_struct *tsk, unsigned long *sp, const char *loglvl)
+// void show_stack(struct task_struct *tsk, unsigned long *sp, const char *loglvl)
+void show_stack(struct task_struct *tsk, const char *loglvl)
 {
 	dump_backtrace(NULL, tsk, loglvl);
-    __asm volatile ("" ::: "memory");    
+    __asm volatile ("" ::: "memory");
 	// barrier();
 }
 
@@ -607,7 +609,7 @@ unwind_user_frame(struct frame_tail __user *tail, void *cookie,
 	return buftail.fp;
 }
 
-void arch_stack_walk_user(stack_trace_consume_fn consume_entry, void *cookie,
+static void arch_stack_walk_user(stack_trace_consume_fn consume_entry, void *cookie,
 					const struct trapframe *regs)
 {
 	if (!consume_entry(cookie, regs->pc))       // xzl: consume pc first??
@@ -615,8 +617,19 @@ void arch_stack_walk_user(stack_trace_consume_fn consume_entry, void *cookie,
 	
     /* AARCH64 mode */
     struct frame_tail __user *tail;
-    // xzl: start from user fp 
+    // xzl: start from user fp (saved in trapframe
     tail = (struct frame_tail __user *)regs->regs[29];
     while (tail && !((unsigned long)tail & 0x7))
         tail = unwind_user_frame(tail, cookie, consume_entry);
+}
+
+void show_stack_user(void) {
+	struct trapframe *p = task_pt_regs(myproc()); 
+
+	printf("%s: Call trace (pid %d %s):\n", __func__, 
+		myproc()->pid, myproc()->name);
+	printf("addr2line -e ./usr/build/%s \\ \n", myproc()->name);
+	arch_stack_walk_user(dump_backtrace_entry, 0/*cookie*/,p);
+
+	__asm volatile ("" ::: "memory");	
 }

@@ -248,6 +248,10 @@ int usbkb_init(void);
 // sf.c
 int start_sf(void);  // must be called from a task context
 
+// stacktrace.c
+void show_stack(struct task_struct *tsk, const char *loglvl);
+void show_stack_user(void);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
