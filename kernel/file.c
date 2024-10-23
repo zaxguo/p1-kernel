@@ -23,9 +23,10 @@
 // if left unregistered (NULL), syscall will return -1
 struct devsw devsw[NDEV]; 
 
+// the system-wide table for all opened files
 struct {
     struct spinlock lock;
-    struct file file[NFILE]; // opened files
+    struct file file[NFILE];
 } ftable;
 
 static void init_devfs(); 
@@ -75,26 +76,26 @@ void fileclose(struct file *f) {
         release(&ftable.lock);
         return;
     }
-    if (f->type == FD_PROCFS && f->content) {
-        struct procfs_state * st = (struct procfs_state *)(f->content);
-        if (st->usize)
-            procfs_parse_usercontent(f); 
-        kfree(f->content); 
-    } if (f->type == FD_DEVICE) {
-        if (f->major == FRAMEBUFFER && f->content)
-            ; // fb_fini(); // display will go black
-        else if (f->major == DEVSB && f->content) {
-            ; // sound_fini((struct sound_drv *)f->content); 
-            // do it upon writing of sbctl
-        }
-    }
-    ff = *f;
+    /* Careful: while we hold ftable.lock, don't do anything slow or complex. 
+        Will easily cause deadlock. Instead, duplicate "file" and work on it
+        after we release ftable.lock. 
+        Ex procfs_parse_usercontent() on /dev/fb0
+        may launch a new process via copy_process(), which will call filedup,
+        which grabs ftable.lock --> deadlock! 
+    */
+    ff = *f;  // dup "file". continue to work on it after rls the spinlock
     f->ref = 0;
     f->type = FD_NONE;
     release(&ftable.lock);
+    
+    /* Done with ftable. continue to work on "file" or inode */
 
-    // done with file* in ftable. continue to work on inode
-    if (ff.type == FD_PIPE) {
+    if (ff.type == FD_PROCFS && ff.content) {
+        struct procfs_state * st = (struct procfs_state *)(ff.content);
+        if (st->usize)
+            procfs_parse_usercontent(&ff); 
+        kfree(ff.content); 
+    } else if (ff.type == FD_PIPE) {
         pipeclose(ff.pipe, ff.writable);
     } else if (ff.type == FD_INODE || ff.type == FD_DEVICE 
         || ff.type == FD_PROCFS) {
@@ -102,6 +103,18 @@ void fileclose(struct file *f) {
         iput(ff.ip);
         end_op();
     }
+
+#if 0 /* kept for future ref*/
+    if (ff.type == FD_DEVICE) {
+        if (ff.major == FRAMEBUFFER && ff.content)
+            ; // fb_fini(); // display will go black
+        else if (ff.major == DEVSB && ff.content) {
+            ; // sound_fini((struct sound_drv *)f->content); 
+            // do it upon writing of sbctl
+        }
+    }
+#endif
+
 #ifdef CONFIG_FAT
     // close file & free inode 
     else if (ff.type == FD_INODE_FAT)  {

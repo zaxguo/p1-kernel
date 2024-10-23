@@ -1,5 +1,5 @@
-// #define K2_DEBUG_WARN 
-#define K2_DEBUG_VERBOSE
+#define K2_DEBUG_WARN 
+// #define K2_DEBUG_VERBOSE
 
 #include "plat.h"
 #include "utils.h"
@@ -219,8 +219,10 @@ int exec(char *path, char **argv) {
 }
 
 // Load a program segment into pagetable at virtual address va.
-// va must be page-aligned
-// and the pages from va to va+sz must already be mapped.
+// mm: user mm 
+// va: user VA, must be page-aligned
+// offset: from the beginning of the elf "file"
+// sz: segment size, in bytes
 // Returns 0 on success, -1 on failure.
 // 
 // Caller must hold mm->lock

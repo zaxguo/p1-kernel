@@ -112,7 +112,7 @@ setup_sp:
 	add x0, cpuid_reg, #1
 	mov x1, #(PAGE_SIZE)
 	mul x0, x0, x1
-	ldr x1, =boot_stacks	// kernel.c
+	ldr x1, =boot_stacks	// sched.c
 	add x0, x0, x1
 	mov sp, x0 		// NB: we aren't use sp yet -- until mmu is on
 

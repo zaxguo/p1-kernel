@@ -69,5 +69,5 @@ elif [ "$1" = "full" ]
 then
     qemu_full
 else
-    qemu_small
+    qemu_small  # default
 fi

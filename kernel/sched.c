@@ -42,6 +42,13 @@
 
 static struct mm_struct mm_table[NR_MMS];
 
+static char *states[] = {
+    [TASK_UNUSED]   "UNUSED  ",
+    [TASK_RUNNING]  "RUNNING ",
+    [TASK_SLEEPING] "SLEEP   ",
+    [TASK_RUNNABLE] "RUNNABLE",
+    [TASK_ZOMBIE]   "ZOMBIE  "};
+
 // kernel_stacks[i]: kernel stack for task with pid=i. 
 // WARNING: various kernel code assumes each kernel stack is page-aligned. 
 // cf. ret_from_syscall (entry.S). if you modify the d/s below, keep that in mind. 
@@ -142,7 +149,7 @@ static int task_on_cpu(struct task_struct *p) {
 // caller must NOT hold sched_lock
 void schedule() {
     V("cpu%d schedule", cpuid());
-    
+
 	int next, max_cr;
     int cpu, oncpu;
     
@@ -268,6 +275,7 @@ void switch_to(struct task_struct * next) {
 
 #define CPU_UTIL_INTERVAL 10  // cal cpu measurement every X ticks
 
+// extern int buggycpu;
 // caller by timer irq handler, with irq automatically turned off by hardware,
 //      which can be verified by is_irq_masked()
 void timer_tick() {
@@ -284,16 +292,34 @@ void timer_tick() {
             cp->last_util = cp->busy * 100 / CPU_UTIL_INTERVAL; 
             cp->busy = 0; 
             V("cpu%d util %d/100, cur %s", cpuid(), cp->last_util, cur->name); 
+            // if (cpuid()==buggycpu)
+            //     E("cpu%d util %d/100, cur %s pid %d credits %ld", 
+            //         cpuid(), cp->last_util, cur->name, cur->pid, cur->credits); 
             #if K2_ACTUAL_DEBUG_LEVEL <= 20     // "V"
             extern void procdump(void);
             if (cpuid()==0)
                 procdump();
             #endif
+            // // debugging 
+            // if (0) {
+            //     int total_util = 0;
+            //     for (int cc=0;cc<4;cc++) 
+            //         total_util += cpus[cc].last_util;
+            //     if (cp->last_util==0 && total_util>=240) {
+            //         if (buggycpu==-1) {
+            //             buggycpu=cpuid();
+            //             E("bug?? cpu%d", buggycpu);
+            //         }
+            //         // show_stack(myproc(),"");
+            //     }
+            // }
         }
 
         acquire(&sched_lock); 
-        if (--cur->credits > 0) { // cur task continues to exec
+        if (cur->pid>=0 && --cur->credits > 0) { // cur task continues to exec
             V("leave timer_tick. no resche");
+            // if (cpuid()==buggycpu)
+            //     E("leave timer_tick. no resche");
             release(&sched_lock); return;
         }
         cur->credits=0;
@@ -642,12 +668,6 @@ int killed(struct task_struct *p) {
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
 void procdump(void) {
-    static char *states[] = {
-        [TASK_UNUSED]   "UNUSED  ",
-        [TASK_RUNNING]  "RUNNING ",
-        [TASK_SLEEPING] "SLEEP   ",
-        [TASK_RUNNABLE] "RUNNABLE",
-        [TASK_ZOMBIE]   "ZOMBIE  "};
     struct task_struct *p;
     char *state;
 
@@ -670,6 +690,12 @@ extern unsigned paging_pages_used, paging_pages_total; // alloc.c
 	printf("paging mem: used %u total %u (%u/100)\n", 
 		paging_pages_used, paging_pages_total, 
         paging_pages_used*100/(paging_pages_total));
+
+    // debug
+    // printf("cpu total ticks: %lu %lu %lu %lu\n", 
+    //     cpus[0].total, cpus[1].total, cpus[2].total, cpus[3].total);
+    // printf("cpu busy ticks: %d %d %d %d\n", 
+    //     cpus[0].busy, cpus[1].busy, cpus[2].busy, cpus[3].busy);
 }
 
 /* -------------  fork related  -------------------- */
@@ -701,7 +727,7 @@ static struct mm_struct *alloc_mm(void) {
 }
 
 /*
-   	Create 1st user task by elevating a kernel task to EL1
+   	Create 1st user task by elevating a kernel task to EL0
 
 	Populate trapframe for returning to user space (via kernel_exit) for the 1st time.
 	Note that the actual switch will not happen until kernel_exit.

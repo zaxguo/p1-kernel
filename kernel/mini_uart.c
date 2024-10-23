@@ -1,3 +1,24 @@
+/* 
+  mini uart driver, which implements: 
+
+  tx: * polling. used for kernel printf(), crucial for debugging
+
+      the current impl: sycall write() goes to console, which invokes uartputc() in
+      this file, which calls uartstart() waiting for all chars to go out. 
+
+      * (NOT implemented) irq driven tx: caller task wait on tx
+      queue until non-full. primary use is syscall write(), e.g. for console      
+      I found it tough to debug so ditched it 
+
+  rx: polling (not quite useful), irq driven. 
+      as a simple input device for kernel testing
+      as stdin for user tasks (via console device)
+      not used for kernel debugging. 
+
+  uart may not be the best device to testing irq-driven tx, b/c debugging can be
+  hard. but the code is good for demonstration purpose
+*/
+
 #define K2_DEBUG_WARN 
 
 #include <stdint.h>
@@ -308,7 +329,6 @@ int uartgetc(void)
 // handle a uart interrupt, raised because input has
 // arrived, or the uart is ready for more output, or
 // both. called from handle_irq()
-// xzl: shall we differentiate between rx/tx irq?
 void uartintr(void) {
   // TODO: check AUX_MU_IIR_REG bit0 for pending irq
   //    and 2:1 for irq causes

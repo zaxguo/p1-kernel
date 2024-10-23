@@ -17,7 +17,7 @@ struct file {
   // kernel-side info associated with the file
   // e.g. drv desc, procfs content. allocated & generated when the file is 
   // open()'d; freed when the file is close()'d. 
-  // FD_PROCFS FD_DEVICE      1 PAGE 
+  // 1 PAGE for FD_PROCFS or FD_DEVICE      
   void *content;
 };
 // xzl: no lock for a struct file, b/c it's task private.

@@ -655,6 +655,25 @@ fedora adds FP compilation to all bin
 https://lwn.net/Articles/919940/
 https://lwn.net/ml/fedora-devel/CA+voJeXhBPph9R2nzV9UCiMOU4Tpo0s0NtA26HcJccTwFad25w@mail.gmail.com/
 
+
+[  ] it seems we can only unwind the irq stack, but not further? this hinders debugging 
+
+$ irq.c:180 SYNC_INVALID_EL1h, cpu2, esr: 0x000000008a000000, elr: 0x0000000000000002, far: 0x0000000000000002
+irq.c:182 online esr decoder: https://esr.arm64.dev/#0x000000008a000000
+dump_backtrace(regs = 0x0 tsk = 0xffff0000008c5000)
+dump_backtrace cpu 2 call trace:
+addr2line -e ./kernel/build-rpi3/kernel8.elf \
+0xffff0000007e4114 \
+irq.c:180 Unhandled EL0 sync exception, cpu0, esr: 0x0000000002000000, elr: 0xffff0000008c3ed0, far: 0x0000000007ffffa0
+irq.c:182 online esr decoder: https://esr.arm64.dev/#0x0000000002000000
+dump_backtrace(regs = 0x0 tsk = 0xffff0000008c3000)
+dump_backtrace cpu 0 call trace:
+addr2line -e ./kernel/build-rpi3/kernel8.elf \
+0xffff0000007e4114 \
+0xffff0000007ee288 \
+
+
+
 ---------------
 
 source files replaced
@@ -1659,9 +1678,69 @@ sf.c:193 cr ok. pid 8
 [ ] implement window title bar (with text); thiner boundary then 
 
 ~~~~~~~~~~~~~~
-[ ] impl core dump inside kern. (seems more useful than porting gdb....)
+[x] impl core dump inside kern. (seems more useful than porting gdb....)
 
 elr seems illegal. feels like the kernel eret to a bad user addr, then throw this erro...
 irq.c:180 SYNC_INVALID_EL1h, cpu0, esr: 0x000000008a000000, elr: 0x000000000000001f, far: 0x000000000000001f
 irq.c:182 online esr decoder: https://esr.arm64.dev/#0x000000008a000000
+
+[x] fixed ftable deadlock. refactored code. 
+
+~~~~~~~~~~~~~~
+[x] 1 core may become unused (wfi?? not spinning), after runinng for a while. 
+    likely a scheduler bug? add debugging info on which core is doing what
+    
+    fixed --- b/c idle task's p->credits should not be considered for scheduling 
+        (looks like it underflows???)
+    
+~~~~~~~~~~~~~~~
+gif decoder in C, can be used to show animation loop (add to slider) 
+https://github.com/lecram/gifdec
+also here (opt for mcu
+https://bitbanksoftware.blogspot.com/2020/07/a-low-memory-gif-decoder.html
+
+^^ can be project idea
+~~~~~~~~~~~~~~
+bug fix: 
+symptom: move from lab1 to lab2, qmeu ok, but rpi3 crashed at mysterious places (el1 exception, in printf, uart_print etc
+    pixel rendering to invalid pointer
+
+cause: forgot to change entry.S, i.e. preserve/restore elr & spsr...
+~~~~~~~~~~~~~~
+gdb conditional breakpoint
+
+(gdb) break main.c:42 if x == 5
+info breakpoints
+
+gdb: backtrace, frame selection, breakpoint...
+
+gdb: explain breakponit how it works, virt addr, phys addr 
+
+teach: how to intepret
+irq.c:110 SYNC_INVALID_EL1h, cpu0, esr: 0x0000000096000061, elr: 0x0000000000083154, far: 0x000000000000000f
+
+~~~~~~~~~~~~~~~~~
+about mac macos users
+
+9/19/24: tested on MBA M2, Sonoma 14.5, Homebrew 4.3.20
+
+Mac can be good for demonstration (qemu9 can be installed via brew), but tought for develop
+
+(notes-- cross toolchain can be tricky. e.g. aarch64-linux-gnu-gcc-9. gcc-9 unavaialble on newest mac.)
+also - gdb-multiarch not available? configuration can be tough
+also requires additional testing for anything we do in the future 
+
+at this time, stick to linux/wsl2. provide tools for mac users to compile on server & download 
+(or linux vm on mac??)
+
+Solution: 
+- VirtualBox for Mac
+- VMWare fusion for Mac
+** we can also distribute VM image (loaded with sw) to students
+
+VMware Fusion supports USB passthrough on Mac,
+
+(have TA try this out) 
+~~~~~~~~~~~~~~~~~
+
 

@@ -68,6 +68,7 @@ void generic_timer_init (void) {
 // Drawback: 
 // - inefficient design ... search for (UP sys_sleep()) 
 // - how it works for SMP? (each core has own schedule ticks)
+// project idea: make students think about this issue 
 
 // struct spinlock tickslock = {.locked = 0, .cpu=0, .name="tickslock"};
 unsigned int ticks; 	// sys_sleep() tasks sleep on this var
@@ -88,7 +89,7 @@ void handle_generic_timer_irq(void)  {
 	// behavior of qemuv8). As a result, timer_irq handler will be called back
 	// to back, corrupting the kernel stack  ... 
 	generic_timer_reset(interval);
-	timer_tick();	
+	timer_tick();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -277,6 +278,7 @@ static void wakehandler(TKernelTimerHandle hTimer, void *param, void *context) {
 
 // blocking the calling task for "ms" milliseconds
 // return: 0 on success, -1 on err
+// project idea: make students implement this
 int sys_sleep(int ms) {
 	int t; 
 	unsigned long c0; 
@@ -339,7 +341,8 @@ void sys_timer_irq(void)
 {
 	V("called");	
 
-	BUG_ON(!(get32va(TIMER_CS) & TIMER_CS_M1));  // timer1 must have pending match
+	// timer1 must have pending match. below could happen under high load. why?
+	BUG_ON(!(get32va(TIMER_CS) & TIMER_CS_M1));  
 	put32va(TIMER_CS, TIMER_CS_M1);	// clear timer1 match
 
 	unsigned long cur = current_counter(); 

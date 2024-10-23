@@ -13,6 +13,8 @@
 #include "spinlock.h"
 #include "sched.h"
 
+// #define SPINLOCK_DEBUG 1  
+
 void
 initlock(struct spinlock *lk, char *name)
 {
@@ -26,6 +28,10 @@ initlock(struct spinlock *lk, char *name)
 void
 acquire(struct spinlock *lk)
 {
+#if SPINLOCK_DEBUG
+  volatile long cnt=0; 
+#endif
+
   // ex code for debugging deadlock
   // if (lk->name[0]=='s' && lk->name[1]=='c' && current->pid==3)
   //   W("pid %d acquire %lx %s", current->pid, (unsigned long)lk, lk->name);
@@ -35,7 +41,17 @@ acquire(struct spinlock *lk)
     {printf("%s ", lk->name); panic("acquire");}
 
   while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
+  {
+#if SPINLOCK_DEBUG
+    if (cnt++>1000*602409 /* about 10 secs on real hw */) {
+      E("acquire takes too long. deadlock? %s", lk->name); 
+      show_stack(myproc(),"");
+      procdump();
+      BUG();
+    }
+#endif
     ;
+  }
 
   // Tell the C compiler and the processor to not move loads or stores
   // past this point, to ensure that the critical section's memory

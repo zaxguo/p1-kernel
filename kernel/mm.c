@@ -595,7 +595,7 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 	if (addr > USER_VA_END) {
 		E("do_mem_abort: bad user va? faulty addr 0x%lx > USER_VA_END %x", addr, 
 			USER_VA_END); 
-		E("esr 0x%lx, elr 0x%lx", esr, elr); 
+		E("esr 0x%lx, elr 0x%lx", esr, elr); 		
 		goto bad; 
 	}
 
@@ -624,7 +624,8 @@ int do_mem_abort(unsigned long addr, unsigned long esr, unsigned long elr) {
 		addr, esr, elr); 
 	E("online esr decoder: %s0x%016lx", "https://esr.arm64.dev/#", esr);
 	debug_hexdump((void *)elr, 32); 
-bad: 	
+bad:
+	show_stack_user(); 
 	setkilled(myproc());
 	// exit_process(-1);
 	return 0; // handled

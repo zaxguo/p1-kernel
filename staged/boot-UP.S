@@ -1,3 +1,5 @@
+// single core, with MMU
+
 #include "param.h"
 #include "sysregs.h"
 #include "plat.h"

@@ -545,14 +545,17 @@ void dump_backtrace(struct trapframe *regs, struct task_struct *tsk,
 	// if (!try_get_task_stack(tsk))
 	// 	return;
 
-	printf("%s Call trace:\n", __func__);
+	printf("%s cpu %d call trace:\n", __func__, cpuid());
+#ifdef PLAT_RPI3QEMU	
 	printf("addr2line -e ./kernel/build-rpi3qemu/kernel8.elf \\ \n");
+#else
+	printf("addr2line -e ./kernel/build-rpi3/kernel8.elf \\ \n");
+#endif
 	arch_stack_walk(dump_backtrace_entry, (void *)loglvl, tsk, regs);
 
 	// put_task_stack(tsk);
 }
 
-// xzl: sp is ignored
 // void show_stack(struct task_struct *tsk, unsigned long *sp, const char *loglvl)
 void show_stack(struct task_struct *tsk, const char *loglvl)
 {

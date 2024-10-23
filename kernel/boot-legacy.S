@@ -1,4 +1,4 @@
-// kernel boot code - legacy
+// kernel boot code - legacy, with MMU
 
 // used with old_kernel=1 in config.txt, which boots the kernel in EL3 at 0x0, 
 // 	bypassing firmware init

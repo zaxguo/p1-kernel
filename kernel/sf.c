@@ -190,7 +190,7 @@ static int sf_create(int pid, int x, int y, int w, int h, int zorder, int trans)
 
     wakeup(&sflist); // notify flinger
     release(&sflock);
-    W("cr ok. pid %d", pid); 
+    I("cr ok. pid %d", pid); 
     return 0; 
 
 fail:
@@ -591,7 +591,7 @@ int procfs_parse_fbctl0(int args[PROCFS_MAX_ARGS]) {
     switch(cmd) 
     {
     case FB0_CMD_INIT: // format: cmd x y w h zorder transparency(100=opaque)
-        W("FB0_CMD_INIT called"); 
+        I("FB0_CMD_INIT called"); 
         ret = sf_create(pid, args[1], args[2], args[3], args[4], args[5], args[6]);
         break; 
     case FB0_CMD_FINI: // format: cmd
