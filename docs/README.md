@@ -5,7 +5,7 @@ Experiment descriptions are for you to read & reproduce. The assignments will be
 **Get the code**: 
 
 ```
-git clone https://github.com/fxlin/p1-kernel
+git clone https://github.com/zaxguo/p1-kernel
 # load build commands
 cd p1-kernel && source env-qemu.sh
 ```
@@ -63,4 +63,5 @@ Start with minimal, baremetal code. Then each assignment adds new features. Each
       * [Virtual memory management](exp6/rpi-os.md) 
 
 ## Acknowledgement
-Derived from the RPi OS project and its tutorials, which is modeled after the [Linux kernel](https://github.com/torvalds/linux). 
+- Derived from the RPi OS project and its tutorials, which is modeled after the [Linux kernel](https://github.com/torvalds/linux). 
+- Further derived from grad level OS course developed by Prof. Felix Lin at UVA CS(fxlin.github.io), which I TA'd.
